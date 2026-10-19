@@ -35,7 +35,7 @@
 - `web/App.tsx` —— 侧栏导航（便签/资产/设置 + 计数）、主题切换（localStorage `pinboard-theme`，data-theme）、Ctrl/⌘+K 命令面板。
 - `web/pages/NotesPage.tsx` —— 顶部 composer（Ctrl/⌘+Enter 保存，含「标签」弹层与新建标签）、置顶区/全部区、筛选 chips（全部/未完成/已完成/置顶/标签/＋新标签/已归档）、防抖搜索、行内编辑、归档、关联资产；**完成状态**：圆形对勾按钮或**双击卡片正文**都能切换（双击忽略按钮/链接/标签/编辑框，并清掉浏览器默认选中文字），切换走本地乐观更新、不重排列表，只有处于「已完成/未完成」筛选时才重新拉取。
   **归档模式（`archivedMode` state，2026-10-20 加）**：默认视图**没有硬删除**，卡片右上角是「归档」（`PATCH {archived:true}`，`archive()`）。点筛选行的「已归档」chip 进入**只读归档视图**：`load()` 带 `archived='1'`，隐藏 composer / 完成圆圈 / 置顶 / 编辑 / 标签 chips / 全部·未完成·已完成·置顶 chips，双击不再切完成，卡片只留「恢复」（`restore()` → `PATCH {archived:false}`）与「永久删除」（`remove()`，danger 样式，confirm「永久删除这条便签？不可恢复。」）。`toggleArchivedMode()` 会清掉 tag/pinnedOnly/doneFilter/editingId。归档条数由 `App.tsx` 传 `archivedCount={stats?.archived ?? 0}` 显示在 chip 上。**别把 DELETE 入口加回默认视图**——用户明确要求「删除改归档，只在已归档里允许永久删除」。
-- `web/pages/AssetsPage.tsx` —— 统计卡（总数/在用/30 天内到期/已过期）、类型 chips、状态与标签筛选、卡片/表格两种视图。
+- `web/pages/AssetsPage.tsx` —— 统计卡（总数/在用/30 天内到期/已过期）、类型 chips、状态筛选、**标签栏（`.tag-bar`，2026-10-20 改）**、卡片/表格两种视图。标签栏 = 常显 chip 行（不再是「所有标签」下拉框）：`全部标签` + 每个**有资产关联**的标签 `#名称 数量`，**按关联数降序、同数按名称升序**（`usedTags` 里 `sort`），点 chip 筛选、再点取消。0 关联的标签不显示（用户 2026-10-20 选定）。
 - `web/pages/MonitorsPage.tsx` —— 观测台：四格统计 + 机器/状态筛选 + 搜索 + 卡片/表格视图 + 30 秒轮询；卡片含 40 段心跳色条、响应毫秒、24h 可用率、异常次数，标题带 ↗ 跳 `monitor-links.json` 配的管理页。手动点刷新才带 `?fresh=1`，轮询走后端缓存。
 - `web/pages/SettingsPage.tsx` —— 外观、自定义字段、标签管理、导出 JSON、空库灌示例数据。
 - `web/components/AssetDrawer.tsx` —— 资产详情抽屉（新建/编辑/删除、自定义字段按类型渲染、备注 Markdown、关联便签增删）。
@@ -72,6 +72,8 @@ pnpm typecheck        # tsc --noEmit
 
 **已完成（2026-10-20）**：便签归档。默认列表的「删除」改为「归档」，硬删除只在只读的「已归档」视图里提供；`/api/search` 加 `AND archived = 0`。新增 `tmp/e2e-archive.mjs`（20 条断言，含 API 层 archived=0/1/all 与 Ctrl+K 排除），RED→GREEN 走完；回归跑 `smoke`/`e2e`/`done-smoke`/`e2e-done`/`e2e-dblclick`/`e2e-filter` 全绿，`pnpm typecheck` 0 错误、`pnpm build` 通过。
 
+**已完成（2026-10-20，资产页标签栏）**：资产页原来的「所有标签」下拉框换成常显 chip 行（用户要求「默认显示全部标签、标签后带关联数、数量多的排前面」）。只列有资产关联的标签（0 关联不显示，用户选定），按 assets 降序 / 同名 localeCompare(zh-CN) 升序。新增 tmp/e2e-tagbar.mjs（12 条断言）；smoke / e2e / e2e-filter 回归全绿，pnpm typecheck 0 错误、pnpm build 通过。GLaDOS 与两个代理节点本来就共用「代理」标签（3 条），未改数据。
+
 已知问题与坑（都踩过，勿回退）：
 1. SQLite 建表语句每条必须以 `;` 结尾，否则 `db.exec` 报 `near "CREATE": syntax error`。
 2. pnpm 12 不再读 package.json 的 `pnpm` 字段，构建脚本白名单只能写在 `pnpm-workspace.yaml` 的 `allowBuilds`（否则 esbuild 被拦，`ERR_PNPM_IGNORED_BUILDS`）。
@@ -90,7 +92,7 @@ pnpm typecheck        # tsc --noEmit
 
 ## 可清理项
 - `tmp/` 整个目录 —— 开发期脚本与截图，可随时删（`docs/screenshots/` 已另存一份，删了不影响 README）：
-  - 冒烟与端到端：`tmp/smoke.mjs`、`tmp/e2e.mjs`、`tmp/done-smoke.mjs`、`tmp/e2e-done.mjs`、`tmp/e2e-dblclick.mjs`、`tmp/e2e-filter.mjs`、`tmp/e2e-archive.mjs`
+  - 冒烟与端到端：`tmp/smoke.mjs`、`tmp/e2e.mjs`、`tmp/done-smoke.mjs`、`tmp/e2e-done.mjs`、`tmp/e2e-dblclick.mjs`、`tmp/e2e-filter.mjs`、`tmp/e2e-archive.mjs`、`tmp/e2e-tagbar.mjs`（资产页标签栏 12 条断言：默认全部标签 / 旧下拉框已删 / 9 个标签带数量 / 数量降序 / 代理筛出 3 条 / 再点取消）
   - 截图：`tmp/shots.mjs`、`tmp/shots-assets.mjs`，产物 `tmp/shot-*.png`
   - 一次性数据脚本：`tmp/seed-assets.mjs`（按当前资产清单重建台账）
   - 排障残留：`tmp/inspect.mjs`、`tmp/dbg.mjs`、`tmp/dbg2.mjs`、`tmp/server.out.log`、`tmp/server.err.log`

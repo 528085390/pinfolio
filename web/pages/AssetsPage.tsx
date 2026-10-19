@@ -46,7 +46,11 @@ export function AssetsPage({ tags, fields, stats, refreshMeta, openAssetId, setO
 
   useEffect(() => { load() }, [load])
 
-  const usedTags = tags.filter((t) => (t.assets || 0) > 0)
+  // 标签栏：只列有资产关联的标签，按关联数降序（同数量按名称升序），标签后带数量
+  const usedTags = tags
+    .filter((t) => (t.assets || 0) > 0)
+    .slice()
+    .sort((a, b) => (b.assets || 0) - (a.assets || 0) || a.name.localeCompare(b.name, 'zh-CN'))
 
   function onSaved() {
     load()
@@ -88,12 +92,6 @@ export function AssetsPage({ tags, fields, stats, refreshMeta, openAssetId, setO
           <option value="">所有状态</option>
           {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
         </select>
-        {usedTags.length > 0 ? (
-          <select className="select input-sm" style={{ width: 120 }} value={tag} onChange={(e) => setTag(e.target.value)}>
-            <option value="">所有标签</option>
-            {usedTags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-          </select>
-        ) : null}
         <div className="grow" />
         <div style={{ position: 'relative', width: 190 }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: 9, color: 'var(--muted)' }} />
@@ -117,6 +115,23 @@ export function AssetsPage({ tags, fields, stats, refreshMeta, openAssetId, setO
           <Plus size={14} /> 登记资产
         </Button>
       </div>
+
+      {usedTags.length > 0 ? (
+        <div className="filters tag-bar">
+          <span className="filter-label">标签</span>
+          <button className={cx('chip', !tag && 'active')} onClick={() => setTag('')}>全部标签</button>
+          {usedTags.map((t) => (
+            <button
+              key={t.id}
+              className={cx('chip', tag === t.name && 'active')}
+              onClick={() => setTag(tag === t.name ? '' : t.name)}
+              title={t.name + '：' + t.assets + ' 条资产'}
+            >
+              #{t.name}<span className="chip-count">{t.assets}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {error ? <div className="alert" style={{ marginTop: 14 }}>{error}</div> : null}
 
