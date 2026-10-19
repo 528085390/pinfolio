@@ -1,0 +1,5 @@
+# Windows 启动脚本的换行符必须固定为 CRLF（见 AGENTS.md 坑 10）
+# vbs 用 LF 时 WSH 会把整份文件当成一行注释，计划任务 exit 0 且什么都不做
+*.vbs text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

@@ -1,0 +1,13 @@
+import { DatabaseSync } from 'node:sqlite'
+const db = new DatabaseSync('E:/bqj/pinboard/data/pinboard.db', { readOnly: true })
+const assets = db.prepare("SELECT id,name,kind,status,location,vendor,serial,price,currency,purchased_at,expires_at,url,notes,custom,updated_at FROM assets ORDER BY kind, id").all()
+console.log('ASSETS ' + assets.length)
+for (const a of assets) console.log(JSON.stringify(a))
+console.log('--- NOTES')
+for (const n of db.prepare("SELECT id,content,pinned,archived,done,asset_id,created_at FROM notes ORDER BY created_at DESC").all()) console.log(JSON.stringify(n))
+console.log('--- TAGS')
+console.log(db.prepare("SELECT t.name, (SELECT COUNT(*) FROM note_tags WHERE tag_id=t.id) n, (SELECT COUNT(*) FROM asset_tags WHERE tag_id=t.id) a FROM tags t ORDER BY t.name").all().map(x=>x.name+'('+x.n+'/'+x.a+')').join(' '))
+console.log('--- FIELDS')
+for (const f of db.prepare("SELECT key,label,type,options,sort FROM field_defs ORDER BY sort,id").all()) console.log(JSON.stringify(f))
+console.log('--- ASSET TAGS')
+for (const r of db.prepare("SELECT a.name, group_concat(t.name, ',') tg FROM assets a LEFT JOIN asset_tags at ON at.asset_id=a.id LEFT JOIN tags t ON t.id=at.tag_id GROUP BY a.id").all()) console.log(r.name + ' => ' + (r.tg||''))
