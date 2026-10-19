@@ -199,7 +199,9 @@ app.get('*', async (c) => {
     if (extname(p)) return c.text('not found', 404)
     try {
       const html = await readFile(join(WEB_DIR, 'index.html'))
-      return c.body(html, 200, { 'Content-Type': 'text/html; charset=utf-8' })
+      // 深链（/notes、/assets…）回的是同一份 index.html，必须 no-cache，
+      // 否则浏览器可能把某个页面的 HTML 缓存住，切页后刷新拿到旧壳。
+      return c.body(html, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
     } catch {
       return c.text('前端还没构建：先在项目目录跑 pnpm build', 404)
     }

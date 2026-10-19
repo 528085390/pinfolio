@@ -6,12 +6,12 @@ import { AssetsPage } from './pages/AssetsPage'
 import { MonitorsPage } from './pages/MonitorsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
+import { usePage } from './lib/router'
 import { Button, Spinner } from './components/ui'
 
-type Page = 'notes' | 'assets' | 'monitors' | 'settings'
-
 export function App() {
-  const [page, setPage] = useState<Page>('notes')
+  // 页面由 URL 驱动：/notes /assets /monitors /settings，刷新和深链都停在同一页
+  const [page, setPage] = usePage()
   const [tags, setTags] = useState<Tag[]>([])
   const [fields, setFields] = useState<FieldDef[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
