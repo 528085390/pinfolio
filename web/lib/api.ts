@@ -20,7 +20,13 @@ export type Stats = {
 export type Monitor = {
   id: number; name: string; type: string; group: string
   status: number | null; time: string | null; ping: number | null; msg: string
+  /** 观测项固定说明，卡片名悬停显示；空串 = 没配 */
+  description: string
+  /** 为真时把本次心跳消息常显成「本次观测情况」一行 */
+  showMsg: boolean
   uptime24: number | null; beats: number[]; downCount: number; lastDown: string | null
+  /** 与 beats 一一对应：该拍消息前缀的四态字符（绿/黄/红/灰），普通监视器为 null */
+  beatTones?: (string | null)[]
   link: { url: string; label: string } | null
 }
 export type MonitorGroup = { id: number; name: string; monitors: Monitor[] }

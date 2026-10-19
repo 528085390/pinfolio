@@ -43,8 +43,15 @@ const STATUS_TIMEOUT = 25000
 const BEAT_TTL = 5000
 const BEAT_TIMEOUT = 15000
 
+/** 四态心跳：消息前缀 `[绿|黄|红|灰]` 决定这一拍的颜色（Kuma 自身只有 up/down）。 */
+const TONE_RE = /^\s*\[(绿|黄|红|灰)\]/
+const toneChar = (m?: string | null): string | null => {
+  const hit = TONE_RE.exec(m || '')
+  return hit ? hit[1] : null
+}
+
 type RawBeat = { status?: number; time?: string; msg?: string | null; ping?: number | null }
-type RawMonitor = { id: number; name: string; type?: string }
+type RawMonitor = { id: number; name: string; type?: string; description?: string; showMsg?: boolean }
 type RawGroup = { id: number; name: string; monitorList?: RawMonitor[] }
 
 type Monitor = {
@@ -56,8 +63,14 @@ type Monitor = {
   time: string | null
   ping: number | null
   msg: string
+  /** 观测项的固定说明（Kuma monitor.description），卡片名悬停可见；空串表示没配。 */
+  description: string
+  /** 是否把最近一次心跳消息常显成「本次观测情况」一行（Kuma show_msg）。 */
+  showMsg: boolean
   uptime24: number | null
   beats: number[]
+  /** 与 beats 一一对应：该拍的四态字符，非四态监视器为 null。 */
+  beatTones: (string | null)[]
   downCount: number
   lastDown: string | null
   link: { url: string; label: string } | null
@@ -159,8 +172,11 @@ async function collect(force = false): Promise<Payload> {
         time: toIso(last?.time),
         ping: typeof last?.ping === 'number' ? last.ping : null,
         msg: String(last?.msg || '').trim(),
+        description: String(m.description || '').trim(),
+        showMsg: m.showMsg === true,
         uptime24: typeof pct === 'number' ? pct : null,
         beats: recent.map((b) => (typeof b.status === 'number' ? b.status : -1)),
+        beatTones: recent.map((b) => toneChar(b.msg)),
         downCount: recent.filter((b) => b.status === 0).length,
         lastDown: toIso(downBeat?.time),
         link: pickLink(links, m),

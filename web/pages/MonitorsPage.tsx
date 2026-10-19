@@ -12,6 +12,20 @@ const STATUS: Record<number, { label: string; color: string }> = {
   3: { label: '维护', color: 'var(--muted)' },
 }
 
+// 每日打卡按天心跳：Kuma 只有 up/down，四态靠心跳消息前缀承载，前端据此取色
+const TONE: Record<string, { label: string; color: string }> = {
+  绿: { label: '成功', color: 'var(--ok)' },
+  黄: { label: '部分成功', color: 'var(--warn)' },
+  红: { label: '失败', color: 'var(--danger)' },
+  灰: { label: '未运行', color: 'var(--muted)' },
+}
+
+function tone(m: Monitor): { label: string; color: string } | null {
+  const hit = m.msg ? /^\[(绿|黄|红|灰)\]/.exec(m.msg) : null
+  if (hit) return TONE[hit[1]] || null
+  return m.status === null ? null : STATUS[m.status] || null
+}
+
 const TYPE_LABEL: Record<string, string> = {
   http: 'HTTP', ssh: 'SSH', port: 'TCP', ping: 'Ping', dns: 'DNS', keyword: '关键词', grpc: 'gRPC',
 }
@@ -204,7 +218,7 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
             </thead>
             <tbody>
               {shown.map((m) => {
-                const st = m.status === null ? null : STATUS[m.status]
+                const st = tone(m)
                 return (
                   <tr key={m.id}>
                     <td style={{ fontWeight: 550 }}>
@@ -240,25 +254,28 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
 }
 
 function MonitorCard({ m }: { m: Monitor }) {
-  const st = m.status === null ? null : STATUS[m.status]
+  const st = tone(m)
+  const note = (m.description || '').trim()
+  const nameTitle = note || (m.link ? m.link.label : m.name)
+  const nameCls = cx('asset-name', m.link && 'monitor-link', note && 'has-note')
   return (
-    <div className={cx('asset-card monitor-card', m.status === 0 && 'down')}>
+    <div className={cx('asset-card monitor-card', (m.status === 0 || (m.msg || '').startsWith('[红]')) && 'down')}>
       <div className="asset-card-head">
         <div className="asset-icon"><TypeIcon type={m.type} /></div>
         <div className="grow">
           {m.link ? (
             <a
-              className="asset-name monitor-link"
+              className={nameCls}
               href={m.link.url}
               target="_blank"
               rel="noreferrer noopener"
-              title={m.link.label}
+              title={nameTitle}
             >
               {shortName(m)}
               <ExternalLink size={11} className="monitor-link-icon" />
             </a>
           ) : (
-            <div className="asset-name" title={m.name}>{shortName(m)}</div>
+            <div className={nameCls} title={nameTitle}>{shortName(m)}</div>
           )}
           <div className="asset-sub" title={m.group}>
             <span className="monitor-machine">{shortGroup(m.group)}</span>
@@ -271,11 +288,24 @@ function MonitorCard({ m }: { m: Monitor }) {
         </span>
       </div>
 
-      <div className="monitor-beats" title={'最近 ' + m.beats.length + ' 次心跳（每分钟一次）'}>
-        {m.beats.length === 0 ? <i className="s-none" /> : m.beats.map((b, i) => (
-          <i key={i} className={b === 1 ? 's1' : b === 0 ? 's0' : b === 2 ? 's2' : b === 3 ? 's3' : 's-none'} />
-        ))}
+      <div className="monitor-beats" title={'最近 ' + m.beats.length + ' 次心跳'}>
+        {m.beats.length === 0 ? <i className="s-none" /> : m.beats.map((b, i) => {
+          // 四态监视器：每拍按自己的消息前缀上色（Kuma 的 status 只有 up/down，区分不出黄/灰）
+          const t = m.beatTones?.[i]
+          const cls =
+            t === '绿' ? 's1' : t === '黄' ? 's2' : t === '红' ? 's0' : t === '灰' ? 's3'
+              : m.type === 'push' ? 's-none'
+                : b === 1 ? 's1' : b === 0 ? 's0' : b === 2 ? 's2' : b === 3 ? 's3' : 's-none'
+          return <i key={i} className={cls} />
+        })}
       </div>
+
+      {m.showMsg && m.msg ? (
+        <div className="monitor-note" title={m.msg}>
+          <span className="monitor-note-label">本次观测情况</span>
+          <span className="monitor-note-text">{m.msg}</span>
+        </div>
+      ) : null}
 
       <div className="asset-meta">
         <div className="asset-meta-row">
@@ -291,7 +321,7 @@ function MonitorCard({ m }: { m: Monitor }) {
       <div className="asset-foot">
         <span className="monitor-chip">24h {pct(m.uptime24)}</span>
         {m.downCount > 0 ? <span className="monitor-chip bad">{m.downCount} 次异常</span> : null}
-        {m.msg ? <span className="monitor-msg" title={m.msg}>{m.msg}</span> : null}
+        {m.msg && !m.showMsg ? <span className="monitor-msg" title={m.msg}>{m.msg}</span> : null}
       </div>
     </div>
   )
