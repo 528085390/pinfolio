@@ -35,7 +35,9 @@ ok(parsed.length === expectedTags, expectedTags + ' tags with assets listed (got
 ok(parsed.every((p) => p.n >= 1), 'every chip shows a count')
 const counts = parsed.map((p) => p.n)
 ok(counts.every((n, i) => i === 0 || counts[i - 1] >= n), 'sorted by count desc: ' + JSON.stringify(counts))
-ok(parsed[0].name === '运维' && parsed[0].n === 7, 'top tag = 运维 7')
+const maxAssets = Math.max(...apiTags.map((t) => t.assets || 0))
+const topNames = apiTags.filter((t) => (t.assets || 0) === maxAssets).map((t) => t.name)
+ok(topNames.includes(parsed[0].name) && parsed[0].n === maxAssets, 'top tag = ' + parsed[0].name + ' ' + parsed[0].n + '（并列最大: ' + topNames.join('/') + '）')
 
 // 4. 点 #代理 只显示共享该标签的三条资产
 await page.locator('.tag-bar .chip', { hasText: '代理' }).first().click()
