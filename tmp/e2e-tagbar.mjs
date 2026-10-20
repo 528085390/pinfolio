@@ -28,7 +28,10 @@ const parsed = chips.slice(1).map((t) => {
   const m = t.replace(/\s+/g, ' ').trim().match(/^#(.+?)\s*(\d+)$/)
   return m ? { name: m[1], n: Number(m[2]) } : { name: t, n: -1 }
 })
-ok(parsed.length === 9, '9 tags with assets listed (got ' + parsed.length + ')')
+// 期望值从 API 取，避免每加一条资产就要手改这个数（2026-10-21 华为云代金券入库后旧硬编码就红了）
+const apiTags = await (await page.request.get('http://127.0.0.1:7788/api/tags')).json()
+const expectedTags = apiTags.filter((t) => (t.assets || 0) > 0).length
+ok(parsed.length === expectedTags, expectedTags + ' tags with assets listed (got ' + parsed.length + ')')
 ok(parsed.every((p) => p.n >= 1), 'every chip shows a count')
 const counts = parsed.map((p) => p.n)
 ok(counts.every((n, i) => i === 0 || counts[i - 1] >= n), 'sorted by count desc: ' + JSON.stringify(counts))
@@ -47,7 +50,8 @@ await page.screenshot({ path: 'tmp/shot-tagbar-代理.png', fullPage: true })
 // 5. 再点一次取消筛选
 await page.locator('.tag-bar .chip', { hasText: '代理' }).first().click()
 await page.waitForTimeout(700)
-ok(await page.locator('.asset-card').count() === 10, 'unfiltered -> 10 cards')
+const apiAssets = await (await page.request.get('http://127.0.0.1:7788/api/assets')).json()
+ok(await page.locator('.asset-card').count() === apiAssets.length, 'unfiltered -> ' + apiAssets.length + ' cards')
 await page.screenshot({ path: 'tmp/shot-tagbar-all.png', fullPage: true })
 
 console.log('ERRORS:', errors.length ? JSON.stringify(errors) : 'none')

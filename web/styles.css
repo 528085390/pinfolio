@@ -240,14 +240,18 @@ a:hover { text-decoration: underline; }
 .chip-add:hover { color: var(--accent); border-color: var(--accent); }
 .tag-pop {
   position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 40;
-  width: 300px; max-height: 260px; overflow: auto;
+  width: 300px; max-height: 260px;
+  display: flex; flex-direction: column;   /* 标题 / 列表 / 新建按钮三段：只有列表滚，标题和按钮不会被滚走 */
+  overflow: hidden;
   background: var(--surface); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px; box-shadow: var(--shadow-lg);
 }
-.tag-pop-head { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-.tag-pop-list { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 上方空间不够时往下展开（NotesPage 的 openTagMenu 按剩余空间选方向并压高度） */
+.tag-pop-down { top: calc(100% + 8px); bottom: auto; }
+.tag-pop-head { flex: none; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.tag-pop-list { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .tag-pop-new {
-  display: flex; align-items: center; gap: 4px; width: 100%;
+  flex: none; display: flex; align-items: center; gap: 4px; width: 100%;
   margin-top: 10px; padding-top: 8px; border: 0; border-top: 1px dashed var(--line);
   background: transparent; color: var(--accent); font-size: 12px; cursor: pointer;
 }

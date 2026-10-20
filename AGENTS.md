@@ -36,6 +36,7 @@
 - `web/lib/router.ts` —— 页面路由（2026-10-20 加）：`pageFromPath()`（`/assets` `/monitors` `/settings` 映射成页面；`/`、未知路径、带尾斜杠一律归便签）、`pathForPage()`、`usePage()` hook（初始值取 `location.pathname`、`popstate` 跟前进后退、`history.pushState` 改地址栏、同步 `document.title`）。**别把页面状态改回 `useState('notes')`**——那样一刷新就回便签页（用户 2026-10-20 反馈的问题）。
 - `web/pages/NotesPage.tsx` —— 顶部 composer（Ctrl/⌘+Enter 保存，含「标签」弹层与新建标签）、置顶区/全部区、筛选 chips（全部/未完成/已完成/置顶/标签/＋新标签/已归档）、防抖搜索、行内编辑、归档、关联资产；**完成状态**：圆形对勾按钮或**双击卡片正文**都能切换（双击忽略按钮/链接/标签/编辑框，并清掉浏览器默认选中文字），切换走本地乐观更新、不重排列表，只有处于「已完成/未完成」筛选时才重新拉取。
   **归档模式（`archivedMode` state，2026-10-20 加）**：默认视图**没有硬删除**，卡片右上角是「归档」（`PATCH {archived:true}`，`archive()`）。点筛选行的「已归档」chip 进入**只读归档视图**：`load()` 带 `archived='1'`，隐藏 composer / 完成圆圈 / 置顶 / 编辑 / 标签 chips / 全部·未完成·已完成·置顶 chips，双击不再切完成，卡片只留「恢复」（`restore()` → `PATCH {archived:false}`）与「永久删除」（`remove()`，danger 样式，confirm「永久删除这条便签？不可恢复。」）。`toggleArchivedMode()` 会清掉 tag/pinnedOnly/doneFilter/editingId。归档条数由 `App.tsx` 传 `archivedCount={stats?.archived ?? 0}` 显示在 chip 上。**别把 DELETE 入口加回默认视图**——用户明确要求「删除改归档，只在已归档里允许永久删除」。
+  **标签弹层（`.tag-pop`，2026-10-21 修）**：`openTagMenu()` 打开前量按钮上下剩余空间（把所有 `overflowY` 非 visible 的祖先矩形取交集当可视边界），上面放不下就加 `.tag-pop-down` 往下展开，并把 `max-height` 压进剩余空间（96–320px）；弹层内部是 flex 三段（`.tag-pop-head` / `.tag-pop-list` / `.tag-pop-new`），只有列表自己滚，标题和「新建标签…」不会被滚走。**别把 `bottom: calc(100% + 8px)` 写死回去、也别让整个弹层 `overflow:auto`**——`.content` 是 `overflow-y:auto`，往上展开超出它上边界的那 150px 会被裁掉而且滚不回来（用户 2026-10-21 报「便签标签被遮住一半」）。
 - `web/pages/AssetsPage.tsx` —— 统计卡（总数/在用/30 天内到期/已过期）、类型 chips、状态筛选、**标签栏（`.tag-bar`，2026-10-20 改）**、卡片/表格两种视图。标签栏 = 常显 chip 行（不再是「所有标签」下拉框）：`全部标签` + 每个**有资产关联**的标签 `#名称 数量`，**按关联数降序、同数按名称升序**（`usedTags` 里 `sort`），点 chip 筛选、再点取消。0 关联的标签不显示（用户 2026-10-20 选定）。**「节点」标签已于 2026-10-20 改名「自建节点」**——它原本是「代理」的纯子集（自建节点 2 条 ⊂ 代理 3 条），改名是为了在标签栏里显出层级、不再像并列重复；**别再改回「节点」**。
 - `web/pages/MonitorsPage.tsx` —— 观测台：四格统计 + 机器/状态筛选 + 搜索 + 卡片/表格视图 + 30 秒轮询；卡片含 40 段心跳色条、响应毫秒、24h 可用率、异常次数，标题带 ↗ 跳 `monitor-links.json` 配的管理页。手动点刷新才带 `?fresh=1`，轮询走后端缓存。
 - `web/pages/SettingsPage.tsx` —— 外观、自定义字段、标签管理、导出 JSON、空库灌示例数据。
@@ -77,6 +78,8 @@ pnpm typecheck        # tsc --noEmit
 
 **已完成（2026-10-20，页面路由）**：便签/资产/观测/设置四页各占一个真路径（`/notes` `/assets` `/monitors` `/settings`），切页 `pushState`，刷新 / 深链 / 前进后退都停在同一页；`/` 与未知路径归一到 `/notes`；`document.title` 随页面变（如「观测台 · 便签夹」）。后端**没加新路由**——`server/index.ts:186-207` 的 `app.get('*')` 本来就对无扩展名路径回 `index.html`（SPA fallback），只给那段 fallback 补了 `Cache-Control: no-cache`（否则浏览器可能缓存某个页面的 HTML 壳）。新增 `tmp/e2e-router.mjs`（23 条断言：URL 变更、刷新保持、深链、后退、未知路径归一、标题、无 console 报错），RED→GREEN 走完；回归 `smoke`/`e2e`/`done-smoke`/`e2e-done`/`e2e-dblclick`/`e2e-filter`/`e2e-archive` 全绿，`pnpm typecheck` 0 错误、`pnpm build` 通过。
 
+**已完成（2026-10-21，标签弹层被裁）**：便签 composer 的「标签」弹层固定往上展开（`bottom: calc(100% + 8px)`）+ `max-height:260px; overflow:auto`，composer 又在页面顶部，结果 260px 高的弹层顶到 y=-92、被 `.content`（`overflow-y:auto`）裁掉 150px，第一行只露半截、「新建标签…」完全看不见，Playwright 连第一个 chip 都点不到（`element is outside of the viewport`）。改成按剩余空间选方向（上/下）+ 高度压进剩余空间 + 内部 flex 三段只滚列表。新增 `tmp/e2e-tagpop.mjs`（49 条断言：1440x900 / 1280x720 / 1280x420 三个尺寸 + 长草稿改回往上展开，逐条查「弹层完整落在 `.content` 内、标题与新建按钮可见、首个 chip 不是半行、点标签能插进输入框并关层」），RED→GREEN 走完；回归 `smoke`/`e2e`/`done-smoke`/`e2e-done`/`e2e-dblclick`/`e2e-filter`/`e2e-archive`/`e2e-tagbar`/`e2e-router` 全绿（`e2e-tagbar` 原有两条硬编码 9 个标签 / 10 条资产随「华为云代金券」入库过期，已改成从 `/api/tags`、`/api/assets` 取期望值），`pnpm typecheck` 0 错误、`pnpm build` 通过；`docs/screenshots/tag-picker.png` 重拍。
+
 已知问题与坑（都踩过，勿回退）：
 1. SQLite 建表语句每条必须以 `;` 结尾，否则 `db.exec` 报 `near "CREATE": syntax error`。
 2. pnpm 12 不再读 package.json 的 `pnpm` 字段，构建脚本白名单只能写在 `pnpm-workspace.yaml` 的 `allowBuilds`（否则 esbuild 被拦，`ERR_PNPM_IGNORED_BUILDS`）。
@@ -88,6 +91,7 @@ pnpm typecheck        # tsc --noEmit
 8. **观测页大片「待定」+「检查 40+ 分钟前」= Kuma 假死，不是 pinboard 的问题**：Kuma 用 SQLite 单连接池，被一条语句占住后所有接口挂起，日志刷 `KnexTimeoutError: Timeout acquiring a connection`。先看 `D:\kuma\logs\kuma.log` 尾部，有这条就 `D:\kuma\tools\kuma.ps1 restart`（细节见 `D:\kuma\OBS-NOTES.md` 坑 #9）。pinboard 侧只会如实显示旧心跳。
 9. **观测台不能每次请求都 `?fresh=1` 直捅 Kuma**：Kuma 的 `/api/status-page/obs` 在它自己 5 分钟缓存过期那一刻、又正好赶上 12 个探测在跑时，实测要 **5–30 秒**才回（心跳接口只要几十毫秒）。早期版本前端每次加载都带 `fresh=1` + 后端 8 秒超时，结果服务重启后缓存为空 → 超时 → 502 → 页面渲染成空态，看起来就是「观测页是空的」。现在的做法：清单缓存 5 分钟并预热、心跳按需取、超时 25 秒、失败沿用旧值，前端只在手动刷新时传 `fresh=1`。
 10. **`tools/pinboard.ps1` 必须存成 UTF-8 带 BOM**：`start.cmd` / `stop.cmd` 是用 `powershell`（Windows PowerShell 5.1，不是 pwsh 7）调它的，无 BOM 时它按 GBK 解码 → 中文全乱 → 报 `Unexpected token '...' in expression or statement` 并把整份判成语法错误、一行都不执行（2026-10-20 改后台启动时踩过：`stop.cmd` 直接跑不起来，只剩一句 `Press any key to continue`）。重写该文件用 `[System.IO.File]::WriteAllText($f,$t,[System.Text.UTF8Encoding]::new($true))`。⚠️ **agent 的 `edit`/`write` 工具写出的文件一律无 BOM**（2026-10-20 改 `Show-Logs` 时被静默剥掉，脚本当场 ParseError 且 stdout 全空、只有 stderr 有错）——每次编辑完都要检查/补回 BOM：`([System.IO.File]::ReadAllBytes($p))[0..2] -join ','` 必须是 `239,187,191`。`run-pinboard.vbs` 则**必须 CRLF**（同 kuma）。
+11. **弹层别只往一个方向展开**：`.content` 是 `overflow-y:auto` 的滚动容器，任何往上顶出它上边界的绝对定位弹层都会被裁掉，而且滚不回来（scrollTop 不能为负）。`.tag-pop` 2026-10-21 就踩了这个（被遮住一半）。以后加同类弹层，要么像 `CommandPalette` 用 `position: fixed`，要么照 `openTagMenu()` 的写法量剩余空间选方向。
 
 ## 迁移建议
 项目已经独立在 `D:\pinfolio`，这个目录本身就能当仓库根。搬到别的机器/路径时带走：`server/`、`web/`、`tools/`、`package.json`、`pnpm-workspace.yaml`、`pnpm-lock.yaml`、`tsconfig.json`、`vite.config.ts`、`.gitignore`、`start.cmd`、`stop.cmd`、`run-pinboard.vbs`、本文件；不要带 `data/`（个人数据）、`dist/`、`logs/`、`node_modules/`、`tmp/`。
@@ -95,8 +99,8 @@ pnpm typecheck        # tsc --noEmit
 
 ## 可清理项
 - `tmp/` 整个目录 —— 开发期脚本与截图，可随时删（`docs/screenshots/` 已另存一份，删了不影响 README）：
-  - 冒烟与端到端：`tmp/smoke.mjs`、`tmp/e2e.mjs`、`tmp/done-smoke.mjs`、`tmp/e2e-done.mjs`、`tmp/e2e-dblclick.mjs`、`tmp/e2e-filter.mjs`、`tmp/e2e-archive.mjs`、`tmp/e2e-tagbar.mjs`（资产页标签栏 12 条断言：默认全部标签 / 旧下拉框已删 / 9 个标签带数量 / 数量降序 / 代理筛出 3 条 / 再点取消）、`tmp/e2e-router.mjs`（页面路由 23 条断言：URL 变更 / 刷新保持 / 深链 / 后退 / 未知路径归一 / 标题 / 无 console 报错）
-  - 截图：`tmp/shots.mjs`、`tmp/shots-assets.mjs`，产物 `tmp/shot-*.png`
+  - 冒烟与端到端：`tmp/smoke.mjs`、`tmp/e2e.mjs`、`tmp/done-smoke.mjs`、`tmp/e2e-done.mjs`、`tmp/e2e-dblclick.mjs`、`tmp/e2e-filter.mjs`、`tmp/e2e-archive.mjs`、`tmp/e2e-tagbar.mjs`（资产页标签栏 12 条断言：默认全部标签 / 旧下拉框已删 / 9 个标签带数量 / 数量降序 / 代理筛出 3 条 / 再点取消）、`tmp/e2e-tagpop.mjs`（标签弹层 49 条断言：三个视口尺寸下弹层不被 `.content` 裁、标题/新建按钮可见、首个 chip 不是半行、矮窗口列表自滚、长草稿改回往上展开、点标签插进输入框）、`tmp/e2e-router.mjs`（页面路由 23 条断言：URL 变更 / 刷新保持 / 深链 / 后退 / 未知路径归一 / 标题 / 无 console 报错）
+  - 截图：`tmp/shots.mjs`、`tmp/shots-assets.mjs`、`tmp/shots-tagpop.mjs`（标签弹层，顺带重拍 `docs/screenshots/tag-picker.png`），产物 `tmp/shot-*.png`
   - 一次性数据脚本：`tmp/seed-assets.mjs`（按当前资产清单重建台账）
   - 排障残留：`tmp/inspect.mjs`、`tmp/dbg.mjs`、`tmp/dbg2.mjs`、`tmp/server.out.log`、`tmp/server.err.log`
 - `logs/` —— 运行日志（`pinboard.log`，追加不轮转），可随时清空/删除；已进 `.gitignore`（`*.log`）。

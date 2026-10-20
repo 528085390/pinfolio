@@ -22,6 +22,9 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
   const [doneFilter, setDoneFilter] = useState<'' | '0' | '1'>('')
   const [archivedMode, setArchivedMode] = useState(false)
   const [tagMenu, setTagMenu] = useState(false)
+  // 标签弹层往上展开时会被 .content（overflow-y:auto）的上边界裁掉、且滚不回来（2026-10-21 用户报「被遮住一半」）。
+  // 打开前按按钮上下剩余空间挑方向，并把弹层高度压进剩余空间里。
+  const [tagPopPlacement, setTagPopPlacement] = useState<{ dir: 'up' | 'down'; maxHeight: number }>({ dir: 'up', maxHeight: 260 })
   const [newTagOpen, setNewTagOpen] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('#b45309')
@@ -32,6 +35,7 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
   const taRef = useRef<HTMLTextAreaElement | null>(null)
+  const tagBtnRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setQ(searchInput.trim()), 220)
@@ -122,6 +126,32 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
       setNotes((prev) => prev.map((x) => (x.id === n.id ? { ...x, done: !next } : x)))
       setError(e.message)
     }
+  }
+
+  function openTagMenu() {
+    if (tagMenu) { setTagMenu(false); return }
+    const btn = tagBtnRef.current
+    if (btn) {
+      const b = btn.getBoundingClientRect()
+      // 找出所有会裁剪祖先（.content 是滚动容器，.app 是 overflow:hidden），取它们的交集当可视边界
+      let clipTop = 0
+      let clipBottom = window.innerHeight
+      for (let el = btn.parentElement; el; el = el.parentElement) {
+        const s = getComputedStyle(el)
+        if (/(auto|scroll|hidden)/.test(s.overflowY)) {
+          const r = el.getBoundingClientRect()
+          clipTop = Math.max(clipTop, r.top)
+          clipBottom = Math.min(clipBottom, r.bottom)
+        }
+      }
+      const gap = 8
+      const above = b.top - clipTop - gap
+      const below = clipBottom - b.bottom - gap
+      const dir: 'up' | 'down' = above >= 260 || above >= below ? 'up' : 'down'
+      const space = dir === 'up' ? above : below
+      setTagPopPlacement({ dir, maxHeight: Math.max(96, Math.min(320, Math.round(space))) })
+    }
+    setTagMenu(true)
   }
 
   function insertTag(name: string) {
@@ -294,15 +324,19 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
           </button>
           <div style={{ position: 'relative' }}>
             <button
+              ref={tagBtnRef}
               className={cx('chip', tagMenu && 'active')}
-              onClick={() => setTagMenu((v) => !v)}
+              onClick={openTagMenu}
               type="button"
               title="从已有标签里挑一个插进便签"
             >
               <TagIcon size={12} /> 标签
             </button>
             {tagMenu ? (
-              <div className="tag-pop">
+              <div
+                className={cx('tag-pop', tagPopPlacement.dir === 'down' && 'tag-pop-down')}
+                style={{ maxHeight: tagPopPlacement.maxHeight }}
+              >
                 <div className="tag-pop-head">点一下插进便签</div>
                 <div className="tag-pop-list">
                   {tags.length === 0 ? <span className="muted" style={{ fontSize: 12 }}>还没有标签</span> : null}
