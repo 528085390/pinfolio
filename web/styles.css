@@ -435,12 +435,14 @@ button:focus-visible, a:focus-visible { outline-offset: 3px; }
   text-underline-offset: 3px;
   cursor: help;
 }
-/* 本次观测情况：常显一行，单行省略，悬停看全文 */
-.monitor-note { display: flex; gap: 6px; align-items: baseline; min-width: 0; line-height: 1.45; }
-.monitor-note-label { flex: none; font-size: 10.5px; color: var(--muted); }
+/* 本次观测情况：标签一行、内容另起一行并自动换行（课程名之类的长文本不再截成 …），
+   最多 3 行；真要更长的全文看悬停提示。 */
+.monitor-note { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.45; }
+.monitor-note-label { font-size: 10.5px; color: var(--muted); }
 .monitor-note-text {
-  flex: 1 1 auto; min-width: 0; font-size: 11px; color: var(--ink-2); font-family: var(--font-mono);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: var(--ink-2); font-family: var(--font-mono);
+  white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .monitor-machine { color: var(--ink-2); font-weight: 550; }
 .monitor-link { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
