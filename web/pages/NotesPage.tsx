@@ -36,6 +36,7 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
   const [editText, setEditText] = useState('')
   const taRef = useRef<HTMLTextAreaElement | null>(null)
   const tagBtnRef = useRef<HTMLButtonElement | null>(null)
+  const tagWrapRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setQ(searchInput.trim()), 220)
@@ -153,6 +154,33 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
     }
     setTagMenu(true)
   }
+
+  // 弹层开着时：点弹层外任意地方 / Esc / 页面滚动 都收起（2026-10-21 用户要求「点标签栏以外就缩回去」）
+  useEffect(() => {
+    if (!tagMenu) return
+    const inside = (t: EventTarget | null) => !!t && !!tagWrapRef.current?.contains(t as Node)
+    function onPointerDown(e: PointerEvent) {
+      // 点「标签」按钮本身交给 openTagMenu 切换；点弹层内部（含它自己的列表滚动条）不关
+      if (inside(e.target)) return
+      setTagMenu(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setTagMenu(false)
+    }
+    // scroll 不冒泡但会捕获：.content 滚动要收起，弹层自己列表的滚动不能收起
+    function onScroll(e: Event) {
+      if (inside(e.target)) return
+      setTagMenu(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('scroll', onScroll, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('scroll', onScroll, true)
+    }
+  }, [tagMenu])
 
   function insertTag(name: string) {
     setDraft((d) => {
@@ -322,7 +350,7 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
           >
             <Pin size={12} /> 置顶
           </button>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative' }} ref={tagWrapRef}>
             <button
               ref={tagBtnRef}
               className={cx('chip', tagMenu && 'active')}
