@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { StickyNote, Package, Settings, Command, Moon, Sun, Pin, Activity } from 'lucide-react'
+import { StickyNote, Package, Settings, Command, Moon, Sun, Pin, Activity, Mail as MailIcon } from 'lucide-react'
 import { api, cx, type FieldDef, type MonitorSummary, type Stats, type Tag } from './lib/api'
 import { NotesPage } from './pages/NotesPage'
+import { MailPage } from './pages/MailPage'
 import { AssetsPage } from './pages/AssetsPage'
 import { MonitorsPage } from './pages/MonitorsPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -16,6 +17,7 @@ export function App() {
   const [fields, setFields] = useState<FieldDef[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [mon, setMon] = useState<MonitorSummary | null>(null)
+  const [mailSum, setMailSum] = useState<{ unseen: number; total: number; accounts: number } | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
   const [openAssetId, setOpenAssetId] = useState<number | 'new' | null>(null)
@@ -66,9 +68,11 @@ export function App() {
     setOpenAssetId(id)
   }
 
-  const title = page === 'notes' ? '便签' : page === 'assets' ? '资产台账' : page === 'monitors' ? '观测台' : '设置'
+  const title = page === 'notes' ? '便签' : page === 'mail' ? '邮件' : page === 'assets' ? '资产台账' : page === 'monitors' ? '观测台' : '设置'
   const sub = page === 'notes'
     ? (stats ? stats.notes + ' 条便签' + (stats.archived ? ' · ' + stats.archived + ' 条归档' : '') : '')
+    : page === 'mail'
+      ? (mailSum ? mailSum.accounts + ' 个邮箱 · ' + mailSum.unseen + ' 封未读 · 共 ' + mailSum.total + ' 封' : '多邮箱合并收件箱 · 只读')
     : page === 'assets'
       ? (stats ? stats.assets + ' 件资产 · ' + stats.active + ' 件在用' : '')
       : page === 'monitors'
@@ -97,6 +101,11 @@ export function App() {
             <StickyNote size={17} />
             <span className="nav-label">便签</span>
             <span className="nav-badge">{stats?.notes ?? ''}</span>
+          </button>
+          <button className={cx('nav-item', page === 'mail' && 'active')} onClick={() => setPage('mail')} title="邮件">
+            <MailIcon size={17} />
+            <span className="nav-label">邮件</span>
+            <span className="nav-badge">{mailSum?.unseen || ''}</span>
           </button>
           <button className={cx('nav-item', page === 'assets' && 'active')} onClick={() => setPage('assets')} title="资产台账">
             <Package size={17} />
@@ -146,6 +155,8 @@ export function App() {
             <div className="empty"><Spinner /></div>
           ) : page === 'notes' ? (
             <NotesPage tags={tags} refreshMeta={refreshMeta} onOpenAsset={openAsset} archivedCount={stats?.archived ?? 0} />
+          ) : page === 'mail' ? (
+            <MailPage onSummary={setMailSum} />
           ) : page === 'assets' ? (
             <AssetsPage
               tags={tags}

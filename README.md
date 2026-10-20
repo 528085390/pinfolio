@@ -1,6 +1,6 @@
 # 便签夹 · pinboard
 
-一个跑在本机的小工具：**随手写便签**，加 `#标签` 自动归类，再配一份**资产台账**，把服务器、域名、账号、设备这些东西登记清楚——到期了会提醒，便签能直接钉在某条资产上。再加一页**观测台**，把所有机器/服务的实时状态并排摆出来。
+一个跑在本机的小工具：**随手写便签**，加 `#标签` 自动归类，再配一份**资产台账**，把服务器、域名、账号、设备这些东西登记清楚——到期了会提醒，便签能直接钉在某条资产上。再加一页**邮件**，把 Gmail / QQ / 163 几个信箱合到一个只读收件箱里；还有一页**观测台**，把所有机器/服务的实时状态并排摆出来。
 
 单进程、单端口、单个 SQLite 文件，不联网、无账号、无 Docker。打开 http://127.0.0.1:7788 就能用。
 
@@ -25,6 +25,14 @@
 | 观测台（15 个观测项一屏放完） |
 |---|
 | ![观测台](docs/screenshots/monitors.png) |
+
+| 邮件（多邮箱合并收件箱） | 邮件（深色） |
+|---|---|
+| ![邮件页](docs/screenshots/mail-inbox.png) | ![邮件页深色](docs/screenshots/mail-dark.png) |
+
+| 邮箱账号 / 连接参数 |
+|---|
+| ![邮箱账号](docs/screenshots/mail-account.png) |
 
 ## 功能
 
@@ -77,9 +85,22 @@
 - Kuma 挂了不会白屏：退回上一次数据并在顶部提示；连一次都没读到过，就显示「读不到观测项」+ 具体原因 + 重试按钮。
 - **为什么分两半缓存**：Kuma 的 `/api/status-page/obs` 偶尔要 5–30 秒才回（它自己按 5 分钟缓存，缓存过期那一刻正好赶上 12 个探测在跑就会很慢），而心跳接口只要几十毫秒。所以后端把「观测项清单」缓存 5 分钟（启动时预热、每 5 分钟续一次）、心跳按需现取，页面正常 0.1–0.4 秒出全部卡片。
 
+### 邮件（只读合并收件箱）
+- 自己填 IMAP 服务器（Gmail / QQ / 163 / 任意 IMAP），**多个信箱合成一个收件箱**，按时间倒序；顶部的账号 chip 可只看某一个信箱，chip 上带未读数。
+- **只收信，不改变服务器上的任何状态**：只用 `SELECT` / `SEARCH` / `FETCH(BODY.PEEK[])`，一行 `STORE` 都没有——打开邮件**不会**把服务器上的未读变成已读（客户端库 imapflow 的 `fetch` 天生就用 `BODY.PEEK`）。
+- **已读只记在本机**：点开一封邮件，这一行变淡，标记存在本地库 `mail_local_read` 里，绝不写回服务器。设置抽屉里可以「清除本地已读标记」。
+- 列表行：发件人、主题、1–2 行纯文本摘要、时间、所属信箱；未读加粗、已读淡化，账号筛选 chip 带未读数。**分页 50 封 / 页**，翻到最后一页为止（不会只显示最近一批）。
+- 右侧阅读区不跳页：主题 / 发件人（名字 + 地址）/ 收件人 / 抄送 / 时间 / 信箱，正文 HTML 与纯文本一键切换。
+- **安全**：HTML 正文先用 DOMPurify 清洗（去掉 script/style/iframe/form 等），**远程图片默认拦住**（换成虚线占位「图片已拦截」，点「显示图片（N）」才加载，避免发件人用追踪像素探活）；链接一律新标签页打开；`cid:` 内嵌图走本地附件接口。
+- 附件只列清单 + 下载，不落库；超过 25 MB 的邮件不下载正文，直接提示。
+- 搜索框在当前已加载的 50 封里做客户端筛选（发件人 / 主题 / 摘要），另有「只看未读」；`j` / `k` 上下选邮件。
+- 缓存：列表 60 秒、正文 10 分钟（只在内存里，不写磁盘），手动点「刷新」绕过缓存并重新取未读数。
+- 账号连接失败不会拖垮整页：那个信箱的 chip 上会出现红色感叹号，鼠标悬停看原因；其它信箱照常显示。
+- 163 需要客户端发 `IMAP ID`（否则报 `Unsafe Login`），imapflow 登录时自动发，不用管；Gmail 要「应用专用密码」，QQ / 163 要「授权码」，填登录密码一定失败。
+
 ### 全局
-- **每页都有自己的地址**：`/notes`、`/assets`、`/monitors`、`/settings`。切页时地址栏跟着变，**刷新（F5）不会跳回便签页**，前进/后退也按页面走；直接打开 `http://127.0.0.1:7788/monitors` 能直达观测台。根路径 `/` 和未知路径一律归到 `/notes`，`document.title` 随页面变（如「观测台 · 便签夹」）。
-- **Ctrl / ⌘ + K** 命令面板：搜便签、搜资产，或执行「新建便签 / 登记资产 / 打开观测台 / 打开设置 / 导出 JSON」。
+- **每页都有自己的地址**：`/notes`、`/mail`、`/assets`、`/monitors`、`/settings`。切页时地址栏跟着变，**刷新（F5）不会跳回便签页**，前进/后退也按页面走；直接打开 `http://127.0.0.1:7788/monitors` 能直达观测台。根路径 `/` 和未知路径一律归到 `/notes`，`document.title` 随页面变（如「观测台 · 便签夹」）。
+- **Ctrl / ⌘ + K** 命令面板：搜便签、搜资产，或执行「新建便签 / 打开邮件 / 登记资产 / 打开观测台 / 打开设置 / 导出 JSON」。
 - 主题：浅色 / 深色 / 跟随系统，记在 `localStorage` 的 `pinboard-theme`。
 - 设置页可导出整库 JSON 备份（`pinboard-YYYY-MM-DD.json`）；空库时可一键灌示例数据。
 
@@ -118,6 +139,8 @@ pnpm start       # 生产模式，http://127.0.0.1:7788
 | 换位置 | 启动前设环境变量 `PINBOARD_DATA` 指向别的目录 |
 | 备份 | 停服务后整个复制 `data/`；或设置页「导出 JSON」 |
 | 观测台 | 读的是 Uptime Kuma，不在这个库里；换地址设 `KUMA_URL` / `KUMA_SLUG` 环境变量 |
+| 邮件 | 信箱配置和本地已读标记也在同一个库里（`mail_accounts` / `mail_local_read`）；**IMAP 密码是明文存的**，只因为库在本机、服务只监听 127.0.0.1——别把 `data/` 或导出的 JSON 发给别人 |
+| 邮件正文 | 不落盘，只在内存里缓存 10 分钟；重启就没了 |
 | 恢复 | 把备份的 `data/` 放回去（JSON 导出目前只用于查阅，没有导入按钮） |
 | 删库 | 停服务后删掉 `data/pinboard.db*`，下次启动自动重建空库，可在设置页灌示例数据 |
 
@@ -143,11 +166,12 @@ pinboard/
 │  ├─ db.ts                建表、SQL 封装、标签解析与同步、预设标签、迁移
 │  ├─ hydrate.ts           便签/资产的行数据补全（标签、关联资产、便签数）
 │  ├─ snapshot.ts          生成 SNAPSHOT.md（写操作后 1.5 秒内重写，启动时也生成）
-│  └─ routes/              notes.ts / assets.ts / tags.ts / fields.ts / monitors.ts（Kuma 聚合）
+│  ├─ mail/                邮件：client.ts（imapflow 连接池 + 缓存 + 摘要 + 正文解析）/ store.ts（信箱 + 本地已读）
+│  └─ routes/              notes.ts / assets.ts / tags.ts / fields.ts / monitors.ts（Kuma 聚合）/ mail.ts
 ├─ web/                    前端（React 19）
 │  ├─ App.tsx              布局、侧栏、主题、命令面板
-│  ├─ pages/               NotesPage / AssetsPage / MonitorsPage / SettingsPage
-│  ├─ components/          AssetDrawer / CommandPalette / ui / Markdown / KindIcon
+│  ├─ pages/               NotesPage / MailPage / AssetsPage / MonitorsPage / SettingsPage
+│  ├─ components/          AssetDrawer / MailReader / MailAccountDrawer / CommandPalette / ui / Markdown / KindIcon
 │  ├─ lib/                 api.ts（类型与请求）、format.ts（时间/金额/到期文案）
 │  └─ styles.css           暖纸色设计令牌 + 深色主题
 ├─ docs/screenshots/       README 用的截图
@@ -179,6 +203,14 @@ pinboard/
 | GET/POST | `/fields` | 自定义字段列表 / 新建 |
 | PATCH/DELETE | `/fields/:id` | 修改 / 删除 |
 | GET | `/monitors` | 观测台数据：`{ kuma, updatedAt, summary, groups }`，聚合 Kuma 状态页 + 心跳；`?fresh=1` 强制重取观测项清单（清单缓存 5 分钟，心跳 5 秒） |
+| GET/POST | `/mail/accounts` | 信箱列表（`?counts=1` 带未读数）/ 新建。**任何返回都不含密码**，只给 `hasPassword` |
+| PUT/DELETE | `/mail/accounts/:id` | 修改（密码留空 = 不改）/ 删除（连带清掉本地已读标记） |
+| POST | `/mail/accounts/test` | 测连接，收原始参数或 `{id}`（复用已存密码）；失败返回可读中文原因 |
+| GET | `/mail/folders?account=` | 文件夹列表（带 special-use，只列可选中的） |
+| GET | `/mail/messages?account=all\|<id>&folder=INBOX&limit=50&offset=0` | 合并收件箱一页；`?fresh=1` 绕过 60 秒缓存。返回 `{ items, total, unseen, hasMore, errors, partial }` |
+| GET | `/mail/message?account=&folder=&uid=` | 单封正文（`text` / `html` / 附件清单） |
+| GET | `/mail/attachment?account=&folder=&uid=&index=` | 下载附件（`Content-Disposition` 带中文文件名） |
+| POST/DELETE | `/mail/local-read` | 标记本地已读 / 取消（`account=all` 或指定 id 清空）。**没有写服务器的接口** |
 
 示例：
 
@@ -212,7 +244,10 @@ pnpm start      # 生产模式（tsx server/index.ts，非 watch：改服务端�
 | `tmp/e2e-dblclick.mjs` | 双击卡片切换完成（8 条断言） |
 | `tmp/e2e-filter.mjs` | 完成状态下筛选行的行为（4 条断言） |
 | `tmp/e2e-archive.mjs` | 归档 / 已归档视图 / 恢复 / 永久删除 / Ctrl+K 排除（20 条断言） |
-| `tmp/shots.mjs` / `tmp/shots-assets.mjs` | 批量截图 |
+| `tmp/e2e-mail.mjs` | 邮件页端到端（60 条断言：加账号 / 列表 / 分页 / 正文 / 拦图 / 本地已读 / 筛选 / 键盘 / 文件夹 / 账号增删改），自带假 IMAP 服务器 |
+| `tmp/fakeimap/server.mjs` | 假 IMAP 服务器（hoodiecrow-imap，120 封信 + 附件 + 追踪像素），**只装在 `tmp/fakeimap/` 自己的 node_modules 里**，不是项目依赖 |
+| `tmp/fakeimap/mail-api-smoke.mjs` | 邮件 API 冒烟（50 条断言，含「打开邮件后服务器未读数不变」） |
+| `tmp/shots.mjs` / `tmp/shots-assets.mjs` / `tmp/shots-mail.mjs` | 批量截图 |
 | `tmp/seed-assets.mjs` | 按当前资产清单重建台账（一次性脚本） |
 
 跑 UI 测试用本机已有的 Chromium：`C:\Users\you\AppData\Local\ms-playwright\chromium-1217\chrome-win64\chrome.exe`（`playwright-core` 已装为 devDependency，没有下载新浏览器）。
@@ -241,6 +276,7 @@ pnpm 的虚拟 store 路径变了，删掉重装即可：`Remove-Item .\node_mod
 
 - 后端：Hono + `@hono/node-server`，数据库用 Node 24 内置的 `node:sqlite`（`DatabaseSync`），所以不需要 `better-sqlite3` 之类的原生模块，装完就能跑。
 - 前端：Vite 7 + React 19 + 手写 CSS（暖纸色 `#f6f3ec` / 强调色 `#b45309`），图标用 lucide-react，Markdown 用 marked + DOMPurify 清洗。
+- 邮件：收信 / 解析用 [imapflow](https://github.com/postalsys/imapflow) + [mailparser](https://github.com/postalsys/mailparser)（同作者，纯 JS，无原生编译）。选它是因为 `fetch` 天生走 `BODY.PEEK`（不会写 `\Seen`）、登录时按服务器能力自动补发 `IMAP ID`（163 必需）、`getMailboxLock` 能直接以只读 `EXAMINE` 打开信箱。
 - 设计参考：交互学 [usememos/memos](https://github.com/usememos/memos)（时间线便签、`#标签`、置顶），数据模型学 [sysadminsmedia/homebox](https://github.com/sysadminsmedia/homebox)（资产、位置、自定义字段、到期）。这两个项目各自只覆盖一半需求，且都是带账号体系的独立服务，所以本项目按需求自写，**没有拷贝它们的代码**。
 
 ## 文档

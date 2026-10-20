@@ -8,6 +8,7 @@ import { assetsRoute } from './routes/assets.js'
 import { tagsRoute } from './routes/tags.js'
 import { fieldsRoute } from './routes/fields.js'
 import { monitorsRoute } from './routes/monitors.js'
+import { mailRoute, shutdownMail } from './routes/mail.js'
 import { hydrateAssets, hydrateNotes, type AssetRow, type NoteRow } from './hydrate.js'
 import { scheduleSnapshot, writeSnapshot } from './snapshot.js'
 
@@ -165,6 +166,7 @@ api.route('/assets', assetsRoute)
 api.route('/tags', tagsRoute)
 api.route('/fields', fieldsRoute)
 api.route('/monitors', monitorsRoute)
+api.route('/mail', mailRoute)
 app.route('/api', api)
 
 const WEB_DIR = join(ROOT, 'dist', 'web')
@@ -227,3 +229,11 @@ serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (info) => {
   // 启动时先生成一次快照（失败只打日志，不影响服务）
   void writeSnapshot()
 })
+
+// 退出时断开 IMAP 连接（IMAP 是长连接，进程被 Ctrl+C / SIGTERM 时礼貌收尾）
+for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(sig, () => {
+    try { shutdownMail() } catch { /* ignore */ }
+    process.exit(0)
+  })
+}

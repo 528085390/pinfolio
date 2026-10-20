@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export type Page = 'notes' | 'assets' | 'monitors' | 'settings'
+export type Page = 'notes' | 'mail' | 'assets' | 'monitors' | 'settings'
 
 /** 每个页面在地址栏里的规范路径。改这里等于改 URL 约定。 */
 const PATHS: Record<Page, string> = {
   notes: '/notes',
+  mail: '/mail',
   assets: '/assets',
   monitors: '/monitors',
   settings: '/settings',
@@ -12,6 +13,7 @@ const PATHS: Record<Page, string> = {
 
 const TITLES: Record<Page, string> = {
   notes: '便签',
+  mail: '邮件',
   assets: '资产台账',
   monitors: '观测台',
   settings: '设置',
@@ -23,7 +25,7 @@ const TITLES: Record<Page, string> = {
  */
 export function pageFromPath(pathname: string): Page {
   const p = pathname.replace(/\/+$/, '').toLowerCase()
-  if (p === '/assets' || p === '/monitors' || p === '/settings') return p.slice(1) as Page
+  if (p === '/mail' || p === '/assets' || p === '/monitors' || p === '/settings') return p.slice(1) as Page
   return 'notes'
 }
 

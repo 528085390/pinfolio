@@ -1,0 +1,1 @@
+{"name":"fakeimap","private":true,"type":"module","dependencies":{"hoodiecrow-imap":"^3.3.1","imapflow":"^2.5.9","mailparser":"^3.10.0"}}

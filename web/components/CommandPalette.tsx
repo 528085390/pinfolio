@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, StickyNote, Package, Settings, Plus, Download, CornerDownLeft, Activity } from 'lucide-react'
+import { Search, StickyNote, Mail, Package, Settings, Plus, Download, CornerDownLeft, Activity } from 'lucide-react'
 import { api, cx, type Asset, type Note } from '../lib/api'
 import { KIND_META } from '../lib/format'
 import { KindIcon } from './KindIcon'
@@ -9,7 +9,7 @@ type Item = { key: string; label: string; sub?: string; icon: React.ReactNode; r
 export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
   open: boolean
   onClose: () => void
-  onNavigate: (page: 'notes' | 'assets' | 'monitors' | 'settings') => void
+  onNavigate: (page: 'notes' | 'mail' | 'assets' | 'monitors' | 'settings') => void
   onOpenAsset: (id: number | 'new') => void
 }) {
   const [q, setQ] = useState('')
@@ -53,6 +53,7 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
     const out: Item[] = []
     if (!q.trim()) {
       out.push({ key: 'a1', label: '新建便签', sub: '回到便签页，直接写', icon: <StickyNote size={15} />, run: () => onNavigate('notes') })
+      out.push({ key: 'a2m', label: '邮件', sub: '多邮箱合并收件箱（只读）', icon: <Mail size={15} />, run: () => onNavigate('mail') })
       out.push({ key: 'a2', label: '登记资产', sub: '打开资产登记表单', icon: <Plus size={15} />, run: () => { onNavigate('assets'); onOpenAsset('new') } })
       out.push({ key: 'a3', label: '观测台', sub: '看所有观测项的实时状态', icon: <Activity size={15} />, run: () => onNavigate('monitors') })
       out.push({ key: 'a4', label: '设置', sub: '自定义字段 / 标签 / 主题', icon: <Settings size={15} />, run: () => onNavigate('settings') })
