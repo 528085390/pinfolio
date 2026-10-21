@@ -1,7 +1,7 @@
 # pinfolio（自用笔记 + 资产台账）
 
 ## 用途
-本机单人用的「便签夹」：随手写 Markdown 便签、用 `#标签` 自动归类、置顶/搜索/归档，另有一个资产台账页登记设备/服务器/账号/域名（自定义字段、到期提醒、价格统计），便签可以钉到某条资产上。2026-10-21 又加了一页**只读邮件**：把 Gmail / QQ / 163 等多个信箱合成一个收件箱，点开即读，且**不改动服务器上的任何状态**。单进程单端口，数据只存本机 SQLite。
+本机单人用的「pinfolio」：随手写 Markdown 便签、用 `#标签` 自动归类、置顶/搜索/归档，另有一个资产台账页登记设备/服务器/账号/域名（自定义字段、到期提醒、价格统计），便签可以钉到某条资产上。2026-10-21 又加了一页**只读邮件**：把 Gmail / QQ / 163 等多个信箱合成一个收件箱，点开即读，且**不改动服务器上的任何状态**。单进程单端口，数据只存本机 SQLite。
 
 ## 背景/来源
 2026-10-19 由用户提出需求（"类似便签夹的项目，网页端，写东西订起来，加标签，再给个资产列表页"）后新建。同日用户要求整体迁出杂项工作区，目录从 `D:\projects\pinboard` 先移到 `D:\pinfolio_zc\pinboard`，2026-10-19 晚又随「两个项目合并」搬到 **`D:\pinfolio`**（与观测后端 `D:\kuma` 同属工作区根 `D:\pinfolio`；旧的 `D:\pinfolio_zc`、`D:\pinfolio_az` 两个根已删除），此后**不再受 `D:\projects\AGENTS.md` 的 R1–R7 约束**，本文件是唯一工程约定。调研过 usememos/memos（时间线便签，无资产）、sysadminsmedia/homebox（资产台账，无随手记）、blinko、flatnotes，结论是没有单项目同时覆盖两边，缝合两套 Go 应用会得到两套账号/两套标签且无法互链，因此按用户选择走**单应用自研**：交互抄 Memos、数据模型抄 HomeBox，代码全部本目录自写，无第三方运行时代码拷贝。2026-10-21 用户又提出「多个邮箱合成一个收件箱」（此前在 azfree 上试过 Cypht，嫌页面太重、跨境太慢，已整体拆除），需求定稿为 `docs/mail-page-requirements.md` v1.1，随后照该文档做出只读的 `/mail` 页。
@@ -14,7 +14,7 @@
 
 | 层 | 文件 | 一句话 |
 |---|---|---|
-| 文档 | `README.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 五篇专题（架构、录入、邮件需求、坑 30 条、进展记录） |
+| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 30 条、进展记录 |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
 | 数据 | `server/schema/{core,mail}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
 | 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params,rows}.ts`、`kuma/{redact,beat,patch,http,recipe,payload}.ts`、`web/lib/paths.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |

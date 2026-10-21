@@ -7,7 +7,9 @@
 ## 工程与文档
 
 工程与文档：
-- `README.md` —— 面向使用者的完整说明：功能、快速开始、数据与备份、目录结构、HTTP API、开发与测试、常见问题。截图不随仓库发布（页面里是本机真实数据），要图就本地跑 `tools/screenshots/`。
+- `README.md`（英文）/ `README.zh.md`（中文）—— 面向使用者的入口页：定位、功能一行一条、快速开始、数据与备份、两级目录树、开发命令、四条 FAQ、技术栈与出处、文档索引。细节不写在这里。
+- `docs/features.md` / `docs/features.zh.md` —— **各页完整行为**（便签 / 标签 / 资产 / 观测台 / 邮件 / 全局），从 README 拆出来的，改行为要同步这里。
+- `docs/api.md` / `docs/api.zh.md` —— **完整 HTTP API 表** + curl 示例。截图不随仓库发布（页面里是本机真实数据），要图就本地跑 `tools/screenshots/`。
 - `AGENTS.md` —— 本文件，面向后续开发者/agent 的约定、模块职责、已知坑。
 - `SNAPSHOT.md` —— **自动生成的可读快照**：资产总表 + 每条资产详情（备注、自定义字段）+ 全部便签 + 标签/字段总览，头部带生成时间与「数据最后变更」。任何写操作（POST/PUT/PATCH/DELETE）后 1.5 秒内自动重写（`server/snapshot.ts` 的 `scheduleSnapshot()`，由 `server/index.ts` 的 `/api/*` 中间件触发），启动时也生成一次；手动 `pnpm snapshot`。**不要手改，会被覆盖。**渲染在 `server/snapshot/markdown.ts`（纯函数），取数与写盘在 `server/snapshot/{rows,write}.ts`；隔离实例（`PINBOARD_DATA` 指到别处）不写这个文件。
 - `start.cmd` —— 启动器：先用 `/api/health` 探测，已在运行就只开浏览器；否则调 `run-pinboard.vbs` **后台隐藏启动**，轮询到 HTTP 200 后打开页面，窗口随即自己关掉（2026-10-20 用户要求不再前置控制台窗口）。
