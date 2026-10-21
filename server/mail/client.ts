@@ -139,6 +139,9 @@ const ENTITIES: Record<string, string> = {
 
 function htmlToText(html: string): string {
   return html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<!--[\s\S]*$/g, ' ')
+    .replace(/<![^>]*>/g, ' ')
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|div|tr|li|h[1-6])>/gi, '\n')
@@ -198,8 +201,21 @@ export function snippetFromText(raw: Buffer | undefined): string {
   } else {
     body = text
   }
-  if (/<html|<body|<div|<p[\s>]|<br/i.test(body)) body = htmlToText(body)
-  return body.replace(/\s+/g, ' ').trim().slice(0, 240)
+  if (/<html|<body|<div|<p[\s>]|<br|<!--|<!\[/i.test(body)) body = htmlToText(body)
+  // 有些发件人把 HTML（含 Outlook 条件注释）塞进 text/plain 分支，
+  // 还有些正文里是 [image: xxx] / [cid:xxx] 这种内嵌图占位符——列表摘要里都得清掉
+  return body
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    // 注释可能被 IMAP 的 maxLength 截断成「<!--[if …」没有收尾，剩下的一律当注释吃掉
+    .replace(/<!--[\s\S]*$/g, ' ')
+    .replace(/<![^>]*>/g, ' ')
+    .replace(/<\/?[a-zA-Z][^>]*>/g, ' ')
+    .replace(/\[(?:image|cid)\s*:[^\]]*\]/gi, ' ')
+    // 营销邮件爱用零宽字符/组合字形连接符撑开摘要预览，摘要里没意义
+    .replace(/[\u034f\u00ad\u200b-\u200d\u2060\ufeff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240)
 }
 
 // ---------- 连接池 ----------
