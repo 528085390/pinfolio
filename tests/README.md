@@ -20,7 +20,8 @@ pnpm test:mail     # 邮件套件（必须先按下面起隔离实例）
 Kuma 脱敏/策略说人话（`server/kuma/redact.ts`）、四态心跳与时间串（`server/kuma/beat.ts`）、
 到期天数（`server/dates.ts`）、前端 URL ↔ 页面（`web/lib/paths.ts`）、金额/日期/相对时间（`web/lib/format.ts`）、
 邮件摘要解析（`server/mail/parse.ts`：quoted-printable / base64 / html 剥标签 / 占位符与零宽字符 / 240 字上限）、
-观测项状态判定（`web/pages/monitors/status.ts`：四色前缀优先于状态码、`pct()` 的 99.95% 取整、类型名映射）。
+观测项状态判定（`web/pages/monitors/status.ts`：四色前缀优先于状态码、`pct()` 的 99.95% 取整、类型名映射）、
+资产页取值（`web/pages/assets/meta.ts`：标签栏排序规则、卡片中间几行的顺序与「自定义字段最多 2 个」）。
 
 这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` 里，那几个模块**一 import 就有副作用**
 （打开 SQLite、连 socket、热状态页），单测碰不得，所以整理时把它们挪成独立纯模块，原模块再导出一次保持调用点不变。

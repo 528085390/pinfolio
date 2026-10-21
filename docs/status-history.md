@@ -69,3 +69,9 @@
 ⑧ **观测页拆分**：`web/pages/MonitorsPage.tsx`（367 行：数据拉取 + 30 秒轮询 + 筛选 + 统计条 + 卡片/表格两套渲染 + 抽屉全挤在一起）拆成 `web/pages/monitors/` 六件 —— `useMonitors.ts`（拉取与 `load(force)`、30 秒轮询、分组/状态/关键词筛选、异常通知跳转后的定位高亮；**抽屉开着时停轮询**、**轮询必须走缓存只有手动刷新才 `force`** 这两条约束随代码搬了过去）、`MonitorStats.tsx`（四格统计）、`MonitorFilters.tsx`（分组 chips + 状态下拉 + 搜索 + 自动刷新 + 视图切换 + 手动刷新）、`MonitorCard.tsx`（卡片视图，`id="monitor-<id>"` 是异常通知跳转锚点）、`MonitorTable.tsx`（表格视图）、`status.ts`（`tone()` 四色判定 / `pct()` / `typeLabel()`，**纯函数**）；`MonitorsPage.tsx` 只剩组合与三种空态（读不到 / 没有匹配 / 加载中）。
 
 验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/monitors-status.test.mts`（9 条：四色前缀优先于状态码、前缀必须在开头、未知状态码回 null、`pct()` 的 99.95% 取整、类型名映射），单测 70 → **79**；monitor 套件 **3/3（55s）**、core 套件 **11/11（82s）** —— e2e-alert 的 E2/E3/E4（点通知跳转并高亮对应卡片、长列表滚进视口）全过，说明卡片锚点没拆坏。
+
+## 2026-10-21 补充：资产页拆分
+
+⑨ **资产页拆分**：`web/pages/AssetsPage.tsx`（264 行：统计条 + 两排筛选 + 卡片/表格 + 抽屉）拆成 `web/pages/assets/` 六件 —— `useAssets.ts`（拉取 + 搜索防抖 220ms + 标签栏统计 + 保存后重拉）、`AssetStats.tsx`（四格统计）、`AssetFilters.tsx`（类型 chips + 状态下拉 + 搜索 + 视图切换 + 登记按钮）、`AssetTagBar.tsx`（标签栏）、`AssetCard.tsx`（卡片视图）、`AssetTable.tsx`（表格视图）、`meta.ts`（`usedTagsOf()` 排序规则 / `cardMeta()` 中间几行取值，**纯函数**）；`AssetsPage.tsx` 只剩组合与空态。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/assets-meta.test.mts`（10 条：标签栏只留有关联的、数量降序、同数按中文名称升序、不改原数组；卡片取值顺序、空值不占行、自定义字段最多 2 个、有 label 用 label、数字转字符串），单测 79 → **89**；core 套件 **11/11（80s）**、monitor 套件 **3/3（53s）** —— 依赖资产 UI 的 e2e（`e2e.mjs` 的登记/表格视图、`e2e-tagbar.mjs` 的 `.tag-bar` 筛选、`e2e-monitor-note.mjs` 的 `.asset-name`）全过。

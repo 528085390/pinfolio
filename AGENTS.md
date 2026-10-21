@@ -23,11 +23,11 @@
 | 邮件 | `server/mail/{types,parse,errors,pool,client,store}.ts` | 类型 / 摘要解析（纯函数）/ 错误翻译 / 连接池 / 归并列表与缓存（**只读**）/ 两张表 CRUD |
 | 入口 | `server/index.ts`（62 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
 | 前端壳 | `web/App.tsx`、`web/lib/router.ts` | 侧栏/主题/命令面板；页面状态从 URL 取，**别改回 `useState`** |
-| 页面 | `web/pages/*` + `web/pages/notes/*` + `web/pages/mail/*` + `web/pages/monitors/*` | 便签（useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件（useInbox/MailList/MailToolbar）、观测（useMonitors/Stats/Filters/Card/Table/status）、资产、设置 |
+| 页面 | `web/pages/*` + `web/pages/{notes,mail,monitors,assets}/*` | 便签（useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件（useInbox/MailList/MailToolbar）、观测（useMonitors/Stats/Filters/Card/Table/status）、资产（useAssets/Stats/Filters/TagBar/Card/Table/meta）、设置 |
 | 组件 | `web/components/*`（`FormDrawer` 是两个编辑抽屉的共用壳） | 抽屉 / 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM） |
 | 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（六域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
 | 样式 | `web/styles/`（12 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
-| 测试 | `tests/`（`unit/` 79 条单测 + 14 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
+| 测试 | `tests/`（`unit/` 89 条单测 + 14 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
 | 工具 | `tools/screenshots/`、`tools/seed-assets.mjs` | 截图脚本（须在项目根跑，产物进 `tmp/`）、批量灌数据 |
 
 ## 怎么用
@@ -57,7 +57,7 @@ pnpm typecheck        # tsc --noEmit
 
 **当前状态（2026-10-21）**：7788 运行中，五页（便签 / 邮件 / 资产 / 观测 / 设置）全部可用。工程整理已收口——
 服务端按职责拆分（`server/kuma/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
-前端 api 与样式分片，`tests/` 里有 79 条单测 + 14 套 e2e（`pnpm test` / `pnpm test:e2e`）。
+前端 api 与样式分片，`tests/` 里有 89 条单测 + 14 套 e2e（`pnpm test` / `pnpm test:e2e`）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
 未做：Gmail 跨页翻页（`hasMore:true` 的下一页）待信箱多于一页时复测；kuma 的 Windows Defender 排除项随旧路径失效，
 需管理员重跑 `kuma\tools\add-defender-exclusions.ps1`。
