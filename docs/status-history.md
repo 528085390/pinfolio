@@ -51,3 +51,9 @@
 ⑤ **单测护栏（2026-10-21 追加）**：把埋在 `db.ts`/`store.ts`/`client.ts`/`feed.ts`/`meta.ts` 里的纯函数拆成 `server/tags.ts`、`server/dates.ts`、`server/mail/proxy.ts`、`server/kuma/redact.ts`、`server/kuma/beat.ts`、`web/lib/paths.ts`（原模块再导出，调用点零改动），用 Node 自带 `node:test` 补 `tests/unit/*.test.mts`（**57 条，秒级**），加 `pnpm test:unit` 并进 `pnpm test`；`tsconfig` 的 include 加 `tests/unit`，测试文件也走 typecheck。
 
 验证：`pnpm typecheck` 0 错误、`pnpm build` 通过（CSS/JS 哈希与拆分前一致）、`pnpm test` 57 + 7 全过、`pnpm test:e2e --only=core` 全绿、`/api/*` 11 个端点逐个 200。顺手修了 `e2e-monitor-drawer` 的备份断言——备份目录只留 5 份，满 5 份后数量不再增加，改成比对「最新一份是否换人」。
+
+## 2026-10-21 补充：邮件后端拆分
+
+⑥ **邮件后端拆分**：`server/mail/client.ts`（570 行、30+ 函数，是服务端最胖的文件）按职责拆成 `types.ts`（数据模型）/ `parse.ts`（摘要解析，**纯函数**）/ `errors.ts`（错误翻译 + 代理提示）/ `pool.ts`（IMAP 连接池 + 只读锁 `withMailbox`）/ `client.ts`（多账号归并、正文缓存、文件夹、未读数）；`client.ts` 末尾再导出 `dropConnection`/`dropAllConnections`/`friendlyError`/`proxyOf`/`snippetFromText` 与全部类型，所以 `routes.ts` 的 import 零改动。
+
+验证：`pnpm typecheck` 0 错误；新增 `tests/unit/mail-parse.test.mts`（13 条：quoted-printable / base64 / html 剥标签 / `[image:]` 占位符 / 零宽字符 / 240 字上限 / 地址与时间归一），单测总数 57 → **70**，`pnpm test:unit` 70/70；隔离实例（`PORT=7799` + `PINBOARD_DATA=tests\e2e-data`）跑 `MAIL_E2E_BASE=… node tests/run.mjs --only=mail` → **2/2 套件、e2e-mail 58/58**；主实例 `--only=core` → **11/11**；重启后 `/api/health`、`/api/mail/status`（marked 11 / accounts 1）、`/api/monitors`、`/api/stats` 全 200。

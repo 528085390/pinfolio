@@ -1,315 +1,19 @@
-import { ImapFlow } from 'imapflow'
+// 邮件后端：多账号合并列表、正文按需下载、文件夹与未读数。
+// **只读**：取信一律 getMailboxLock(folder, { readOnly: true })（EXAMINE），一行 STORE 都不许有。
+// 分工：types.ts 类型 / parse.ts 纯解析 / errors.ts 错误翻译 / pool.ts 连接池 / 本文件业务与缓存。
 import { simpleParser } from 'mailparser'
 import type { MailAccountRow } from './store.js'
-
-export type Addr = { name: string; address: string }
-
-export type MailRow = {
-  accountId: number
-  folder: string
-  uid: number
-  subject: string
-  from: Addr | null
-  to: Addr[]
-  date: string | null
-  snippet: string
-  unread: boolean
-  flagged: boolean
-  size: number
-  localRead?: boolean
-}
-
-export type MailAttachment = {
-  index: number
-  filename: string
-  size: number
-  contentType: string
-  cid: string | null
-}
-
-export type MailMessage = {
-  accountId: number
-  folder: string
-  uid: number
-  subject: string
-  from: Addr | null
-  to: Addr[]
-  cc: Addr[]
-  date: string | null
-  messageId: string | null
-  text: string
-  html: string | null
-  attachments: MailAttachment[]
-}
-
-export type FolderInfo = {
-  path: string
-  name: string
-  delimiter: string
-  specialUse: string | null
-}
+import type { FolderInfo, ListResult, MailMessage, MailRow } from './types.js'
+import { addrList, addrOne, snippetFromText, toIso } from './parse.js'
+import { friendlyError, proxyOf } from './errors.js'
+import { getClient, isEncrypted, makeClient, OP_TIMEOUT, withMailbox, withTimeout } from './pool.js'
 
 const LIST_TTL = 60_000
 const BODY_TTL = 10 * 60_000
 const FOLDER_TTL = 5 * 60_000
-const OP_TIMEOUT = 20_000
 const MAX_MESSAGE_BYTES = 25 * 1024 * 1024
 const CHUNK = 50
 const BODY_CACHE_MAX = 40
-
-// ---------- 工具 ----------
-
-function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(label + '超时（' + Math.round(ms / 1000) + ' 秒）')), ms)
-    p.then(
-      (v) => { clearTimeout(timer); resolve(v) },
-      (e) => { clearTimeout(timer); reject(e) },
-    )
-  })
-}
-
-const AUTH_RE = /auth|credentials|LOGIN failed|AUTHENTICATIONFAILED|invalid user|password/i
-
-/** 代理地址去掉账号密码，避免把凭据写进界面提示 */
-function proxyLabel(proxy: string): string {
-  return String(proxy || '').replace(/\/\/[^@/]*@/, '//')
-}
-
-/** 账号没填代理时，允许用环境变量兜底（PINBOARD_MAIL_PROXY=socks5://127.0.0.1:10808） */
-export function proxyOf(a: { proxy?: string }): string {
-  return String(a.proxy || process.env.PINBOARD_MAIL_PROXY || '').trim()
-}
-
-/** 把 imapflow / 网络错误翻译成人能看懂的一句话；传了 proxy 会说明「这是走代理失败」 */
-export function friendlyError(err: unknown, proxy = ''): string {
-  const e = err as any
-  const code = String(e?.code || '')
-  const msg = String(e?.responseText || e?.message || e || '').trim()
-  const lower = msg.toLowerCase()
-  const via = proxy ? '（经代理 ' + proxyLabel(proxy) + '）' : ''
-  if (code === 'EPROXY' || code === 'ProxyError' || code === 'UnsupportedProxyAddress' || /proxy/i.test(msg)) {
-    return '代理连接失败：请确认代理程序在运行、地址端口正确' + (proxy ? '（' + proxyLabel(proxy) + '）' : '（例如 socks5://127.0.0.1:10808）')
-  }
-  if (code === 'CONNECT_TIMEOUT' || /timeout|timed out|超时/.test(lower)) {
-    return proxy
-      ? '连接超时' + via + '：代理不通或目标服务器不可达，请确认代理程序在运行、服务器地址与端口正确'
-      : '连接超时：服务器或网络不通。国内直连 imap.gmail.com 经常被墙，请在账号里填 SOCKS5 代理（例如 socks5://127.0.0.1:10808）；QQ/163 一般直连即可'
-  }
-  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return '服务器地址解析失败，请检查 IMAP 服务器地址是否写错'
-  if (code === 'ECONNREFUSED') {
-    return proxy
-      ? '连接被拒绝' + via + '：请确认代理程序在运行（端口对得上），以及服务器端口与加密方式（SSL 一般为 993）'
-      : '端口拒绝连接：请确认端口号与加密方式（SSL/TLS 一般为 993，STARTTLS 一般为 143）'
-  }
-  if (code === 'ECONNRESET' || code === 'EPIPE') return '连接被服务器中断，请稍后重试'
-  if (code === 'EAUTH' || AUTH_RE.test(msg) && !/certificate/i.test(msg)) {
-    return '登录被拒绝：用户名或密码不对。Gmail 需用「应用专用密码」，QQ/163 需用「授权码」而不是登录密码'
-  }
-  if (/certificate|self signed|CERT_/i.test(msg)) return 'TLS 证书校验失败：' + msg
-  if (/STARTTLS/i.test(msg)) return '服务器不支持 STARTTLS，请改用 SSL/TLS（993 端口）'
-  if (/UNAVAILABLE|temporarily/i.test(msg)) return '服务器暂时不可用，请稍后重试'
-  return msg || '未知错误'
-}
-
-function isEncrypted(client: ImapFlow): boolean {
-  const socket = (client as any).socket
-  return !!(socket && socket.encrypted)
-}
-
-function addrList(input: any): Addr[] {
-  // mailparser 返回 AddressObject { value: [...] }，imapflow 的 envelope 返回数组
-  const list = Array.isArray(input) ? input : Array.isArray(input?.value) ? input.value : input ? [input] : []
-  return list
-    .map((a: any) => ({ name: String(a?.name || ''), address: String(a?.address || '') }))
-    .filter((a: Addr) => a.address || a.name)
-}
-
-function addrOne(input: any): Addr | null {
-  const list = addrList(input)
-  return list[0] || null
-}
-
-function toIso(d: any): string | null {
-  if (!d) return null
-  const date = d instanceof Date ? d : new Date(d)
-  return isNaN(date.getTime()) ? null : date.toISOString()
-}
-
-// ---------- 摘要提取（列表页只抓 BODY[TEXT] 前 800 字节，不下载整封信）----------
-
-function decodeQuotedPrintable(s: string): string {
-  const txt = s.replace(/=\r?\n/g, '')
-  const bytes: number[] = []
-  for (let i = 0; i < txt.length; i++) {
-    const ch = txt[i]
-    if (ch === '=' && /^[0-9A-Fa-f]{2}$/.test(txt.slice(i + 1, i + 3))) {
-      bytes.push(parseInt(txt.slice(i + 1, i + 3), 16))
-      i += 2
-    } else {
-      bytes.push(txt.charCodeAt(i) & 0xff)
-    }
-  }
-  return Buffer.from(bytes).toString('utf8')
-}
-
-const ENTITIES: Record<string, string> = {
-  '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'", '&mdash;': '—', '&hellip;': '…',
-}
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<!--[\s\S]*$/g, ' ')
-    .replace(/<![^>]*>/g, ' ')
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|tr|li|h[1-6])>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
-    .replace(/&[a-zA-Z]+;/g, (m) => ENTITIES[m.toLowerCase()] ?? ' ')
-    .replace(/[ \t\u00a0]+/g, ' ')
-}
-
-type RawPart = { headers: string; body: string }
-
-function splitParts(text: string): RawPart[] {
-  const out: RawPart[] = []
-  const chunks = text.split(/^--[^\r\n]+/m)
-  if (chunks.length <= 1) return []
-  for (const chunk of chunks.slice(1)) {
-    if (/^--\s*$/.test(chunk.split(/\r?\n/)[0] || '')) continue
-    const idx = chunk.search(/\r?\n\r?\n/)
-    if (idx < 0) continue
-    const headers = chunk.slice(0, idx)
-    let body = chunk.slice(idx).replace(/^\r?\n\r?\n/, '')
-    if (/content-type:\s*multipart/i.test(headers)) continue
-    out.push({ headers, body })
-  }
-  return out
-}
-
-function decodePart(part: RawPart): string {
-  let body = part.body
-  const cte = /content-transfer-encoding:\s*([\w-]+)/i.exec(part.headers)?.[1]?.toLowerCase() || ''
-  const charset = /charset="?([\w-]+)/i.exec(part.headers)?.[1] || 'utf-8'
-  if (cte === 'base64') {
-    body = Buffer.from(body.replace(/[^A-Za-z0-9+/=]/g, ''), 'base64').toString('utf8')
-  } else if (cte === 'quoted-printable') {
-    body = decodeQuotedPrintable(body)
-  }
-  if (charset && !/^utf-?8$/i.test(charset)) {
-    // 非 UTF-8 的邮件不多，能解就解，解不了保留原文
-    try {
-      const bytes = Buffer.from(body, 'latin1')
-      body = new TextDecoder(charset as string).decode(bytes)
-    } catch { /* keep as is */ }
-  }
-  return body
-}
-
-export function snippetFromText(raw: Buffer | undefined): string {
-  if (!raw || !raw.length) return ''
-  const text = raw.toString('utf8')
-  const parts = splitParts(text)
-  let body = ''
-  if (parts.length) {
-    const plain = parts.find((p) => /content-type:\s*text\/plain/i.test(p.headers))
-    const html = parts.find((p) => /content-type:\s*text\/html/i.test(p.headers))
-    body = plain ? decodePart(plain) : html ? htmlToText(decodePart(html)) : ''
-    if (!body.trim()) body = parts.map((p) => decodePart(p)).join(' ')
-  } else {
-    body = text
-  }
-  if (/<html|<body|<div|<p[\s>]|<br|<!--|<!\[/i.test(body)) body = htmlToText(body)
-  // 有些发件人把 HTML（含 Outlook 条件注释）塞进 text/plain 分支，
-  // 还有些正文里是 [image: xxx] / [cid:xxx] 这种内嵌图占位符——列表摘要里都得清掉
-  return body
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    // 注释可能被 IMAP 的 maxLength 截断成「<!--[if …」没有收尾，剩下的一律当注释吃掉
-    .replace(/<!--[\s\S]*$/g, ' ')
-    .replace(/<![^>]*>/g, ' ')
-    .replace(/<\/?[a-zA-Z][^>]*>/g, ' ')
-    .replace(/\[(?:image|cid)\s*:[^\]]*\]/gi, ' ')
-    // 营销邮件爱用零宽字符/组合字形连接符撑开摘要预览，摘要里没意义
-    .replace(/[\u034f\u00ad\u200b-\u200d\u2060\ufeff]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 240)
-}
-
-// ---------- 连接池 ----------
-
-type PoolEntry = { client: ImapFlow; sig: string }
-const pool = new Map<number, PoolEntry>()
-
-function sigOf(a: MailAccountRow): string {
-  return [a.host, a.port, a.username, a.password, a.security, a.proxy].join('\u0000')
-}
-
-function makeClient(a: Pick<MailAccountRow, 'host' | 'port' | 'username' | 'password' | 'security'> & { proxy?: string }): ImapFlow {
-  const proxy = proxyOf(a)
-  return new ImapFlow({
-    host: a.host,
-    port: Number(a.port) || 993,
-    secure: a.security === 'ssl',
-    // imapflow 原生支持代理（http/https 走 CONNECT，socks/socks5/socks4/socks4a 走 SOCKS）
-    ...(proxy ? { proxy } : {}),
-    auth: { user: a.username, pass: a.password },
-    clientInfo: { name: 'pinboard', version: '0.1.0', vendor: 'pinboard' },
-    disableAutoIdle: true,
-    connectionTimeout: OP_TIMEOUT,
-    greetingTimeout: 15_000,
-    socketTimeout: 120_000,
-    logger: false,
-  } as any)
-}
-
-export function dropConnection(accountId: number) {
-  const entry = pool.get(accountId)
-  if (!entry) return
-  pool.delete(accountId)
-  try { entry.client.close() } catch { /* ignore */ }
-}
-
-export function dropAllConnections() {
-  for (const id of [...pool.keys()]) dropConnection(id)
-}
-
-async function getClient(a: MailAccountRow): Promise<ImapFlow> {
-  const sig = sigOf(a)
-  const entry = pool.get(a.id)
-  if (entry && (entry.sig !== sig || !entry.client.usable)) dropConnection(a.id)
-  const alive = pool.get(a.id)
-  if (alive) return alive.client
-  const client = makeClient(a)
-  client.on('error', (err: any) => {
-    console.warn('[mail] 连接错误 account=' + a.id + ' ' + (err?.message || err))
-    const cur = pool.get(a.id)
-    if (cur && cur.client === client) pool.delete(a.id)
-  })
-  client.on('close', () => {
-    const cur = pool.get(a.id)
-    if (cur && cur.client === client) pool.delete(a.id)
-  })
-  await withTimeout(client.connect(), OP_TIMEOUT, '连接 IMAP 服务器')
-  if (a.security === 'starttls' && !isEncrypted(client)) {
-    try { client.close() } catch { /* ignore */ }
-    throw new Error('服务器不支持 STARTTLS，已中止连接（避免用明文发送密码），请改用 SSL/TLS')
-  }
-  pool.set(a.id, { client, sig })
-  return client
-}
-
-async function withMailbox<T>(a: MailAccountRow, folder: string, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
-  const client = await getClient(a)
-  const lock = await withTimeout(client.getMailboxLock(folder, { readOnly: true } as any), OP_TIMEOUT, '打开文件夹 ' + folder)
-  try {
-    return await withTimeout(fn(client), OP_TIMEOUT, '读取邮件')
-  } finally {
-    try { lock.release() } catch { /* ignore */ }
-  }
-}
 
 // ---------- 缓存 ----------
 
@@ -442,17 +146,6 @@ function rowTime(r: MailRow): number {
   return r.date ? Date.parse(r.date) : 0
 }
 
-export type ListResult = {
-  items: MailRow[]
-  total: number
-  unseen: number
-  hasMore: boolean
-  errors: { accountId: number; label: string; error: string }[]
-  partial: boolean
-  /** 这批数据真正从 IMAP 取回的时刻（命中缓存时是缓存的取回时间），0 = 没取到 */
-  fetchedAt: number
-}
-
 export async function listMessages(opts: {
   accounts: MailAccountRow[]
   folder: string
@@ -568,3 +261,9 @@ export async function getMessage(a: MailAccountRow, folder: string, uid: number)
   pruneBodyCache()
   return entry
 }
+
+// ---- 再导出：让 routes.ts / 测试继续从 client.js 取，调用点不用改 ----
+export { dropAllConnections, dropConnection } from './pool.js'
+export { friendlyError, proxyOf } from './errors.js'
+export { snippetFromText } from './parse.js'
+export type { Addr, FolderInfo, ListResult, MailAttachment, MailMessage, MailRow } from './types.js'

@@ -14,3 +14,5 @@ SNAPSHOT.md
 .worktrees/
 tmp/*.txt
 tmp/*.bak-*
+# 邮件 e2e 的隔离实例数据目录（tests/README.md 里的 PINBOARD_DATA）
+tests/e2e-data/
