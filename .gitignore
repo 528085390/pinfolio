@@ -18,3 +18,7 @@ tmp/*.bak-*
 tmp/*.ps1
 # 邮件 e2e 的隔离实例数据目录（tests/README.md 里的 PINBOARD_DATA）
 tests/e2e-data/
+# 本机的观测项跳转映射（含自家面板地址），仓库里只带 monitor-links.example.json
+monitor-links.json
+# 一次性的个人文档（云厂商代金券之类），不对外
+/docs/huawei-cloud-voucher-200.md

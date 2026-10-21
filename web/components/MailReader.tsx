@@ -9,7 +9,7 @@ import { buildMailDoc, EMPTY_DOC, fitWidth, loadImagePref, saveImagePref } from 
 
 /**
  * 邮件阅读区：取信 → 清洗 HTML → 塞进 Shadow DOM。
- * 正文为什么走 Shadow DOM：邮件自带的 <style> 只在 shadow 里生效，不会污染整个便签夹的样式；
+ * 正文为什么走 Shadow DOM：邮件自带的 <style> 只在 shadow 里生效，不会污染整个主界面的样式；
  * 清洗规则与「固定宽度怎么压」都在 ./mail-reader/doc.ts，纯文本/地址/大小格式化在 ./mail-reader/text.ts。
  */
 export function MailReader({ accountId, folder, uid, folderLabel }: {
@@ -75,7 +75,7 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
 
   const useText = mode === 'text' || !msg?.html
 
-  // 正文走 Shadow DOM：邮件自带的 <style> 只在 shadow 里生效，不会污染整个便签夹的样式
+  // 正文走 Shadow DOM：邮件自带的 <style> 只在 shadow 里生效，不会污染整个主界面的样式
   useEffect(() => {
     if (useText || !htmlHost.current) return
     const host = htmlHost.current

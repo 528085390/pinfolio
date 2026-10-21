@@ -97,9 +97,9 @@ metaRoute.post('/seed', (c) => {
   }
 
   const srv = addAsset({
-    name: 'my-server', kind: 'server', status: 'active', location: '阿里云 · 北京',
+    name: '我的服务器', kind: 'server', status: 'active', location: '云厂商 · 北京',
     vendor: '阿里云', price: 99, currency: 'CNY', expiresAt: day(133),
-    url: 'https://example.com', notes: 'MyApp 双服务所在机器，nginx + manager + 上游。证书 acme.sh 自动续。',
+    url: 'https://example.com', notes: '示例：一台云服务器，nginx 反代两个服务，证书 acme.sh 自动续。',
     custom: { secret_at: 'C:\\Users\\you\\.ssh\\config', renew_cycle: '年付' },
     tags: ['服务器', '运维'],
   })
@@ -110,9 +110,9 @@ metaRoute.post('/seed', (c) => {
     custom: { renew_cycle: '买断' }, tags: ['硬件'],
   })
   addAsset({
-    name: 'example.com', kind: 'domain', status: 'active', vendor: 'DigitalPlat',
+    name: 'example.com', kind: 'domain', status: 'active', vendor: '域名注册商',
     price: 0, currency: 'USD', expiresAt: day(32), url: 'https://example.com',
-    notes: '未备案，走 443。', custom: { renew_cycle: '年付' }, tags: ['域名'],
+    notes: '示例：未备案，走 443。', custom: { renew_cycle: '年付' }, tags: ['域名'],
   })
   addAsset({
     name: 'ChatGPT Plus', kind: 'account', status: 'active', vendor: 'OpenAI',

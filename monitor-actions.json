@@ -1,5 +1,5 @@
 {
-  "_doc": "「立即观测」配方表。按观测项 id（优先）或 name 匹配；改完不用重启，刷新抽屉即生效。步骤类型：kuma-check / http / command，写法见 E:\\bqj\\kuma\\ADD-MONITOR.md 第 5.3 节。没配配方时：非推送型默认跑一次 kuma-check，推送型按钮置灰。",
+  "_doc": "「立即观测」配方表。按观测项 id（优先）或 name 匹配；改完不用重启，刷新抽屉即生效。步骤类型：kuma-check / http / command，写法见 docs/adding-assets.md 与项目文档。没配配方时：非推送型默认跑一次 kuma-check，推送型按钮置灰。",
   "recipes": [],
   "_examples": [
     {

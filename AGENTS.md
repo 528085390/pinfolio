@@ -1,4 +1,4 @@
-# pinboard —— 便签夹（自用笔记 + 资产台账）
+# pinfolio（自用笔记 + 资产台账）
 
 ## 用途
 本机单人用的「便签夹」：随手写 Markdown 便签、用 `#标签` 自动归类、置顶/搜索/归档，另有一个资产台账页登记设备/服务器/账号/域名（自定义字段、到期提醒、价格统计），便签可以钉到某条资产上。2026-10-21 又加了一页**只读邮件**：把 Gmail / QQ / 163 等多个信箱合成一个收件箱，点开即读，且**不改动服务器上的任何状态**。单进程单端口，数据只存本机 SQLite。
@@ -80,7 +80,7 @@ pnpm typecheck        # tsc --noEmit
 邮件功能另外依赖 `imapflow` + `mailparser`（纯 JS，已在 `package.json` 里，不需要额外服务）；`tests/fakeimap/` 的假 IMAP 服务器只是测试用，搬家不用带。
 
 ## 可清理项
-- `tmp/` —— 只剩运行期日志与截图，可整目录删（`docs/screenshots/` 另存了 README 用的图）。测试与截图脚本已搬走：测试在 `tests/`（用法见 `tests/README.md`），截图脚本在 `tools/screenshots/`，一次性数据脚本 `tools/seed-assets.mjs`。
+- `tmp/` —— 只剩运行期日志与截图，可整目录删。测试在 `tests/`（用法见 `tests/README.md`），截图脚本在 `tools/screenshots/`，一次性数据脚本 `tools/seed-assets.mjs`；截图不随仓库发布（页面里是本机真实数据）。
 - `logs/` —— 运行日志，可随时清空；已进 `.gitignore`（`*.log`）。
 - `dist/` —— 构建产物，`pnpm build` 可重建。
 - `data/` —— 个人数据，删掉等于清库（谨慎）。

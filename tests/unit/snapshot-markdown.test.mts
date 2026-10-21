@@ -78,7 +78,7 @@ test('countBy：按字段归类，保留首次出现顺序', () => {
 
 test('renderSnapshot：空库四处「暂无」+ 概览全 0', () => {
   const out = renderSnapshot({ assets: [], notes: [], tags: [], fields: [], lastChange: null, now: '2026-10-21T13:45:00' })
-  assert.match(out, /^# 便签夹快照（pinboard）/)
+  assert.match(out, /^# pinfolio 快照/)
   assert.match(out, /生成时间：2026-10-21 13:45/)
   assert.match(out, /数据最后变更：—/)
   assert.match(out, /- 资产 \*\*0\*\* 条/)

@@ -63,7 +63,7 @@ try {
   await page.goto(B + '/mail', { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
   ok('深链 /mail 停在邮件页', new URL(page.url()).pathname === '/mail', page.url())
-  ok('标题是「邮件 · 便签夹」', (await page.title()).includes('邮件'), await page.title())
+  ok('标题是「邮件 · pinfolio」', (await page.title()).includes('邮件'), await page.title())
   ok('侧栏第 2 项是邮件', (await page.locator('.nav-item').nth(1).locator('.nav-label').innerText()).trim() === '邮件')
   ok('侧栏高亮邮件', (await page.locator('.nav-item.active .nav-label').first().innerText()).trim() === '邮件')
   ok('无账号时显示引导', (await page.locator('.empty-title').first().innerText()).includes('还没有添加邮箱'))

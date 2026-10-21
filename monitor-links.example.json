@@ -1,0 +1,5 @@
+[
+  { "id": 1, "name": "本地面板", "url": "http://127.0.0.1:7863/panel/", "label": "本地控制台" },
+  { "id": 2, "name": "本机管理页", "url": "http://127.0.0.1:7864/", "label": "管理页（本机）" },
+  { "id": 3, "name": "线上入口", "url": "https://example.com/panel/", "label": "线上控制台" }
+]

@@ -1,5 +1,5 @@
 ﻿<#
-  pinboard 便签夹 启停脚本（后台隐藏运行，不开机自启，手动启动）
+  pinfolio 启停脚本（后台隐藏运行，不开机自启，手动启动）
   用法：
       pinboard.ps1              启动（默认）
       pinboard.ps1 start        启动（后台隐藏，起来后自动开浏览器）
@@ -44,7 +44,7 @@ function Test-Up {
 
 function Show-Status {
     $l = Get-Listener
-    Write-Host '便签夹 pinboard' -ForegroundColor Cyan
+    Write-Host 'pinfolio' -ForegroundColor Cyan
     if ($l) {
         Write-Host ('  状态    : 运行中 (pid ' + $l.OwningProcess + '，后台隐藏，无窗口)') -ForegroundColor Green
         $p = Get-Process -Id $l.OwningProcess -ErrorAction SilentlyContinue
@@ -64,14 +64,14 @@ function Show-Status {
 function Start-Pinboard {
     $l = Get-Listener
     if ($l) {
-        Write-Host ('便签夹已经在运行 (pid ' + $l.OwningProcess + ')，只打开页面。') -ForegroundColor Yellow
+        Write-Host ('pinfolio 已经在运行 (pid ' + $l.OwningProcess + ')，只打开页面。') -ForegroundColor Yellow
         Start-Process $Url
         return
     }
     if (-not (Test-Path $Vbs)) { Write-Host ('找不到启动脚本: ' + $Vbs) -ForegroundColor Red; exit 1 }
     $logDir = Split-Path -Parent $LogFile
     if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
-    Write-Host '正在后台启动便签夹...' -ForegroundColor Cyan
+    Write-Host '正在后台启动 pinfolio...' -ForegroundColor Cyan
     $sw = [Diagnostics.Stopwatch]::StartNew()
     Start-Process -FilePath 'wscript.exe' -ArgumentList ('"' + $Vbs + '"') -WorkingDirectory $Root
     $up = $false

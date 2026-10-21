@@ -141,7 +141,7 @@ const laptop = await A({
     '在本机跑的东西：',
     '- DSH（DeepSeek Harness）',
     '- Kuma 观测台：' + code('http://127.0.0.1:3001') + '（计划任务 ' + code('KumaObs') + '，数据 ' + code('E:\\kuma') + '）',
-    '- 便签夹：' + code('http://127.0.0.1:7788') + '（本应用）',
+    '- pinfolio：' + code('http://127.0.0.1:7788') + '（本应用）',
     '',
     '项目主要在 ' + code('E:\\z7z8') + '、' + code('E:\\kuma') + '、' + code('E:\\myapp-workspace') + '。',
   ].join('\n'),

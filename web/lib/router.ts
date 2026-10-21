@@ -6,7 +6,7 @@ export type { Page }
 export { pageFromPath, pathForPage } from './paths'
 
 function applyTitle(page: Page) {
-  document.title = TITLES[page] + ' · 便签夹'
+  document.title = TITLES[page] + ' · pinfolio'
 }
 
 /** 页面状态由 URL 驱动：刷新、直接开链接、前进后退都跟着走。 */

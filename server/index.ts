@@ -45,7 +45,7 @@ app.onError((err, c) => {
 const port = Number(process.env.PORT || 7788)
 serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (info) => {
   console.log('')
-  console.log('  便签夹已启动  ->  http://127.0.0.1:' + info.port)
+  console.log('  pinfolio 已启动  ->  http://127.0.0.1:' + info.port)
   console.log('  数据目录      ->  ' + DATA_DIR)
   console.log('')
   // 启动时先生成一次快照（失败只打日志，不影响服务）

@@ -1,42 +1,23 @@
-# 便签夹 · pinboard
+# pinfolio
 
 一个跑在本机的小工具：**随手写便签**，加 `#标签` 自动归类，再配一份**资产台账**，把服务器、域名、账号、设备这些东西登记清楚——到期了会提醒，便签能直接钉在某条资产上。再加一页**邮件**，把 Gmail / QQ / 163 几个信箱合到一个只读收件箱里；还有一页**观测台**，把所有机器/服务的实时状态并排摆出来。
 
 单进程、单端口、单个 SQLite 文件，不联网、无账号、无 Docker。打开 http://127.0.0.1:7788 就能用。
 
-- 位置：`D:\pinfolio`（2026-10-19 从 `D:\projects\pinboard` 整体迁出，同日与观测后端 `D:\kuma` 合并到工作区根 `D:\pinfolio`）
+- 运行方式：代码放在哪个目录都行，`pnpm install && pnpm build && pnpm start` 就能跑
 - 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 7 + React 19 + 手写 CSS
 - 数据：`data/pinboard.db`（只在本机）
 
 ## 截图
 
-| 便签 | 资产台账 |
-|---|---|
-| ![便签页](docs/screenshots/notes.png) | ![资产页](docs/screenshots/assets.png) |
+截图没跟着仓库发布——页面里都是本机真实的便签、邮箱和机器名，公开出来不合适。想看图就本地跑起来自己拍：
 
-| 资产详情抽屉 | 标签选择器 |
-|---|---|
-| ![资产抽屉](docs/screenshots/asset-drawer.png) | ![标签弹层](docs/screenshots/tag-picker.png) |
+```powershell
+node tools/screenshots/shots.mjs      # 便签 / 资产 / 设置 / 命令面板 / 深色
+node tools/screenshots/shots-assets.mjs
+```
 
-| 完成态（双击卡片切换） | 深色模式 |
-|---|---|
-| ![完成态](docs/screenshots/note-done.png) | ![深色模式](docs/screenshots/dark.png) |
-
-| 观测台（15 个观测项一屏放完） | 观测项详情抽屉（改名 / 立即观测） |
-|---|---|
-| ![观测台](docs/screenshots/monitors.png) | ![观测项抽屉](docs/screenshots/monitor-drawer.png) |
-
-| 删除观测项（手输名字才可删） |
-|---|
-| ![删除观测项](docs/screenshots/monitor-drawer-delete.png) |
-
-| 邮件（多邮箱合并收件箱） | 邮件（深色） |
-|---|---|
-| ![邮件页](docs/screenshots/mail-inbox.png) | ![邮件页深色](docs/screenshots/mail-dark.png) |
-
-| 邮箱账号 / 连接参数 |
-|---|
-| ![邮箱账号](docs/screenshots/mail-account.png) |
+产物写到 `tmp/shot-*.png`（已 gitignore）。
 
 ## 功能
 
@@ -71,19 +52,17 @@
 - 每张卡片：名称 + 机器 + 类型、**最近 40 次心跳**的色条（绿=正常 / 红=故障 / 黄=待定 / 灰=维护）、响应毫秒、最近检查时间、24h 可用率、窗口内异常次数。
 - 顶部四格：观测项 / 正常 / 异常 / 24h 可用率；下面可按机器、状态筛选，或按名称 / 消息搜索。
 - 默认 30 秒自动刷新（可关），也可以手动点刷新；卡片视图 / 表格视图切换。
-- **跳转管理页**：有管理界面的观测项，标题后面带一个 ↗，点标题在新标签页打开对应项目的管理页（表格视图里同样可点）。映射写在根目录的 `monitor-links.json`，改完刷新页面即生效，不用重启：
+- **跳转管理页**：有管理界面的观测项，标题后面带一个 ↗，点标题在新标签页打开对应项目的管理页（表格视图里同样可点）。映射写在根目录的 `monitor-links.json`，改完刷新页面即生效，不用重启。
+  仓库里只带一份示例 `monitor-links.example.json`，**复制成 `monitor-links.json` 再改**（真文件已 gitignore，免得把自家面板地址提交上去）：
 
   ```json
   [
-    { "id": 1, "name": "app-api", "url": "http://127.0.0.1:7863/panel/", "label": "App API 控制台（本机）" },
-    { "id": 3, "name": "my-server / app-api", "url": "https://example.com/panel/", "label": "App API 控制台（my-server）" },
-    { "id": 13, "name": "azfree / 公网入口", "url": "https://203.0.113.10/", "label": "MyApp Manager（azfree 公网入口）" }
+    { "id": 1, "name": "本地面板", "url": "http://127.0.0.1:7863/panel/", "label": "本地控制台" },
+    { "id": 3, "name": "线上入口", "url": "https://example.com/panel/", "label": "线上控制台" }
   ]
   ```
 
-  目前 19 个观测项里有 12 个配了跳转：三条 app-api（本机 / my-server / azfree）→ 各自的 `/panel/` 控制台，
-  三条 app-manager 与两条「公网入口」→ 对应的 manager 页面，aws-oregon 三条（v2ray / caddy / TCP 443）→ AWS EC2 实例页；
-  nginx / xray / oracle-proxy 的 TCP 443 没有管理界面，不配。
+  没配跳转的观测项（比如只探端口的 nginx / xray）就不显示 ↗。
 
   **按 `id` 匹配（优先）**：观测项可以在抽屉里改名，名字不是稳定键，所以规则以 `id` 为准，`name` 只当注释与兜底。
   换文件位置设 `MONITOR_LINKS` 环境变量。
@@ -170,7 +149,7 @@ pinboard/
 ├─ run-pinboard.vbs        隐藏窗口启动器（CRLF，被 start.cmd 调用）
 ├─ tools/pinboard.ps1      start|stop|restart|status|logs 控制脚本（UTF-8 带 BOM）
 ├─ logs/                   运行日志 pinboard.log（不进版本库）
-├─ monitor-links.json      观测项 → 项目管理页的跳转表（按 id 匹配，可随时改）
+├─ monitor-links.example.json  观测项 → 管理页跳转表的示例（复制成 monitor-links.json 再用）
 ├─ monitor-actions.json    「立即观测」的配方表（按观测项 id / 名字配多步，改完不用重启）
 ├─ package.json            scripts 与依赖
 ├─ vite.config.ts          前端构建（root=web，产物到 dist/web，/api 代理到 7788）
@@ -197,7 +176,7 @@ pinboard/
 │  └─ styles/              12 个分片，index.css 定层叠顺序
 ├─ tests/                  单测（unit/，pnpm test:unit）+ 14 套 Playwright e2e（run.mjs）+ fakeimap/
 ├─ tools/                  screenshots/（截图脚本，须在项目根跑）、seed-assets.mjs
-├─ docs/                   architecture.md / pitfalls.md（30 条）/ status-history.md / adding-assets.md / mail-page-requirements.md / screenshots/
+├─ docs/                   architecture.md / pitfalls.md（30 条）/ status-history.md / adding-assets.md / mail-page-requirements.md
 ├─ data/                   运行时数据（不进版本库）
 ├─ dist/web/               前端构建产物（server 直接托管）
 └─ tmp/                    运行期日志与截图（可随时删）

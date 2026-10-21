@@ -62,7 +62,7 @@ export function renderSnapshot(data: SnapshotData): string {
   const pendingNotes = notes.filter((n) => !n.archived && !n.done)
 
   const L: string[] = []
-  L.push('# 便签夹快照（pinboard）')
+  L.push('# pinfolio 快照')
   L.push('')
   L.push('> 本文件由 `server/snapshot.ts` 自动生成，**不要手改**——每次增删改后约 1.5 秒会被整份重写。')
   L.push('> 用途：新会话先读这一份就能看到全部资产、便签、标签与自定义字段，不必查库。')

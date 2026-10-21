@@ -18,8 +18,8 @@ export function Sidebar({ page, setPage, stats, mailSum, mon, dark, onToggleThem
       <div className="brand">
         <div className="brand-mark"><Pin size={16} /></div>
         <div className="brand-text">
-          <div className="brand-name">便签夹</div>
-          <div className="brand-sub">notes &amp; assets</div>
+          <div className="brand-name">pinfolio</div>
+          <div className="brand-sub">notes · assets · monitors</div>
         </div>
       </div>
 
