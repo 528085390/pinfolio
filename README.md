@@ -304,4 +304,8 @@ pnpm 的虚拟 store 路径变了，删掉重装即可：`Remove-Item .\node_mod
 - [`docs/adding-assets.md`](docs/adding-assets.md)：**加资产、加便签都看这一篇**（网页与 API 两条路、字段含义、标签规则、四类资产模板、批量脚本、常见错误、一页速查）。
 - [`SNAPSHOT.md`](SNAPSHOT.md)：**自动生成**的当前数据全表（资产总表 + 每条详情 + 全部便签 + 标签/字段总览）。
   任何写操作后 1.5 秒内自动重写，手动 `pnpm snapshot`；**不要手改**。新会话想一眼看全现有数据就读它，不必查库。
-- 跨项目的启停 / 备份 / 故障排查：[`../docs/runbook.md`](../docs/runbook.md)（工作区根 `D:\pinfolio\README.md` 是总入口）。
+- 跨项目的启停 / 备份 / 故障排查：本仓库内的部分见 [`AGENTS.md`](AGENTS.md) 与 [`docs/pitfalls.md`](docs/pitfalls.md)（作者自己的工作区级运维手册不在仓库里）。
+
+## 许可
+
+[MIT](LICENSE)。随便用、随便改、商用也行，出事别找我。
