@@ -1,5 +1,9 @@
 # pinfolio
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Tests](https://img.shields.io/badge/unit%20tests-259%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+
 一个跑在本机的小工具：**随手写便签**，加 `#标签` 自动归类，再配一份**资产台账**，把服务器、域名、账号、设备这些东西登记清楚——到期了会提醒，便签能直接钉在某条资产上。再加一页**邮件**，把 Gmail / QQ / 163 几个信箱合到一个只读收件箱里；还有一页**观测台**，把所有机器/服务的实时状态并排摆出来。
 
 单进程、单端口、单个 SQLite 文件，不联网、无账号、无 Docker。打开 http://127.0.0.1:7788 就能用。
@@ -300,6 +304,7 @@ pnpm 的虚拟 store 路径变了，删掉重装即可：`Remove-Item .\node_mod
 ## 文档
 
 - 本文件：面向使用者的功能、启动、备份、API。
+- [`CHANGELOG.md`](CHANGELOG.md)：改了什么、哪个版本改的。
 - [`AGENTS.md`](AGENTS.md)：面向后续开发者/agent 的工程约定、模块职责、踩过的坑（改代码前先读）。
 - [`docs/adding-assets.md`](docs/adding-assets.md)：**加资产、加便签都看这一篇**（网页与 API 两条路、字段含义、标签规则、四类资产模板、批量脚本、常见错误、一页速查）。
 - [`SNAPSHOT.md`](SNAPSHOT.md)：**自动生成**的当前数据全表（资产总表 + 每条详情 + 全部便签 + 标签/字段总览）。
