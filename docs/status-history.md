@@ -88,3 +88,12 @@
 顺手修的两处：
 - `tests/e2e-monitor-drawer.mjs` 里两处「打开抽屉后固定等 600/700ms 再数元素」的竞态（详情接口要问 Kuma，慢起来 1s+）——改成先 `waitFor` 目标元素再断言，不放松任何条件。
 - `tests/unit/assets-meta.test.mts` 的 `tag()` helper 原来返回 `never`，导致 `input.map(t => t.name)` 在 `tsc --noEmit` 下报 `TS2339: Property 'name' does not exist on type 'never'`（此前只跑过 `test:unit`，没跑 typecheck）；改成返回 `Tag` 后两条测试文件一起纳入类型检查。
+
+## 2026-10-21 补充：邮件页两个组件拆分
+
+⑪ **邮件阅读区与邮箱账号抽屉拆分**：`web/components/MailReader.tsx`（362 行）与 `web/components/MailAccountDrawer.tsx`（306 行）都改成「容器 + 部件」——
+- 阅读区：容器只留取信、`mode`、图片开关、Shadow DOM 挂载与 `ResizeObserver`；部件在 `web/components/mail-reader/` —— `MailMeta.tsx`（主题 + 五条元信息）、`MailViewbar.tsx`（HTML/纯文本切换 + 隐藏/显示图片）、`MailAttachments.tsx`（附件清单）、`text.ts`（`addrText`/`addrList`/`bytes`）、`css.ts`（`scrubCss`）、`doc.ts`（`BASE_CSS`/`buildMailDoc`/`fitWidth`/图片开关的 localStorage 读写）。
+- 账号抽屉：容器只留列表↔表单切换与四个接口调用；部件在 `web/components/mail-account/` —— `AccountForm.tsx`（常用邮箱 chip + 九个字段 + 提示）、`AccountList.tsx`（账号行 + 二次确认删除）、`form.ts`（`blankForm`/`toForm`/`applyPreset`/`buildBody`/`canTest`/`hintsFor`/`securityLabel`）。
+- e2e 依赖的类名一个没动：`.mail-reader-subject`、`.mail-reader-meta`、`.mail-html`、`.mail-text`、`.mail-seg-btn`、`.mail-img-banner`、`.mail-attach-item`、`.mail-attach-name`、`.drawer .mail-form`、`.mail-form-grid input|select`、`.mail-msg`、`.drawer .mail-acc-item`（删除仍是「点垃圾桶 → 确认删除」两步）。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/mail-reader-text.test.mts`（7 条）、`tests/unit/mail-scrub-css.test.mts`（7 条）、`tests/unit/mail-account-form.test.mts`（13 条），单测 112 → **139/139**；core 11/11、monitor 3/3、mail 2/2（隔离实例 7799）。
