@@ -7,3 +7,5 @@ tmp/**/*.png
 tmp/**/*.log
 # 自动生成，内容派生自 data/（个人资产/IP/账号），不进版本库
 SNAPSHOT.md
+# 开发用 git worktree（不提交）
+.worktrees/
