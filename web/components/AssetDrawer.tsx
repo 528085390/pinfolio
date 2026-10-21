@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Trash2, Save, Plus, Link2, StickyNote, ExternalLink } from 'lucide-react'
+import { Trash2, Plus, Link2, StickyNote, ExternalLink } from 'lucide-react'
 import { api, cx, type Asset, type FieldDef, type Note, type Tag } from '../lib/api'
 import { KINDS, KIND_META, STATUS_META, fullTime, money, expiry } from '../lib/format'
-import { Button, Drawer, Field, Spinner, TagChip } from './ui'
+import { Button, Field, TagChip } from './ui'
+import { FormDrawer } from './FormDrawer'
 import { Markdown } from './Markdown'
 
 const STATUSES = ['active', 'idle', 'retired', 'lost']
@@ -187,29 +188,19 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
   const ex = expiry(form.expiresAt || null)
 
   return (
-    <Drawer
+    <FormDrawer
       open={open}
       onClose={onClose}
       title={currentId === null ? '登记新资产' : '资产详情'}
-      footer={
-        <>
-          {currentId !== null ? (
-            <Button variant="danger" size="sm" onClick={remove}><Trash2 size={14} /> 删除</Button>
-          ) : null}
-          <div className="grow" />
-          <Button variant="ghost" size="sm" onClick={onClose}>关闭</Button>
-          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-            {saving ? <Spinner /> : <Save size={14} />} 保存
-          </Button>
-        </>
-      }
+      loading={loading}
+      error={error}
+      onSave={save}
+      saving={saving}
+      leading={currentId !== null ? (
+        <Button variant="danger" size="sm" onClick={remove}><Trash2 size={14} /> 删除</Button>
+      ) : null}
     >
-      {loading ? (
-        <div className="empty"><Spinner /></div>
-      ) : (
         <div>
-          {error ? <div className="alert">{error}</div> : null}
-
           <div className="form-grid">
             <Field label="名称" span={2}>
               <input className="input" value={form.name} autoFocus placeholder="例如 my-server / ThinkPad X1"
@@ -380,7 +371,6 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
             </>
           ) : null}
         </div>
-      )}
-    </Drawer>
+    </FormDrawer>
   )
 }

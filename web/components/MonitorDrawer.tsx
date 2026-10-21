@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Pause, Play, Save, Trash2, Zap } from 'lucide-react'
+import { ExternalLink, Pause, Play, Trash2, Zap } from 'lucide-react'
 import { api, type MonitorActionStepResult, type MonitorDetail } from '../lib/api'
-import { Button, Drawer, Field, Spinner } from '../components/ui'
+import { Button, Field } from '../components/ui'
+import { FormDrawer } from './FormDrawer'
 import { BeatStrip } from './BeatStrip'
 import { relativeTime, fullTime } from '../lib/format'
 
@@ -210,28 +211,22 @@ export function MonitorDrawer({ id, onClose, onChanged }: {
   const confirmOk = !!m && confirmName.trim() === m.name.trim()
 
   return (
-    <Drawer
+    <FormDrawer
       open={open}
       onClose={onClose}
+      size="md"
       title={(
         <div className="monitor-drawer-title">
           <span className="monitor-drawer-kicker">观测项详情</span>
           <span className="monitor-drawer-name" title={m?.name}>{m ? m.name : (loading ? '读取中…' : '观测项')}</span>
         </div>
       )}
-      footer={(
-        <>
-          <Button variant="ghost" onClick={onClose}>关闭</Button>
-          <span className="grow" />
-          <Button variant="primary" disabled={!canSave} onClick={save}>
-            <Save size={14} /> {saving ? '保存中…' : '保存'}
-          </Button>
-        </>
-      )}
+      loading={!detail && !error}
+      error={error}
+      onSave={save}
+      saving={saving}
+      saveDisabled={!canSave}
     >
-      {error ? <div className="alert">{error}</div> : null}
-      {!detail && !error ? <div className="empty"><Spinner /></div> : null}
-
       {detail && m ? (
         <>
           <div className="monitor-drawer-now">
@@ -458,6 +453,6 @@ export function MonitorDrawer({ id, onClose, onChanged }: {
           )}
         </>
       ) : null}
-    </Drawer>
+    </FormDrawer>
   )
 }
