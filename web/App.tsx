@@ -7,7 +7,9 @@ import { AssetsPage } from './pages/AssetsPage'
 import { MonitorsPage } from './pages/MonitorsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
+import { AlertStack } from './components/AlertStack'
 import { usePage } from './lib/router'
+import { useMonitorAlerts } from './lib/monitors'
 import { Button, Spinner } from './components/ui'
 
 export function App() {
@@ -22,6 +24,9 @@ export function App() {
   const [error, setError] = useState('')
   const [openAssetId, setOpenAssetId] = useState<number | 'new' | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  // 从异常通知点进来时要定位的观测项（null = 不用定位）
+  const [focusMonitorId, setFocusMonitorId] = useState<number | null>(null)
+  const { alerts: monitorAlerts, dismiss: dismissAlert } = useMonitorAlerts()
   const [theme, setTheme] = useState<string>(() => localStorage.getItem('pinboard-theme') || 'system')
 
   const refreshMeta = useCallback(async () => {
@@ -66,6 +71,13 @@ export function App() {
   function openAsset(id: number | 'new') {
     setPage('assets')
     setOpenAssetId(id)
+  }
+
+  // 点异常通知：关掉这条通知，切到观测台并定位到那一项（id 为 null 时只切页）
+  function openMonitor(id: number | null) {
+    if (id !== null) dismissAlert(id)
+    setPage('monitors')
+    setFocusMonitorId(id)
   }
 
   const title = page === 'notes' ? '便签' : page === 'mail' ? '邮件' : page === 'assets' ? '资产台账' : page === 'monitors' ? '观测台' : '设置'
@@ -167,12 +179,14 @@ export function App() {
               setOpenAssetId={setOpenAssetId}
             />
           ) : page === 'monitors' ? (
-            <MonitorsPage onSummary={setMon} />
+            <MonitorsPage onSummary={setMon} focusId={focusMonitorId} onFocusDone={() => setFocusMonitorId(null)} />
           ) : (
             <SettingsPage tags={tags} fields={fields} stats={stats} refreshMeta={refreshMeta} theme={theme} setTheme={setTheme} />
           )}
         </div>
       </div>
+
+      <AlertStack alerts={monitorAlerts} onDismiss={dismissAlert} onOpen={openMonitor} />
 
       <CommandPalette
         open={paletteOpen}

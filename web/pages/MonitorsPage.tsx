@@ -5,6 +5,7 @@ import { relativeTime, fullTime } from '../lib/format'
 import { Button, Empty, Spinner } from '../components/ui'
 import { BeatStrip } from '../components/BeatStrip'
 import { MonitorDrawer } from '../components/MonitorDrawer'
+import { isDown, shortGroup, shortName } from '../lib/monitors'
 
 // Kuma 心跳状态码：0 DOWN / 1 UP / 2 PENDING / 3 MAINTENANCE
 const STATUS: Record<number, { label: string; color: string }> = {
@@ -38,23 +39,22 @@ function TypeIcon({ type, size = 15 }: { type: string; size?: number }) {
   return <Globe size={size} />
 }
 
-// 组名去掉地区后缀：「my-server (阿里云)」→「my-server」
-function shortGroup(name: string) {
-  return name.replace(/\s*[（(][^）)]*[）)]\s*$/, '').trim() || name
-}
-
-// monitor 名普遍带「机器 / 」前缀（与所属组重复），卡片上省掉，机器靠副标题区分
-function shortName(m: Monitor) {
-  const prefix = shortGroup(m.group) + ' / '
-  return m.name.startsWith(prefix) ? m.name.slice(prefix.length) : m.name
-}
-
 function pct(v: number | null) {
   if (v === null) return '—'
   return (v * 100).toFixed(v >= 0.9995 ? 0 : 1) + '%'
 }
 
-export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) => void }) {
+export function MonitorsPage({
+  onSummary,
+  focusId = null,
+  onFocusDone,
+}: {
+  onSummary?: (s: MonitorSummary) => void
+  /** 要从异常通知跳过来的观测项 id */
+  focusId?: number | null
+  /** 定位+高亮做完后回调，让上层把 focusId 清掉 */
+  onFocusDone?: () => void
+}) {
   const [data, setData] = useState<MonitorsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -89,6 +89,32 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
   }, [onSummary])
 
   useEffect(() => { load() }, [load, tick])
+
+  // 从右上角异常通知点进来：清掉可能挡住它的筛选条件 → 滚到那张卡片 → 闪一下
+  useEffect(() => {
+    if (focusId === null || !data) return
+    const el = document.getElementById('monitor-' + focusId)
+    if (!el) {
+      if (group !== '' || status !== '' || searchInput !== '') {
+        setGroup('')
+        setStatus('')
+        setSearchInput('')
+        return
+      }
+      onFocusDone?.()
+      return
+    }
+    el.scrollIntoView({ block: 'center' })
+    el.classList.add('flash')
+    const t = setTimeout(() => {
+      el.classList.remove('flash')
+      onFocusDone?.()
+    }, 1600)
+    return () => {
+      clearTimeout(t)
+      el.classList.remove('flash')
+    }
+  }, [focusId, data, group, status, searchInput, q, view, onFocusDone])
 
   useEffect(() => {
     // 抽屉开着时停掉 30s 轮询：详情里有表单，后台刷新会把用户正在改的值冲掉
@@ -225,7 +251,7 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
               {shown.map((m) => {
                 const st = tone(m)
                 return (
-                  <tr key={m.id} className={cx('monitor-row', !m.active && 'paused')} onClick={() => setOpenId(m.id)}>
+                  <tr key={m.id} id={'monitor-' + m.id} className={cx('monitor-row', !m.active && 'paused')} onClick={() => setOpenId(m.id)}>
                     <td style={{ fontWeight: 550 }}>
                       {m.link ? (
                         <a className="monitor-link" href={m.link.url} target="_blank" rel="noreferrer noopener" title={m.link.label} onClick={(ev) => ev.stopPropagation()}>
@@ -269,7 +295,8 @@ function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
   const nameCls = cx('asset-name', m.link && 'monitor-link', note && 'has-note')
   return (
     <div
-      className={cx('asset-card monitor-card', (m.status === 0 || (m.msg || '').startsWith('[红]')) && 'down', !m.active && 'paused')}
+      id={'monitor-' + m.id}
+      className={cx('asset-card monitor-card', isDown(m) && 'down', !m.active && 'paused')}
       onClick={onOpen}
       role="button"
       tabIndex={0}
