@@ -22,3 +22,5 @@ tests/e2e-data/
 monitor-links.json
 # 一次性的个人文档（云厂商代金券之类），不对外
 /docs/huawei-cloud-voucher-200.md
+tmp/*.bundle
+tmp/*.mjs

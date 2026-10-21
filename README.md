@@ -175,7 +175,7 @@ pinboard/
 │  ├─ lib/                 api.ts（门面）+ api/（六域）、router.ts、format.ts、monitors.ts、cx.ts、paths.ts
 │  └─ styles/              12 个分片，index.css 定层叠顺序
 ├─ tests/                  单测（unit/，pnpm test:unit）+ 14 套 Playwright e2e（run.mjs）+ fakeimap/
-├─ tools/                  screenshots/（截图脚本，须在项目根跑）、seed-assets.mjs
+├─ tools/                  screenshots/（截图脚本，须在项目根跑）、seed-assets.mjs、chrome-path.mjs（浏览器路径）
 ├─ docs/                   architecture.md / pitfalls.md（30 条）/ status-history.md / adding-assets.md / mail-page-requirements.md
 ├─ data/                   运行时数据（不进版本库）
 ├─ dist/web/               前端构建产物（server 直接托管）

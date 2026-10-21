@@ -1,3 +1,4 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 import { chromium } from 'playwright-core'
 import { startFakeImap } from '../../tests/fakeimap/server.mjs'
 
@@ -5,7 +6,6 @@ import { startFakeImap } from '../../tests/fakeimap/server.mjs'
 //   set PINBOARD_DATA=D:\pinfolio\tests\e2e-data && set PORT=7799 && npx tsx server/index.ts
 //   $env:SHOT_BASE='http://127.0.0.1:7799'; node tools/screenshots/shots-mail.mjs
 // 对着正式实例（7788）跑会把真实 Gmail 账号配置删掉。
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const B = process.env.SHOT_BASE || 'http://127.0.0.1:7799'
 const fake = await startFakeImap(120)
 

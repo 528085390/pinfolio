@@ -1,9 +1,9 @@
+import { CHROME as exe } from '../tools/chrome-path.mjs';
 // 观测项「补充观测信息」端到端验收：A 固定说明（悬停）+ B 本次结果（卡片常显）
 // 运行：cd D:\pinfolio; node tests\e2e-monitor-note.mjs
 import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const TARGET_NAME = 'my-server / app-api' // 已用 kuma-monitor.cjs set 3 配上说明与 showMsg=1
 const OTHER_NAME = 'oracle-proxy / xray' // 未开启 showMsg 的 SSH 项，用来验证「原样式不变」
 

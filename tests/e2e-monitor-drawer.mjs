@@ -1,8 +1,8 @@
+import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { chromium } from 'playwright-core'
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const B = 'http://127.0.0.1:7788'
 const results = []
 const ok = (name, cond, extra) => results.push((cond ? 'PASS ' : 'FAIL ') + name + (cond || !extra ? '' : '  → ' + extra))

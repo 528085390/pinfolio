@@ -23,6 +23,7 @@
 - `dist/web/` —— 前端构建产物，server 直接托管（不进版本库）。
 - `tests/` —— 冒烟 / 端到端 / 单测（`tests/unit/`，`pnpm test:unit`，node:test 秒级）+ 串行 runner（`tests/run.mjs`）+ 假 IMAP（`tests/fakeimap/`）。
 - `tools/screenshots/` —— 截图脚本（产物写 `tmp/`，已被 .gitignore 忽略）。
+- `tools/chrome-path.mjs` —— e2e 与截图脚本共用的浏览器路径解析：`CHROME_PATH` → Playwright 自带 chromium → 系统 Chrome。**公开仓库里别把家目录写死进脚本**（既泄漏路径又让别人的机器跑不起来），2026-10-21 起所有脚本都改成 `import { CHROME as exe }`。
 - `tmp/` —— 运行期临时产物（日志、截图），可整目录删除（见「可清理项」）。
 
 服务端（Node 24 + Hono + `node:sqlite`，无原生编译）：

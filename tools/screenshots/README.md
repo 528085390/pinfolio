@@ -15,7 +15,9 @@ node tools/screenshots/shot-alert.mjs     # 观测异常通知三种状态
 powershell -File tools/screenshots/resize-shots.ps1   # 2x 截图缩成 1x
 ```
 
-前提：pinboard 已在 7788 跑着、前端已 `pnpm build`；浏览器用本机 ms-playwright 的 chromium（路径写在各脚本开头的 `exe` 常量里）。
+前提：pinboard 已在 7788 跑着、前端已 `pnpm build`。
+
+浏览器路径由 `tools/chrome-path.mjs` 统一决定：先看环境变量 `CHROME_PATH`，没有就找 Playwright 自带的 chromium（`%LOCALAPPDATA%\ms-playwright\chromium-1217\...`），再退到系统 Chrome。**脚本里不要再写死家目录**——仓库是公开的，写死会同时泄漏路径和让别人的机器跑不起来。
 
 **⚠️ `shots-mail.mjs` 会删掉目标实例上的所有邮箱账号**（再建一个指向假 IMAP 的），所以它默认指向 7799 而不是 7788，只许对着隔离实例跑：
 

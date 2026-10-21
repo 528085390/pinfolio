@@ -1,8 +1,8 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 // 截几张观测异常通知的图（浅色 / 深色 / 跳转到卡片）
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.ALERT_E2E_BASE || 'http://127.0.0.1:7801'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const OUT = 'docs\\screenshots\\'
 const GRP = 'my-server (阿里云)'
 const SHORT = 'my-server'

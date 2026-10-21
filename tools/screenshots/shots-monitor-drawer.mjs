@@ -1,6 +1,6 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 import { chromium } from 'playwright-core'
 
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const B = 'http://127.0.0.1:7788'
 const browser = await chromium.launch({ executablePath: exe })
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 }, deviceScaleFactor: 1.75, locale: 'zh-CN' })

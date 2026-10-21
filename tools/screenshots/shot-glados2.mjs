@@ -1,5 +1,5 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 import { chromium } from 'playwright-core'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const browser = await chromium.launch({ executablePath: exe })
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
 await page.goto('http://127.0.0.1:7788/', { waitUntil: 'networkidle' })

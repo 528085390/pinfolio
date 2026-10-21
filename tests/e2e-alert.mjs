@@ -1,3 +1,4 @@
+import { CHROME as exe } from '../tools/chrome-path.mjs';
 // 观测异常通知端到端验收：右上角弹窗 / 恢复自动关闭 / 点 × 关 / 点击跳对应卡片
 // 用 page.route 伪造 /api/monitors，不真弄坏 Kuma；用 page.clock 快进 30 秒轮询。
 // 运行：
@@ -7,7 +8,6 @@
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.ALERT_E2E_BASE || 'http://127.0.0.1:7799'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const POLL = 30000
 const VIEW = { width: 1440, height: 900 }
 

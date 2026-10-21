@@ -1,3 +1,4 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'
@@ -7,7 +8,7 @@ const api = async (p, o = {}) => {
 }
 const created = await api('/notes', { method: 'POST', body: JSON.stringify({ content: '归档演示：这条便签点「归档」后就会从默认列表消失 #整理' }) })
 
-const browser = await chromium.launch({ executablePath: 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe' })
+const browser = await chromium.launch({ executablePath: exe })
 const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, locale: 'zh-CN' })
 page.on('dialog', (d) => d.accept())
 await page.goto(BASE, { waitUntil: 'networkidle' })

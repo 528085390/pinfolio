@@ -1,3 +1,4 @@
+import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { chromium } from 'playwright-core'
 import { createRequire } from 'node:module'
 import { startFakeImap, makeRaw } from './fakeimap/server.mjs'
@@ -6,7 +7,6 @@ import { startFakeImap, makeRaw } from './fakeimap/server.mjs'
 const requireFake = createRequire(new URL('./fakeimap/package.json', import.meta.url))
 const { ImapFlow } = requireFake('imapflow')
 
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 // 默认打 7788（正常实例），但可以指到隔离实例上跑：
 //   $env:PINBOARD_DATA='...\tmp\e2e-data'; $env:PORT='7789'; pnpm start
 //   $env:MAIL_E2E_BASE='http://127.0.0.1:7789'; node tests/e2e-mail.mjs

@@ -1,8 +1,8 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 // 验证换行：把卡片那行字换成更长的课程名，看它是否换行而不是截断
 import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 
 const browser = await chromium.launch({ executablePath: exe })
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: 'zh-CN' })

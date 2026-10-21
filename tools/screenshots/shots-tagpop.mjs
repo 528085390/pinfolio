@@ -1,6 +1,6 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 // 标签弹层修复后的截图：给用户看的局部大图 + README 用的整屏图
 import { chromium } from 'playwright-core'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const browser = await chromium.launch({ executablePath: exe })
 
 // 1) README 用的整屏图（与其它截图一致的 1440x900 @1.5x）

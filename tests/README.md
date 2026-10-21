@@ -13,6 +13,10 @@ pnpm test:e2e      # core + monitor 全套（需要服务已在跑）
 pnpm test:mail     # 邮件套件（必须先按下面起隔离实例）
 ```
 
+e2e 用 `playwright-core` 驱动本机 Chrome/Chromium，路径由 `tools/chrome-path.mjs` 决定：
+先看环境变量 `CHROME_PATH`，没有就找 Playwright 自带的 chromium，再退到系统 Chrome。
+换机器时设 `CHROME_PATH` 即可，别改脚本。
+
 ## 单测（`tests/unit/`，2026-10-21 新增）
 
 `pnpm test:unit` 用 Node 自带的 `node:test` 跑 `tests/unit/*.test.mts`（经 tsx 转译，零新依赖，秒级）。

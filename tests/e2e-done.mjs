@@ -1,5 +1,5 @@
+import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { chromium } from 'playwright-core'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 const B = 'http://127.0.0.1:7788'
 const api = async (p, o) => { const r = await fetch(B + p, { headers: { 'Content-Type': 'application/json' }, ...o }); return r.json() }
 const browser = await chromium.launch({ executablePath: exe })

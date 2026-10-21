@@ -1,8 +1,8 @@
+import { CHROME as exe } from '../chrome-path.mjs';
 // 验收：卡片「本次观测情况」在课程名较长时自动换行（不再单行省略）
 import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'
-const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 
 const browser = await chromium.launch({ executablePath: exe })
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: 'zh-CN' })
