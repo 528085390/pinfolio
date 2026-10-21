@@ -9,7 +9,7 @@
 工程与文档：
 - `README.md` —— 面向使用者的完整说明：功能、截图（`docs/screenshots/`）、快速开始、数据与备份、目录结构、HTTP API、开发与测试、常见问题。
 - `AGENTS.md` —— 本文件，面向后续开发者/agent 的约定、模块职责、已知坑。
-- `SNAPSHOT.md` —— **自动生成的可读快照**：资产总表 + 每条资产详情（备注、自定义字段）+ 全部便签 + 标签/字段总览，头部带生成时间与「数据最后变更」。任何写操作（POST/PUT/PATCH/DELETE）后 1.5 秒内自动重写（`server/snapshot.ts` 的 `scheduleSnapshot()`，由 `server/index.ts` 的 `/api/*` 中间件触发），启动时也生成一次；手动 `pnpm snapshot`。**不要手改，会被覆盖。**
+- `SNAPSHOT.md` —— **自动生成的可读快照**：资产总表 + 每条资产详情（备注、自定义字段）+ 全部便签 + 标签/字段总览，头部带生成时间与「数据最后变更」。任何写操作（POST/PUT/PATCH/DELETE）后 1.5 秒内自动重写（`server/snapshot.ts` 的 `scheduleSnapshot()`，由 `server/index.ts` 的 `/api/*` 中间件触发），启动时也生成一次；手动 `pnpm snapshot`。**不要手改，会被覆盖。**渲染在 `server/snapshot/markdown.ts`（纯函数），取数与写盘在 `server/snapshot/{rows,write}.ts`；隔离实例（`PINBOARD_DATA` 指到别处）不写这个文件。
 - `start.cmd` —— 启动器：先用 `/api/health` 探测，已在运行就只开浏览器；否则调 `run-pinboard.vbs` **后台隐藏启动**，轮询到 HTTP 200 后打开页面，窗口随即自己关掉（2026-10-20 用户要求不再前置控制台窗口）。
 - `stop.cmd` —— 停止器：`tools\pinboard.ps1 stop`。后台隐藏运行后没有窗口可关，**停服务只能走它**。
 - `run-pinboard.vbs` —— 隐藏窗口启动器（`sh.Run "cmd /c ... pnpm start >> logs\pinboard.log 2>&1", 0, True`），**必须 CRLF**。
@@ -17,7 +17,7 @@
 - `logs/` —— 运行日志 `pinboard.log`（追加，不轮转；不进版本库）。
 - `docs/adding-assets.md` —— **录入手册（加资产、加便签都读这一篇）**：资产字段表 / 枚举 / 自定义字段 / 四类模板 / 批量脚本，便签字段表 / 标签抽取规则 / 完成与归档语义 / 批量导入，两页各自独立，末尾一页速查。给后续会话直接照做。
 - `docs/mail-page-requirements.md` —— **邮件页的唯一需求来源（v1.1 定稿）**：目标/非目标、FR-1…FR-29、NFR-1…NFR-10、数据模型、接口约定、12 条验收、Q1–Q10 定案、D1–D6 决策（D1 永不回写已读、D2 本地已读标记、D3 Gmail 实测暂缓、D4 远程图片默认显示 + 保留邮件样式、D5 60 秒轮询自动收信、D6 账号级 SOCKS5 代理）。动邮件页之前先读它——**别把「发信 / 删除 / 标已读」加回来**。
-- `docs/pitfalls.md` —— **已知问题与坑的完整 29 条**（编号稳定，「见坑 N」都指这里）；`AGENTS.md` 只留最要命的 5 条。
+- `docs/pitfalls.md` —— **已知问题与坑的完整 30 条**（编号稳定，「见坑 N」都指这里）；`AGENTS.md` 只留最要命的 5 条。
 - `docs/status-history.md` —— **2026-10-19 → 2026-10-21 的 23 条进展记录**（每条含当时的测试断言条数与真机复测结论）。`AGENTS.md` 的「状态」只留当前状态，**新增进展往这里写**。
 - `docs/huawei-cloud-voucher-200.md` —— **华为云 ¥200 代金券（资产 #30）的使用手册**：券信息、能开什么、下单 5 项核对、建机步骤、¥200 能覆盖几个月、花完后的续费来源（Grow 成长中心）、验收清单。资产 #30 的备注里指到这篇；换券 / 新开境外机先读它。
 - `docs/screenshots/` —— README 引用的截图（notes / assets / asset-drawer / tag-picker / note-done / dark / monitors / monitors-2560 / monitor-drawer / monitor-drawer-delete / monitor-alert / monitor-alert-jump / monitor-alert-dark / mail-inbox / mail-dark / mail-account），从 `tmp/` 挑出来固化，不受 `tmp/` 清理影响。
@@ -50,6 +50,10 @@
 - `server/index.ts` —— 薄入口（62 行）：挂 `/api` 各路由 + 写操作后 `scheduleSnapshot()` 中间件 + 静态托管 + notFound/onError + `serve` 7788 + 退出时 `shutdownMail()`。
 - `server/routes/meta.ts` —— 杂项接口：`/api/health`、`/api/bootstrap`、`/api/search`、`/api/stats`、`/api/export`、`POST /api/seed`（仅空库时写 2 个字段定义 + 4 资产 + 4 便签）。
 - `server/static.ts` —— `mountStatic(app)` 托管 `dist/web`（MIME 表、index.html no-cache、深链回 index.html）。
+- `server/snapshot.ts` —— 快照的门面 + 入口：re-export 下面三件，并在**直接执行**（`pnpm snapshot` = `tsx server/snapshot.ts`）时立即生成一次（用 `import.meta.url === pathToFileURL(process.argv[1])` 判断，被 import 时不触发）。
+- `server/snapshot/rows.ts` —— 四类行与查询：`loadAssets()`（在用优先 → 类型 → 名称 NOCASE）、`loadNotes()`（创建时间倒序）、`loadTags()`（便签+资产数倒序）、`loadFields()`、`loadLastChange()`；`tags` 用 `group_concat(t.name,'、')` 子查询拼。
+- `server/snapshot/markdown.ts` —— **纯函数**（只 `import type` 自 rows.ts，运行时碰不到数据库）：`renderSnapshot(data)` 吐整份 Markdown，`now` 可注入以便单测；`fmt/cell/indent/parseCustom/countBy` 是它的零件。改格式只动这里，`tests/unit/snapshot-markdown.test.mts` 会盯着。
+- `server/snapshot/write.ts` —— `buildSnapshot()`（取数+渲染）、`writeSnapshot()`（失败只 `console.warn('[snapshot] 生成失败：'…)`）、`scheduleSnapshot(delay=1500)`（防抖 + `unref` + `running/dirty` 合并）。**`PINBOARD_DATA` 指到别处（隔离实例）时整个跳过**：否则会拿空库生成 1 KB 快照覆盖真库那份（2026-10-21 踩过）。
 - `server/kuma/feed.ts` —— 观测数据的抓取与缓存：状态页清单（5 分钟 + 预热）、心跳（5 秒）、`collect()` 组装 `{kuma, updatedAt, summary, groups}`、`lastPayload()` 供 Kuma 挂掉时回旧值、`invalidate()` 清缓存并让 15 秒内请求带 `x-apicache-bypass:1`。
 - `server/kuma/links.ts` —— `monitor-links.json` 的加载与 `pickLink()`（id 优先、name 兜底）。
 - `server/kuma/beat.ts` —— 心跳纯函数：`toneChar()` 解析 `[绿|黄|红|灰]` 前缀、`toIso()` 把 Kuma 无时区 UTC 串转 ISO、`mapBeat()` 归一单条心跳；feed.ts 再导出。

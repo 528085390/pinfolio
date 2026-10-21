@@ -26,9 +26,10 @@ Kuma 脱敏/策略说人话（`server/kuma/redact.ts`）、四态心跳与时间
 `web/components/asset-drawer/form.ts` 的标签解析与提交形状、`monitor-drawer/display.ts` 的状态点取色）、
 邮件阅读区的地址与大小格式化（`web/components/mail-reader/text.ts`）与邮件 CSS 清洗（`mail-reader/css.ts`：
 去 `@import` / `expression(` / `behavior` / `-moz-binding`、`position:fixed|sticky` 改 `static`、隐藏图片时 `url(https?:…)` 换 `none`）、
-邮箱账号表单（`web/components/mail-account/form.ts`：编辑时密码留空就不发该字段、常用邮箱 chip 不冲掉已填的用户名密码）。
+邮箱账号表单（`web/components/mail-account/form.ts`：编辑时密码留空就不发该字段、常用邮箱 chip 不冲掉已填的用户名密码）、
+SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类型/状态、自定义字段用中文 label、便签标记、字段 options 坏掉不抛错）。
 
-这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` 里，那几个模块**一 import 就有副作用**
+这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` / `snapshot.ts` 里，那几个模块**一 import 就有副作用**
 （打开 SQLite、连 socket、热状态页），单测碰不得，所以整理时把它们挪成独立纯模块，原模块再导出一次保持调用点不变。
 新增纯逻辑优先放进对应纯模块，别塞回有副作用的文件里。
 

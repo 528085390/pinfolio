@@ -97,3 +97,15 @@
 - e2e 依赖的类名一个没动：`.mail-reader-subject`、`.mail-reader-meta`、`.mail-html`、`.mail-text`、`.mail-seg-btn`、`.mail-img-banner`、`.mail-attach-item`、`.mail-attach-name`、`.drawer .mail-form`、`.mail-form-grid input|select`、`.mail-msg`、`.drawer .mail-acc-item`（删除仍是「点垃圾桶 → 确认删除」两步）。
 
 验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/mail-reader-text.test.mts`（7 条）、`tests/unit/mail-scrub-css.test.mts`（7 条）、`tests/unit/mail-account-form.test.mts`（13 条），单测 112 → **139/139**；core 11/11、monitor 3/3、mail 2/2（隔离实例 7799）。
+
+## 2026-10-21 补充：快照生成拆分
+
+⑫ **快照生成拆分**：`server/snapshot.ts`（298 行）把四件事挤在一起（查库、拼 Markdown、写文件、防抖调度），拆成 `server/snapshot/` 三件 ——
+- `rows.ts`：四类行与查询（`loadAssets`/`loadNotes`/`loadTags`/`loadFields`/`loadLastChange`，`tags` 用 `group_concat(t.name,'、')` 子查询拼）。
+- `markdown.ts`：`renderSnapshot(data)` 与零件 `fmt/cell/indent/parseCustom/countBy`，**纯函数**（只 `import type` 自 rows.ts，运行时碰不到数据库），`now` 可注入以便固定输出。
+- `write.ts`：`buildSnapshot()` / `writeSnapshot()` / `scheduleSnapshot(1500)`（防抖 + `unref` + `running/dirty` 合并）。
+- `server/snapshot.ts` 只剩门面 + 入口：re-export 三件，并在**直接执行**（`pnpm snapshot`）时立即生成一次；`server/index.ts` 的 import 零改动。
+
+**顺手修了一个真 bug**：隔离实例（`PINBOARD_DATA=tests\e2e-data` + `PORT=7799` 跑邮件 e2e）只隔离了数据库，启动时 `writeSnapshot()` 拿空库生成 1 KB 的 `SNAPSHOT.md`，把真库那份 40 KB 覆盖掉了（2026-10-21 踩过，`pnpm snapshot` 补回）。护栏在 `write.ts`：`const ISOLATED = DATA_DIR !== join(ROOT, 'data')`，隔离实例直接跳过写入；正式实例不设该变量，所以正式快照不受影响。已记为坑 30。
+
+验证：`pnpm typecheck` 0 错误；**新旧实现输出逐行一致**（从 `git show HEAD:server/snapshot.ts` 取出旧实现跑一遍，与新版生成的 SNAPSHOT.md 比 700 行，除「生成时间」外完全相同）；新增 `tests/unit/snapshot-markdown.test.mts`（13 条：空库四处「暂无」、概览计数、中文类型/状态、custom 里的 ip 进表格、自定义字段中文 label、备注多行缩进、便签标记与关联资产、标签/字段表、坏 options 不抛错、不传 now 也能出时间），单测 139 → **152/152**；`pnpm test` 全过；重启后 `/api/health`、`/api/stats`、`/api/notes`、`/api/monitors` 全 200。

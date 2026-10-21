@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（29 条）
+# pinboard 已知问题与坑（30 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -38,3 +38,5 @@
 28. **异常通知的三条硬约束别改**：① 轮询**不能带 `fresh=1`**——那等于每 30 秒直捅一次 Kuma 状态页，正好撞上它 5 分钟缓存过期时要 5–30 秒（坑 9），观测页会连带卡死；② `stale: true` 的响应必须**整轮跳过**——Kuma 假死时后端沿用旧值并标 stale，若照旧值判定，会把所有通知当成「已恢复」全部关掉，用户就再也看不到告警；③ 首轮只当基线——否则打开页面瞬间，历史里所有红的项会一起炸出来。另外 `.alert-stack` 必须 `position: fixed`（`.content` 是滚动容器，绝对定位会被裁，见坑 11）。
 
 29. **Gmail 直连被墙时只能靠账号级代理，别去改全局环境变量**：本机 `imap.gmail.com:993` 直连会 10 秒超时（`:443` 也不通），而 `imap.qq.com` / `imap.163.com` 正常 —— 这表现为邮件页红条「连接超时」，**不是密码错**。修法就是账号里的 `proxy` 字段：① imapflow **原生支持** `proxy: 'socks5://127.0.0.1:10808'`（`dist/cjs/proxy-connection.js`，依赖里自带 `socks`），**不要为此加新依赖或自己包一层 socket**；② `mail_accounts.proxy` 加列必须走「`PRAGMA table_info` 查一遍、缺列才 `ALTER TABLE`」的迁移，否则老库启动就崩；③ 写建表 SQL 时**每行结尾逗号别漏**——漏了会报 `Error: near "enabled": syntax error` 让整个服务起不来（本次踩过）；④ `normalizeAccountInput()` 里 `proxy === undefined` 必须表示「不改」，只有传空字符串才清成直连，否则前端表单漏传字段就会把用户配好的代理静默清掉；⑤ 代理挂了要能看懂：`friendlyError(err, proxy)` 必须把「经代理 socks5://…」写进文案（并用 `proxyLabel()` 去掉 URL 里的账号密码），否则用户只会看到一句「连接超时」又回头怀疑密码。账号抽屉里「代理（可选）」留空 = 直连，只填 `127.0.0.1:10808` 会自动补 `socks5://`。
+
+30. **隔离实例（`PINBOARD_DATA` 指到别处）只隔离数据库，不隔离项目根下的生成物**：跑邮件 e2e 时用 `PORT=7799` + `PINBOARD_DATA=tests\e2e-data` 起了个空库实例，它启动时 `writeSnapshot()` 拿**空库**生成了一份 1 KB 的 `SNAPSHOT.md`，把真库那份 40 KB 的覆盖掉了（2026-10-21 踩过，`pnpm snapshot` 才补回来）。现在的护栏在 `server/snapshot/write.ts`：`const ISOLATED = DATA_DIR !== join(ROOT, 'data')`，隔离实例直接跳过写入并打一行 warn。**再加「项目根下的自动生成物」时（导出文件、缓存、报告），一律照这个判断加护栏**，别只想着数据库。
