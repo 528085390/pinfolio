@@ -5,7 +5,7 @@
 ## 快速开始
 
 ```powershell
-cd D:\pinfolio
+cd <项目目录>
 
 pnpm test          # typecheck + 单测 + 摘要清洗单测（不需要服务）
 pnpm test:unit     # 只跑单测（node:test，秒级）
@@ -81,12 +81,12 @@ node tests/run.mjs --only=mail
 
 ```powershell
 # 1. 起一个隔离实例（数据目录和端口都和正式实例分开）
-$env:PINBOARD_DATA='D:\pinfolio\tests\e2e-data'
+$env:PINBOARD_DATA="$PWD\tests\e2e-data"
 $env:PORT='7799'
 pnpm start
 
 # 2. 另一个窗口跑测试
-cd D:\pinfolio
+cd <项目目录>
 $env:MAIL_E2E_BASE='http://127.0.0.1:7799'
 pnpm test:mail
 

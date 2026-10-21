@@ -109,7 +109,7 @@ node tools/screenshots/shots-assets.mjs
 ### 方式二：命令行
 
 ```powershell
-cd D:\pinfolio
+cd <项目目录>
 pnpm install     # 首次
 pnpm start       # 生产模式，http://127.0.0.1:7788
 ```
@@ -119,8 +119,8 @@ pnpm start       # 生产模式，http://127.0.0.1:7788
 停止服务：双击 `stop.cmd`，或
 
 ```powershell
-& D:\pinfolio\tools\pinboard.ps1 stop     # 结束整条 node 链并等端口释放
-& D:\pinfolio\tools\pinboard.ps1 status   # 看状态 / 日志用 logs
+.\tools\pinboard.ps1 stop     # 结束整条 node 链并等端口释放
+.\tools\pinboard.ps1 status   # 看状态 / 日志用 logs
 ```
 
 （方式二是前台运行，那种情况下关掉命令行窗口也就停了。）

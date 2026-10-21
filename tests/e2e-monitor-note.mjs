@@ -1,6 +1,6 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 // 观测项「补充观测信息」端到端验收：A 固定说明（悬停）+ B 本次结果（卡片常显）
-// 运行：cd D:\pinfolio; node tests\e2e-monitor-note.mjs
+// 运行（在项目根目录）：node tests\e2e-monitor-note.mjs
 import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'

@@ -2,7 +2,7 @@ import { CHROME as exe } from '../tools/chrome-path.mjs';
 // 观测异常通知端到端验收：右上角弹窗 / 恢复自动关闭 / 点 × 关 / 点击跳对应卡片
 // 用 page.route 伪造 /api/monitors，不真弄坏 Kuma；用 page.clock 快进 30 秒轮询。
 // 运行：
-//   cd D:\pinfolio
+//   cd <项目目录>
 //   $env:PINBOARD_DATA="$PWD\tmp\e2e-data"; $env:PORT='7799'; $env:KUMA_BASE='http://127.0.0.1:9'; pnpm start
 //   node tests\e2e-alert.mjs
 import { chromium } from 'playwright-core'

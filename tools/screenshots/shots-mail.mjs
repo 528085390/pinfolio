@@ -3,7 +3,7 @@ import { chromium } from 'playwright-core'
 import { startFakeImap } from '../../tests/fakeimap/server.mjs'
 
 // 注意：这个脚本会**删掉 B 上的所有邮箱账号**再建一个假的，所以只许指向隔离实例：
-//   set PINBOARD_DATA=D:\pinfolio\tests\e2e-data && set PORT=7799 && npx tsx server/index.ts
+//   set PINBOARD_DATA=%CD%\tests\e2e-data && set PORT=7799 && npx tsx server/index.ts
 //   $env:SHOT_BASE='http://127.0.0.1:7799'; node tools/screenshots/shots-mail.mjs
 // 对着正式实例（7788）跑会把真实 Gmail 账号配置删掉。
 const B = process.env.SHOT_BASE || 'http://127.0.0.1:7799'
