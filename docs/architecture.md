@@ -64,7 +64,11 @@
 - `server/kuma/beat.ts` —— 心跳纯函数：`toneChar()` 解析 `[绿|黄|红|灰]` 前缀、`toIso()` 把 Kuma 无时区 UTC 串转 ISO、`mapBeat()` 归一单条心跳；feed.ts 再导出。
 - `server/kuma/backup.ts` —— `refreshSnapshot()`（防抖 1.5 秒 spawn `kuma/tools/snapshot.cjs`）与 `backupDb()`（`VACUUM INTO`，留最近 5 份）。
 前端（Vite 7 + React 19 + 手写 CSS，无 UI 框架）：
-- `web/App.tsx` —— 侧栏导航（便签/**邮件**/资产/观测/设置 + 计数）、主题切换（localStorage `pinboard-theme`，data-theme）、Ctrl/⌘+K 命令面板；**页面状态不在这里用 `useState`，而是 `const [page, setPage] = usePage()` 从 URL 取**（2026-10-20 起）。
+- `web/App.tsx` —— 组合层（2026-10-21 拆开）：`const s = useShell()` 拿外壳状态，渲染 `Sidebar` + `Topbar` + 按 `s.page` 选页面 + `AlertStack` + `CommandPalette`。**页面状态不在这里用 `useState`，而是 `useShell()` 内部的 `const [page, setPage] = usePage()` 从 URL 取**（2026-10-20 起）。
+- `web/app/` —— 应用外壳四件：
+  - `useShell.ts` —— 全部外壳状态与副作用：页面（`usePage()`）、tags/fields/stats/mon/mailSum、`ready`/error、`refreshMeta()`、主题（localStorage `pinboard-theme` + `prefers-color-scheme` 监听 → `<html data-theme>`）、Ctrl/⌘+K 命令面板开关、`openAsset()`/`openMonitor()`（点异常通知：关通知 + 切观测台 + 定位 id）、`useMonitorAlerts()`。
+  - `Sidebar.tsx` / `Topbar.tsx` —— 纯展示，e2e 依赖的 `.nav-item`/`.nav-label`/`.nav-badge`/`.topbar-title`/`.topbar-sub` 结构一个字没动；主题图标按 `document.documentElement.dataset.theme` 决定。
+  - `titles.ts` —— `pageTitle()`/`pageSubtitle()` 纯函数（拿不到汇总数据时给静态说明，**不显示 0**），有单测。
 - `web/lib/router.ts` —— 页面路由（2026-10-20 加）：`pageFromPath()`（`/mail` `/assets` `/monitors` `/settings` 映射成页面；`/`、未知路径、带尾斜杠一律归便签）、`pathForPage()`、`usePage()` hook（初始值取 `location.pathname`、`popstate` 跟前进后退、`history.pushState` 改地址栏、同步 `document.title`）。**别把页面状态改回 `useState('notes')`**——那样一刷新就回便签页（用户 2026-10-20 反馈的问题）。
 - `web/pages/NotesPage.tsx` —— 顶部 composer（Ctrl/⌘+Enter 保存，含「标签」弹层与新建标签）、置顶区/全部区、筛选 chips（全部/未完成/已完成/置顶/标签/＋新标签/已归档）、防抖搜索、行内编辑、归档、关联资产；**完成状态**：圆形对勾按钮或**双击卡片正文**都能切换（双击忽略按钮/链接/标签/编辑框，并清掉浏览器默认选中文字），切换走本地乐观更新、不重排列表，只有处于「已完成/未完成」筛选时才重新拉取。
   **归档模式（`archivedMode` state，2026-10-20 加）**：默认视图**没有硬删除**，卡片右上角是「归档」（`PATCH {archived:true}`，`archive()`）。点筛选行的「已归档」chip 进入**只读归档视图**：`load()` 带 `archived='1'`，隐藏 composer / 完成圆圈 / 置顶 / 编辑 / 标签 chips / 全部·未完成·已完成·置顶 chips，双击不再切完成，卡片只留「恢复」（`restore()` → `PATCH {archived:false}`）与「永久删除」（`remove()`，danger 样式，confirm「永久删除这条便签？不可恢复。」）。`toggleArchivedMode()` 会清掉 tag/pinnedOnly/doneFilter/editingId。归档条数由 `App.tsx` 传 `archivedCount={stats?.archived ?? 0}` 显示在 chip 上。**别把 DELETE 入口加回默认视图**——用户明确要求「删除改归档，只在已归档里允许永久删除」。

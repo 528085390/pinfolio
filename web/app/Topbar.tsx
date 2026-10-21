@@ -1,0 +1,27 @@
+import { Command } from 'lucide-react'
+import type { MonitorSummary, Stats } from '../lib/api'
+import type { Page } from '../lib/router'
+import { pageSubtitle, pageTitle, type MailSummary } from './titles'
+
+export function Topbar({ page, stats, mailSum, mon, onOpenPalette }: {
+  page: Page
+  stats: Stats | null
+  mailSum: MailSummary | null
+  mon: MonitorSummary | null
+  onOpenPalette: () => void
+}) {
+  return (
+    <header className="topbar">
+      <div style={{ minWidth: 0 }}>
+        <div className="topbar-title">{pageTitle(page)}</div>
+        <div className="topbar-sub">{pageSubtitle(page, { stats, mailSum, mon })}</div>
+      </div>
+      <div className="topbar-actions">
+        <button className="btn btn-ghost btn-sm" onClick={onOpenPalette} title="快速搜索 / 命令">
+          <Command size={14} />
+          <span className="kbd">Ctrl K</span>
+        </button>
+      </div>
+    </header>
+  )
+}

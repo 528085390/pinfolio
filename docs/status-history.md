@@ -168,3 +168,17 @@ limit 夹取、附件三参数、`Content-Disposition` 拼装、测试连接补�
 
 验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/settings-fields.test.mts`（7 条），单测 210 → **217/217**；
 core e2e **11/11**（设置页新增标签那一步照常通过）。
+
+## 2026-10-21 补充：应用外壳拆分
+
+⑰ **应用外壳拆分**：`web/App.tsx`（201 行）把外壳状态（页面、tags/fields/stats/观测汇总/邮件汇总、ready/error、主题、
+命令面板、异常通知跳转）和侧栏/顶栏的 JSX 全挤在一起。拆成 `web/app/` 四件：
+- `useShell.ts`：全部外壳状态与三个 effect（`refreshMeta()`、主题写入 `<html data-theme>` 并监听 `prefers-color-scheme`、
+  Ctrl/⌘+K 开合命令面板）+ `openAsset()` / `openMonitor()`（点异常通知：关通知 + 切观测台 + 定位 id）+ `useMonitorAlerts()`。
+- `Sidebar.tsx` / `Topbar.tsx`：纯展示；e2e 依赖的 `.nav-item` / `.nav-label` / `.nav-badge` / `.topbar-title` / `.topbar-sub` 结构一个字没动。
+- `titles.ts`（**纯函数，有单测**）：`pageTitle()`、`pageSubtitle()`——拿不到汇总数据时给静态说明（**不显示 0**），观测页四段按需拼接。
+- `App.tsx` 只剩组合层：`const s = useShell()` → `Sidebar` + `Topbar` + 按 `s.page` 选页面 + `AlertStack` + `CommandPalette`。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；
+新增 `tests/unit/app-titles.test.mts`（6 条），单测 217 → **223/223**；core e2e **11/11（80s，含 e2e-router 的前进后退与深链）**。
+
