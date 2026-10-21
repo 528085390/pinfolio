@@ -124,3 +124,18 @@
 showMsg 的 true/1/其他、`accepted_statuscodes` 转字符串与空值回 `['200-299']`、`conditions` 与 `policyJson` 三种归一化、
 `policy_json` 下划线也认、`policyNameRefs` 字符串/对象/坏 JSON、`isJsonContentType`、`kumaErrorStatus`），单测 152 → **171/171**；
 `pnpm test` 全过；重启后端点全 200；monitor e2e 3/3（e2e-monitor-drawer 88 条全过，含策略按名字引用拒绝改名、删除确认、415）、core 11/11。
+
+## 2026-10-21 补充：「立即观测」配方拆分
+
+⑭ **配方纯逻辑拆分**：`server/kuma/actions.ts`（253 行）一半是「读 `monitor-actions.json` + 挑配方」、一半是
+kuma-check / http / command 三种步骤的执行器，挑配方的规则（id 优先于名字、置灰原因、每步超时）一条都测不到。拆成：
+- `server/kuma/recipe.ts`（纯函数）：`parseRules()`（顶层数组与 `{recipes:[…]}` 都认，坏配置当没配方）、`normalizeSteps()`、
+  `resolveFromRules()`（先 `id` 再 `name`；置灰三档：配方自带 `disabledReason` → 不认识的步骤类型 → 没有步骤；没配方时非推送型默认 `kuma-check`、推送型置灰）、
+  `timeoutOf()`、`clip()`、`statusText()`。
+- `server/kuma/runner.ts`：三种步骤的执行器 + `runRecipe()`（顺序跑、失败即中止、整体 60 秒上限），逻辑一行没改。
+- `server/kuma/actions.ts` 只剩 30 行门面：`ACTIONS_FILE` + `loadRules()`（每次请求热读）+ `resolveAction()`，再导出 `runRecipe` 与类型，**`routes.ts` 的 import 零改动**。
+
+验证：`pnpm typecheck` 0 错误；新增 `tests/unit/kuma-recipe.test.mts`（22 条：配置两种写法与坏结构、步骤归一与未知类型、
+id 优先于名字、配方自带置灰原因、空配方、推送型没配方、每步超时按类型取默认与边界夹取、`clip`/`statusText`），单测 171 → **193/193**；
+`pnpm test` 全过；重启（pid 21096，1.2s）后端点全 200；monitor e2e **3/3（54s，含立即观测的 http / command / kuma-check 三种步骤与热读配方）**、core **11/11（79s）**。
+文档：`docs/architecture.md` 的 `actions.ts` 条目拆成 recipe / runner / actions 三条，`README.md` 的目录树按当前结构重写（server/ 与 web/ 子目录、tests/、tools/）。

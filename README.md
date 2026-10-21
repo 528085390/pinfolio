@@ -178,24 +178,29 @@ pinboard/
 ├─ pnpm-workspace.yaml     pnpm 12 的构建白名单（esbuild）
 ├─ SNAPSHOT.md             自动生成的数据快照（资产 + 便签 + 标签，勿手改）
 ├─ server/                 后端（Hono）
-│  ├─ index.ts             端口、/api/* 路由挂载、静态托管、seed/export/stats/search
-│  ├─ db.ts                建表、SQL 封装、标签解析与同步、预设标签、迁移
+│  ├─ index.ts             薄入口（62 行）：挂路由 + 快照中间件 + 启动
+│  ├─ static.ts            dist/web 托管与 SPA 深链
+│  ├─ db.ts                打开库、SQL 封装、标签解析与同步、预设标签、迁移
+│  ├─ schema/              core.ts（便签/资产/标签/字段）、mail.ts（信箱 + 本地已读）
 │  ├─ hydrate.ts           便签/资产的行数据补全（标签、关联资产、便签数）
-│  ├─ snapshot.ts          生成 SNAPSHOT.md（写操作后 1.5 秒内重写，启动时也生成）
-│  ├─ mail/                邮件：client.ts（imapflow 连接池 + 缓存 + 摘要 + 正文解析）/ store.ts（信箱 + 本地已读）
-│  ├─ kuma.ts              跟 Kuma 说话的 socket.io 客户端（列表/详情/心跳/改名/暂停/删除/立刻探一次）+ 目标脱敏
-│  ├─ monitor-actions.ts   「立即观测」配方解析与执行器（kuma-check / http / command 三种步骤）
-│  └─ routes/              notes.ts / assets.ts / tags.ts / fields.ts / monitors.ts（Kuma 聚合 + 写接口）/ mail.ts
+│  ├─ tags.ts / dates.ts   纯函数：标签解析与配色 / 到期天数
+│  ├─ snapshot/            rows.ts 取数 / markdown.ts 渲染（纯函数）/ write.ts 写盘与 1.5 秒防抖
+│  ├─ mail/                types / parse（摘要解析）/ errors / pool（连接池 + 只读锁）/ client（归并 + 缓存）/ store（两张表）/ routes
+│  ├─ kuma/                client（socket.io）、feed（抓取缓存）、recipe（配方纯逻辑）、runner（执行）、actions（读配置）、
+│  │                       links（跳转表）、backup（库备份）、patch / http（PATCH 校验与 HTTP 小工具）、routes
+│  └─ routes/              notes.ts / assets.ts / tags.ts / fields.ts / meta.ts（健康、bootstrap、搜索、统计、导出、seed）
 ├─ web/                    前端（React 19）
 │  ├─ App.tsx              布局、侧栏、主题、命令面板
-│  ├─ pages/               NotesPage / MailPage / AssetsPage / MonitorsPage / SettingsPage
-│  ├─ components/          AssetDrawer / MonitorDrawer / BeatStrip / MailReader / MailAccountDrawer / CommandPalette / ui / Markdown / KindIcon
-│  ├─ lib/                 api.ts（类型与请求）、format.ts（时间/金额/到期文案）
-│  └─ styles.css           暖纸色设计令牌 + 深色主题
-├─ docs/screenshots/       README 用的截图
+│  ├─ pages/               NotesPage / MailPage / AssetsPage / MonitorsPage / SettingsPage + 各自子目录（notes/ mail/ monitors/ assets/）
+│  ├─ components/          抽屉 / 心跳色条 / 异常通知栈 / 命令面板 / ui + monitor-drawer/ asset-drawer/ mail-reader/ mail-account/
+│  ├─ lib/                 api.ts（门面）+ api/（六域）、router.ts、format.ts、monitors.ts、cx.ts、paths.ts
+│  └─ styles/              12 个分片，index.css 定层叠顺序
+├─ tests/                  单测（unit/，pnpm test:unit）+ 14 套 Playwright e2e（run.mjs）+ fakeimap/
+├─ tools/                  screenshots/（截图脚本，须在项目根跑）、seed-assets.mjs
+├─ docs/                   architecture.md / pitfalls.md（30 条）/ status-history.md / adding-assets.md / mail-page-requirements.md / screenshots/
 ├─ data/                   运行时数据（不进版本库）
 ├─ dist/web/               前端构建产物（server 直接托管）
-└─ tmp/                    开发期脚本与截图（可随时删）
+└─ tmp/                    运行期日志与截图（可随时删）
 ```
 
 ## HTTP API
