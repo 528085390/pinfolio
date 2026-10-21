@@ -359,7 +359,7 @@ function backupDb(): string | null {
       if (existsSync(KUMA_DB + '-wal')) copyFileSync(KUMA_DB + '-wal', target + '-wal')
     }
     const files = readdirSync(KUMA_BACKUP_DIR)
-      .filter((f) => /^kuma-d{8}-d{6}.db$/.test(f))
+      .filter((f) => /^kuma-\d{8}-\d{6}\.db$/.test(f))
       .map((f) => ({ f, t: statSync(join(KUMA_BACKUP_DIR, f)).mtimeMs }))
       .sort((a, b) => b.t - a.t)
     for (const old of files.slice(KUMA_BACKUP_KEEP)) {
