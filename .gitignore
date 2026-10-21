@@ -12,3 +12,4 @@ tmp/e2e-policy-*.json
 SNAPSHOT.md
 # 开发用 git worktree（不提交）
 .worktrees/
+tmp/*.txt

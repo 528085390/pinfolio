@@ -2,6 +2,8 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { CORE_SCHEMA } from './schema/core.js'
+import { MAIL_SCHEMA } from './schema/mail.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(here, '..')
@@ -13,88 +15,7 @@ export const db = new DatabaseSync(DB_PATH)
 db.exec('PRAGMA journal_mode = WAL')
 db.exec('PRAGMA foreign_keys = ON')
 
-const SCHEMA = [
-  'CREATE TABLE IF NOT EXISTS tags (',
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,',
-  '  name TEXT NOT NULL UNIQUE,',
-  '  color TEXT NOT NULL DEFAULT \'#b45309\'',
-  ');',
-  'CREATE TABLE IF NOT EXISTS field_defs (',
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,',
-  '  key TEXT NOT NULL UNIQUE,',
-  '  label TEXT NOT NULL,',
-  '  type TEXT NOT NULL DEFAULT \'text\',',
-  '  options TEXT NOT NULL DEFAULT \'[]\',',
-  '  sort INTEGER NOT NULL DEFAULT 0',
-  ');',
-  'CREATE TABLE IF NOT EXISTS assets (',
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,',
-  '  name TEXT NOT NULL,',
-  '  kind TEXT NOT NULL DEFAULT \'device\',',
-  '  status TEXT NOT NULL DEFAULT \'active\',',
-  '  location TEXT NOT NULL DEFAULT \'\',',
-  '  vendor TEXT NOT NULL DEFAULT \'\',',
-  '  serial TEXT NOT NULL DEFAULT \'\',',
-  '  price REAL,',
-  '  currency TEXT NOT NULL DEFAULT \'CNY\',',
-  '  purchased_at TEXT,',
-  '  expires_at TEXT,',
-  '  url TEXT NOT NULL DEFAULT \'\',',
-  '  notes TEXT NOT NULL DEFAULT \'\',',
-  '  custom TEXT NOT NULL DEFAULT \'{}\',',
-  '  created_at TEXT NOT NULL,',
-  '  updated_at TEXT NOT NULL',
-  ');',
-  'CREATE TABLE IF NOT EXISTS notes (',
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,',
-  '  content TEXT NOT NULL DEFAULT \'\',',
-  '  pinned INTEGER NOT NULL DEFAULT 0,',
-  '  archived INTEGER NOT NULL DEFAULT 0,',
-  '  done INTEGER NOT NULL DEFAULT 0,',
-  '  asset_id INTEGER REFERENCES assets(id) ON DELETE SET NULL,',
-  '  created_at TEXT NOT NULL,',
-  '  updated_at TEXT NOT NULL',
-  ');',
-  'CREATE TABLE IF NOT EXISTS note_tags (',
-  '  note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,',
-  '  tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,',
-  '  PRIMARY KEY (note_id, tag_id)',
-  ');',
-  'CREATE TABLE IF NOT EXISTS asset_tags (',
-  '  asset_id INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,',
-  '  tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,',
-  '  PRIMARY KEY (asset_id, tag_id)',
-  ');',
-  'CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at DESC);',
-  'CREATE INDEX IF NOT EXISTS idx_notes_asset ON notes(asset_id);',
-  'CREATE INDEX IF NOT EXISTS idx_assets_kind ON assets(kind);',
-  'CREATE TABLE IF NOT EXISTS mail_accounts (',
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,',
-  '  label TEXT NOT NULL DEFAULT \'\',',
-  '  email TEXT NOT NULL DEFAULT \'\',',
-  '  host TEXT NOT NULL,',
-  '  port INTEGER NOT NULL DEFAULT 993,',
-  '  username TEXT NOT NULL,',
-  '  password TEXT NOT NULL DEFAULT \'\',',
-  '  security TEXT NOT NULL DEFAULT \'ssl\',',
-  '  proxy TEXT NOT NULL DEFAULT \'\',',
-  '  enabled INTEGER NOT NULL DEFAULT 1,',
-  '  sort INTEGER NOT NULL DEFAULT 0,',
-  '  created_at TEXT NOT NULL,',
-  '  updated_at TEXT NOT NULL',
-  ');',
-  'CREATE TABLE IF NOT EXISTS mail_local_read (',
-  '  account_id INTEGER NOT NULL REFERENCES mail_accounts(id) ON DELETE CASCADE,',
-  '  folder TEXT NOT NULL DEFAULT \'INBOX\',',
-  '  uid INTEGER NOT NULL,',
-  '  read_at TEXT NOT NULL,',
-  '  PRIMARY KEY (account_id, folder, uid)',
-  ');',
-  'CREATE INDEX IF NOT EXISTS idx_mail_local_read_lookup ON mail_local_read(folder, account_id);',
-  'CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag_id);',
-  'CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(tag_id);',
-].join('\n')
-
+const SCHEMA = CORE_SCHEMA + "\n" + MAIL_SCHEMA
 db.exec(SCHEMA)
 
 export const nowIso = () => new Date().toISOString()

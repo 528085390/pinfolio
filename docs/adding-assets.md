@@ -60,7 +60,7 @@ Invoke-RestMethod 'http://127.0.0.1:7788/api/assets?q=my-server' | Select-Object
 |---|---|---|
 | 网页 | 人工填写、随时改 | 资产页右上「登记资产」；或 `Ctrl / ⌘ + K` 输入「登记资产」 |
 | HTTP API | agent、批量、要可复现 | `POST http://127.0.0.1:7788/api/assets` |
-| 脚本 | 一次录一批 | 参考 `tmp/seed-assets.mjs` 的写法（见下文模板） |
+| 脚本 | 一次录一批 | 参考 `tools/seed-assets.mjs` 的写法（见下文模板） |
 
 **网页路径**
 
@@ -254,7 +254,7 @@ Add-Asset @{
 
 ### 批量录入脚本模板
 
-`tmp/seed-assets.mjs` 是现有 8 条资产的来源，但它**开头会 `DELETE` 掉全部资产再重建**——已有台账时**千万别跑它**。批量补录请用下面这个「按 name 幂等」的版本，存成 `tmp/add-assets.mjs` 再 `node tmp/add-assets.mjs`：
+`tools/seed-assets.mjs` 是现有 8 条资产的来源，但它**开头会 `DELETE` 掉全部资产再重建**——已有台账时**千万别跑它**。批量补录请用下面这个「按 name 幂等」的版本，存成 `tmp/add-assets.mjs` 再 `node tmp/add-assets.mjs`：
 
 ```js
 const BASE = 'http://127.0.0.1:7788'

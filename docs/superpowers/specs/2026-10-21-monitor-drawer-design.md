@@ -293,7 +293,7 @@ socket.on("checkNow", async (monitorID, callback) => {
 
 ## 12. 测试计划
 
-**新增 `tmp/e2e-monitor-drawer.mjs`**（Playwright，风格与 `tmp/e2e-mail.mjs` 一致，自带断言计数），目标 ≥ 30 条：
+**新增 `tests/e2e-monitor-drawer.mjs`**（Playwright，风格与 `tests/e2e-mail.mjs` 一致，自带断言计数），目标 ≥ 30 条：
 
 1. 点卡片开抽屉、Esc/遮罩关闭；表格视图行点击同样能开。
 2. `GET /api/monitors/1` 响应**不含**任何敏感字段（逐个字段名断言）。

@@ -1,0 +1,72 @@
+/* 变量与全局基线 —— 原 styles.css 第 1-71 行 */
+:root {
+  --paper: #f6f3ec;
+  --surface: #fffdf8;
+  --surface-2: #f0eade;
+  --surface-3: #e9e1d1;
+  --ink: #211d18;
+  --ink-2: #4c443a;
+  --muted: #8a8175;
+  --line: #e7dfd0;
+  --line-strong: #d8ccb8;
+  --accent: #b4530a;
+  --accent-strong: #8f3f06;
+  --accent-soft: #f7e6d3;
+  --accent-ring: rgba(180, 83, 10, 0.14);
+  --danger: #b42318;
+  --danger-soft: #fbe9e7;
+  --ok: #15803d;
+  --warn: #a16207;
+  --radius: 14px;
+  --shadow-sm: 0 1px 2px rgba(48, 36, 18, 0.05);
+  --shadow: 0 2px 4px rgba(48, 36, 18, 0.04), 0 12px 28px -16px rgba(48, 36, 18, 0.28);
+  --shadow-lg: 0 24px 70px -30px rgba(30, 22, 10, 0.45);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Songti SC', Georgia, serif;
+  --font-mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+}
+
+[data-theme='dark'] {
+  --paper: #15130f;
+  --surface: #1e1b16;
+  --surface-2: #272319;
+  --surface-3: #322c21;
+  --ink: #f1e9dc;
+  --ink-2: #cfc5b5;
+  --muted: #948a7c;
+  --line: #302b22;
+  --line-strong: #423a2d;
+  --accent: #e08a4a;
+  --accent-strong: #f0a066;
+  --accent-soft: #3a2a1a;
+  --accent-ring: rgba(224, 138, 74, 0.18);
+  --danger: #f08078;
+  --danger-soft: #3a1f1c;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 0 14px 30px -18px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 24px 70px -30px rgba(0, 0, 0, 0.85);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--accent-soft); color: var(--ink); }
+
+button { font-family: inherit; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+

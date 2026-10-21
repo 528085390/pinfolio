@@ -257,21 +257,31 @@ pnpm start      # 生产模式（tsx server/index.ts，非 watch：改服务端�
 
 改完前端：`pnpm build` → 浏览器 Ctrl+F5。改完后端：重启 `pnpm start`。
 
-`tmp/` 里是开发期的测试脚本，可以随时删：
+测试都在 `tests/`，截图脚本在 `tools/screenshots/`（产物仍写 `tmp/`，已被 .gitignore 忽略）：
+
+```powershell
+pnpm test          # typecheck + 摘要清洗单测（不需要服务在跑）
+pnpm test:e2e      # 核心 + 观测套件（需要 7788 已在跑、Kuma 在 3001）
+pnpm test:mail     # 邮件套件（建议用隔离实例，见下）
+node tests/run.mjs --only=core   # 只跑某一组：core / monitor / mail / all
+```
+
+邮件套件要隔离实例（库里有真实邮箱时尤其重要）：`$env:PINBOARD_DATA='tests\e2e-data'; $env:PORT='7799'; pnpm start`，再 `$env:MAIL_E2E_BASE='http://127.0.0.1:7799'; pnpm test:mail`，跑完删掉 `tests/e2e-data`。
 
 | 脚本 | 作用 |
 |---|---|
-| `tmp/smoke.mjs` | API 冒烟（增删改查、标签、关联、统计、导出） |
-| `tmp/e2e.mjs` | Playwright UI 端到端（13 条断言） |
-| `tmp/e2e-done.mjs` / `tmp/done-smoke.mjs` | 完成状态：UI + API |
-| `tmp/e2e-dblclick.mjs` | 双击卡片切换完成（8 条断言） |
-| `tmp/e2e-filter.mjs` | 完成状态下筛选行的行为（4 条断言） |
-| `tmp/e2e-archive.mjs` | 归档 / 已归档视图 / 恢复 / 永久删除 / Ctrl+K 排除（20 条断言） |
-| `tmp/e2e-mail.mjs` | 邮件页端到端（72 条断言：加账号 / 列表 / 分页 / 正文 / 图片显示与隐藏 / 本地已读 / 筛选 / 键盘 / 文件夹 / 账号增删改 / 60 秒自动收信），自带假 IMAP 服务器 |
-| `tmp/fakeimap/server.mjs` | 假 IMAP 服务器（hoodiecrow-imap，120 封信 + 附件 + 追踪像素），**只装在 `tmp/fakeimap/` 自己的 node_modules 里**，不是项目依赖 |
-| `tmp/fakeimap/mail-api-smoke.mjs` | 邮件 API 冒烟（58 条断言，含「打开邮件后服务器未读数不变」与代理字段校验） |
-| `tmp/shots.mjs` / `tmp/shots-assets.mjs` / `tmp/shots-mail.mjs` | 批量截图 |
-| `tmp/seed-assets.mjs` | 按当前资产清单重建台账（一次性脚本） |
+| `tests/run.mjs` | 串行 runner（core / monitor / mail 三组，汇总通过数；`--only=` 选组） |
+| `tests/smoke.mjs` | API 冒烟（增删改查、标签、关联、统计、导出） |
+| `tests/e2e.mjs` | Playwright UI 端到端（13 条断言） |
+| `tests/e2e-done.mjs` / `tests/done-smoke.mjs` | 完成状态：UI + API |
+| `tests/e2e-dblclick.mjs` | 双击卡片切换完成（8 条断言） |
+| `tests/e2e-filter.mjs` | 完成状态下筛选行的行为（4 条断言） |
+| `tests/e2e-archive.mjs` | 归档 / 已归档视图 / 恢复 / 永久删除 / Ctrl+K 排除（20 条断言） |
+| `tests/e2e-mail.mjs` | 邮件页端到端（72 条断言：加账号 / 列表 / 分页 / 正文 / 图片显示与隐藏 / 本地已读 / 筛选 / 键盘 / 文件夹 / 账号增删改 / 60 秒自动收信），自带假 IMAP 服务器 |
+| `tests/fakeimap/server.mjs` | 假 IMAP 服务器（hoodiecrow-imap，120 封信 + 附件 + 追踪像素），**只装在 `tests/fakeimap/` 自己的 node_modules 里**，不是项目依赖 |
+| `tests/fakeimap/mail-api-smoke.mjs` | 邮件 API 冒烟（58 条断言，含「打开邮件后服务器未读数不变」与代理字段校验） |
+| `tools/screenshots/shots.mjs` / `tools/screenshots/shots-assets.mjs` / `tools/screenshots/shots-mail.mjs` | 批量截图 |
+| `tools/seed-assets.mjs` | 按当前资产清单重建台账（一次性脚本） |
 
 跑 UI 测试用本机已有的 Chromium：`C:\Users\you\AppData\Local\ms-playwright\chromium-1217\chrome-win64\chrome.exe`（`playwright-core` 已装为 devDependency，没有下载新浏览器）。
 

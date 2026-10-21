@@ -10,7 +10,10 @@
     "build": "vite build",
     "start": "tsx server/index.ts",
     "snapshot": "tsx server/snapshot.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm typecheck && tsx tests/snippet-test.mts",
+    "test:e2e": "node tests/run.mjs",
+    "test:mail": "node tests/run.mjs --only=mail"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",

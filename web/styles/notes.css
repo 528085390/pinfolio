@@ -1,0 +1,99 @@
+/* 便签页与编辑器 —— 原 styles.css 第 175-272 行 */
+/* ---------- composer / notes ---------- */
+.composer {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 16px;
+  padding: 14px 16px 12px; box-shadow: var(--shadow-sm); transition: border-color 0.18s, box-shadow 0.18s;
+}
+.composer:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-sm); }
+.composer textarea {
+  width: 100%; border: 0; background: transparent; resize: none; outline: none;
+  font-size: 15px; line-height: 1.72; color: var(--ink); font-family: inherit; min-height: 54px;
+}
+.composer-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.composer-hint { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.composer-hint code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; font-size: 11px; }
+
+.filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 999px;
+  font-size: 12.5px; border: 1px solid var(--line-strong); background: var(--surface);
+  color: var(--ink-2); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.chip:hover { border-color: var(--ink-2); }
+.chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chip-count { font-size: 10.5px; opacity: 0.6; font-variant-numeric: tabular-nums; }
+.tag-bar { margin-top: 10px; }
+.filter-label { font-size: 11px; letter-spacing: 0.12em; color: var(--muted); margin-right: 2px; }
+
+.section-title {
+  display: flex; align-items: center; gap: 8px; font-size: 11.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted); margin: 26px 2px 10px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+.note-list { display: flex; flex-direction: column; gap: 10px; }
+.note {
+  position: relative; padding: 15px 17px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.note:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.note.pinned::before {
+  content: ''; position: absolute; left: -1px; top: 16px; bottom: 16px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--accent);
+}
+.note-head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); margin-bottom: 9px; min-height: 24px; }
+.note-actions { margin-left: auto; display: flex; gap: 1px; opacity: 0; transition: opacity 0.15s; }
+.note:hover .note-actions, .note:focus-within .note-actions { opacity: 1; }
+.note-body { font-size: 14.5px; }
+.note-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; flex: none;
+  border-radius: 50%; border: 1px solid var(--line-strong);
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.note-check:hover { border-color: var(--ok); color: var(--ok); }
+.note-check.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+.note.done .note-body { opacity: 0.5; }
+.note.done .note-body .prose > :first-child { text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.note.done .note-head { opacity: 0.85; }
+.done-pill {
+  font-size: 10.5px; line-height: 15px; padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  color: var(--ok); border-radius: 999px;
+}
+.chip-add { border-style: dashed; color: var(--muted); }
+.chip-add:hover { color: var(--accent); border-color: var(--accent); }
+.tag-pop {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 40;
+  width: 300px; max-height: 260px;
+  display: flex; flex-direction: column;   /* 标题 / 列表 / 新建按钮三段：只有列表滚，标题和按钮不会被滚走 */
+  overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px; box-shadow: var(--shadow-lg);
+}
+/* 上方空间不够时往下展开（NotesPage 的 openTagMenu 按剩余空间选方向并压高度） */
+.tag-pop-down { top: calc(100% + 8px); bottom: auto; }
+.tag-pop-head { flex: none; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.tag-pop-list { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.tag-pop-new {
+  flex: none; display: flex; align-items: center; gap: 4px; width: 100%;
+  margin-top: 10px; padding-top: 8px; border: 0; border-top: 1px dashed var(--line);
+  background: transparent; color: var(--accent); font-size: 12px; cursor: pointer;
+}
+.note-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 11px; }
+.note-asset {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 8px;
+  border-radius: 6px; background: var(--surface-2); color: var(--ink-2); border: 0; cursor: pointer;
+}
+.note-asset:hover { background: var(--surface-3); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2.5px 8px;
+  border-radius: 999px; border: 1px solid; cursor: pointer; background: transparent;
+  transition: filter 0.15s; line-height: 1.4;
+}
+.tag:hover { filter: brightness(0.96) saturate(1.2); }
+.tag.static { cursor: default; }
+

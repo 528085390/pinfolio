@@ -1,0 +1,47 @@
+/* 观测异常通知 —— 原 styles.css 第 741-786 行 */
+/* ---------- 观测异常通知（右上角） ---------- */
+/* 必须 position:fixed：.content 是 overflow-y:auto 的滚动容器，绝对定位的弹层会被裁掉
+   （AGENTS.md 坑 #11，CommandPalette 也是这么绕的） */
+.alert-stack {
+  position: fixed; top: 14px; right: 14px; z-index: 90;
+  display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+  width: min(340px, calc(100vw - 28px));
+  pointer-events: none;
+}
+.alert-item {
+  pointer-events: auto; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 9px 10px 9px 14px;
+  background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: 10px; box-shadow: var(--shadow);
+  cursor: pointer; animation: alertIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.alert-item::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--danger); }
+.alert-item:hover { border-color: color-mix(in srgb, var(--danger) 42%, var(--line-strong)); }
+.alert-item-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.alert-item-icon { display: flex; color: var(--danger); flex: none; }
+.alert-item-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-item-close {
+  flex: none; display: grid; place-items: center; width: 20px; height: 20px; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.alert-item-close:hover { background: var(--surface-2); color: var(--ink); }
+.alert-item-sub {
+  font-size: 11px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.alert-more {
+  pointer-events: auto; align-self: flex-start;
+  font-size: 11px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+  cursor: pointer; box-shadow: var(--shadow-sm);
+}
+.alert-more:hover { border-color: var(--danger); color: var(--danger); }
+@keyframes alertIn { from { transform: translateY(-6px); opacity: 0 } to { transform: none; opacity: 1 } }
+
+/* 从通知跳过来时，目标卡片闪一下（1.6 秒后由 MonitorsPage 摘掉 .flash） */
+.monitor-card.flash, .monitor-row.flash { animation: alertFlash 1.6s ease-out; }
+@keyframes alertFlash {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 0%, transparent); }
+  15%, 70% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 55%, transparent); }
+}

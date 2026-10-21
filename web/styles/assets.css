@@ -1,0 +1,58 @@
+/* 资产页 —— 原 styles.css 第 273-329 行 */
+/* ---------- assets ---------- */
+.asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(292px, 1fr)); gap: 12px; }
+.asset-card {
+  display: flex; flex-direction: column; gap: 10px; padding: 15px 16px; min-height: 152px;
+  border-radius: 14px; border: 1px solid var(--line); background: var(--surface);
+  box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.14s, box-shadow 0.14s, border-color 0.14s;
+}
+.asset-card:hover { transform: translateY(-1px); box-shadow: var(--shadow); border-color: var(--line-strong); }
+.asset-card-head { display: flex; align-items: flex-start; gap: 8px; }
+.asset-icon {
+  width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.asset-name { font-size: 14.5px; font-weight: 600; line-height: 1.35; word-break: break-word; }
+.asset-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.asset-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
+.asset-meta-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.asset-meta-key { color: var(--muted); font-size: 11.5px; flex: none; }
+.asset-meta-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
+.asset-link {
+  display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; padding: 2.5px 8px;
+  border-radius: 999px; line-height: 1.4; text-decoration: none; transition: filter 0.15s;
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.asset-link:hover { filter: brightness(0.96) saturate(1.2); }
+.asset-foot .asset-link { margin-left: auto; }
+.asset-link-inline {
+  display: inline-flex; align-items: center; margin-left: 6px; vertical-align: -1px;
+  color: var(--accent); text-decoration: none; opacity: 0.75;
+}
+.asset-link-inline:hover { opacity: 1; }
+.btn.is-disabled { opacity: 0.5; pointer-events: none; }
+
+.kind-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; padding: 2px 7px; border-radius: 5px; background: var(--surface-2); color: var(--ink-2); flex: none; }
+.status-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--muted); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: none; }
+
+.stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 760px) { .stat-strip { grid-template-columns: repeat(2, 1fr); } }
+.stat { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.stat-label { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+.stat-value { font-size: 20px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat-value small { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+
+.table-wrap { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data th {
+  text-align: left; font-weight: 500; font-size: 11px; letter-spacing: 0.06em; color: var(--muted);
+  padding: 9px 12px; background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+table.data td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.data tr:last-child td { border-bottom: 0; }
+table.data tbody tr { cursor: pointer; }
+table.data tbody tr:hover { background: var(--surface-2); }
+
