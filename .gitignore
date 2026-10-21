@@ -5,6 +5,9 @@ data/
 .DS_Store
 tmp/**/*.png
 tmp/**/*.log
+# e2e 每次跑都会生成的临时 payload / policy（观测项抽屉测试）
+tmp/e2e-payload-*.json
+tmp/e2e-policy-*.json
 # 自动生成，内容派生自 data/（个人资产/IP/账号），不进版本库
 SNAPSHOT.md
 # 开发用 git worktree（不提交）

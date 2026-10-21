@@ -22,9 +22,13 @@
 |---|---|
 | ![完成态](docs/screenshots/note-done.png) | ![深色模式](docs/screenshots/dark.png) |
 
-| 观测台（15 个观测项一屏放完） |
+| 观测台（15 个观测项一屏放完） | 观测项详情抽屉（改名 / 立即观测） |
+|---|---|
+| ![观测台](docs/screenshots/monitors.png) | ![观测项抽屉](docs/screenshots/monitor-drawer.png) |
+
+| 删除观测项（手输名字才可删） |
 |---|
-| ![观测台](docs/screenshots/monitors.png) |
+| ![删除观测项](docs/screenshots/monitor-drawer-delete.png) |
 
 | 邮件（多邮箱合并收件箱） | 邮件（深色） |
 |---|---|
@@ -71,17 +75,24 @@
 
   ```json
   [
-    { "name": "app-api", "url": "http://127.0.0.1:7863/panel/", "label": "App API 控制台（本机）" },
-    { "name": "my-server / app-api", "url": "https://example.com/panel/", "label": "App API 控制台（my-server）" },
-    { "name": "azfree / 公网入口", "url": "https://203.0.113.10/", "label": "MyApp Manager（azfree 公网入口）" }
+    { "id": 1, "name": "app-api", "url": "http://127.0.0.1:7863/panel/", "label": "App API 控制台（本机）" },
+    { "id": 3, "name": "my-server / app-api", "url": "https://example.com/panel/", "label": "App API 控制台（my-server）" },
+    { "id": 13, "name": "azfree / 公网入口", "url": "https://203.0.113.10/", "label": "MyApp Manager（azfree 公网入口）" }
   ]
   ```
 
-  目前 15 个观测项里有 11 个配了跳转：三条 app-api（本机 / my-server / azfree）→ 各自的 `/panel/` 控制台，
+  目前 19 个观测项里有 12 个配了跳转：三条 app-api（本机 / my-server / azfree）→ 各自的 `/panel/` 控制台，
   三条 app-manager 与两条「公网入口」→ 对应的 manager 页面，aws-oregon 三条（v2ray / caddy / TCP 443）→ AWS EC2 实例页；
   nginx / xray / oracle-proxy 的 TCP 443 没有管理界面，不配。
 
-  `name` 必须和 Kuma 里监视器的名字完全一致；监视器改名后对不上时，可以改用 `{ "id": 6, "url": "..." }`。换文件位置设 `MONITOR_LINKS` 环境变量。
+  **按 `id` 匹配（优先）**：观测项可以在抽屉里改名，名字不是稳定键，所以规则以 `id` 为准，`name` 只当注释与兜底。
+  换文件位置设 `MONITOR_LINKS` 环境变量。
+- **点卡片（或表格行）打开右侧观测项详情抽屉**，和资产详情同一套交互：
+  - **基本信息**：名称、介绍、检查频率（带 30 秒 / 1 分钟 / 5 分钟 / 10 分钟 / 30 分钟快捷键）；展开「高级设置」还能改超时、重试次数、重试间隔、是否常显消息。这些都**写回 Kuma**（Kuma 是唯一事实源，CLI 与 `SNAPSHOT.md` 看到的是同一份），保存后列表立即刷新。
+  - **暂停 / 恢复观测**：暂停后卡片和表格行都变淡并标「已暂停」，Kuma 不再探测（历史心跳保留）；恢复即重新开始。
+  - **删除观测**：抽屉里二次确认，**必须把观测项名字原样输一遍**按钮才可用；确认后先自动备份一份 `kuma/data/kuma.db` 到 `kuma/backups/kuma-YYYYMMDD-HHMMSS.db`（只留最近 5 份），再连同历史心跳一起从 Kuma 删除，不可撤销。
+  - **立即观测**：不等下一个周期，立刻跑一遍这个观测项的「观测配方」，逐步骤回显耗时和结果。默认配方 = 让 Kuma 重启检查循环、马上真探一次；特殊观测项（比如每日打卡这种推送型、或要顺带刷新上游的）在根目录 `monitor-actions.json` 里按观测项 id 配多步配方，**改完不用重启**，刷新页面即生效。
+- 改名会同步到 Kuma；如果别的观测项的「策略」是按名字引用了它，改名会被拒绝并说明是谁引用了，避免策略静默失效。
 - Kuma 挂了不会白屏：退回上一次数据并在顶部提示；连一次都没读到过，就显示「读不到观测项」+ 具体原因 + 重试按钮。
 - **为什么分两半缓存**：Kuma 的 `/api/status-page/obs` 偶尔要 5–30 秒才回（它自己按 5 分钟缓存，缓存过期那一刻正好赶上 12 个探测在跑就会很慢），而心跳接口只要几十毫秒。所以后端把「观测项清单」缓存 5 分钟（启动时预热、每 5 分钟续一次）、心跳按需现取，页面正常 0.1–0.4 秒出全部卡片。
 
@@ -141,7 +152,7 @@ pnpm start       # 生产模式，http://127.0.0.1:7788
 | 数据库 | `data/pinboard.db`（SQLite，WAL 模式，同目录还有 `-wal` / `-shm`） |
 | 换位置 | 启动前设环境变量 `PINBOARD_DATA` 指向别的目录 |
 | 备份 | 停服务后整个复制 `data/`；或设置页「导出 JSON」 |
-| 观测台 | 读的是 Uptime Kuma，不在这个库里；换地址设 `KUMA_URL` / `KUMA_SLUG` 环境变量 |
+| 观测台 | 读的是 Uptime Kuma，不在这个库里；换地址设 `KUMA_URL` / `KUMA_SLUG` 环境变量。抽屉里改名 / 改频率 / 暂停 / 删除都直接改 Kuma；删除前会自动把 Kuma 库备份到 `kuma/backups/`（留最近 5 份） |
 | 邮件 | 信箱配置和本地已读标记也在同一个库里（`mail_accounts` / `mail_local_read`）；**IMAP 密码是明文存的**，只因为库在本机、服务只监听 127.0.0.1——别把 `data/` 或导出的 JSON 发给别人 |
 | 邮件正文 | 不落盘，只在内存里缓存 10 分钟；重启就没了 |
 | 恢复 | 把备份的 `data/` 放回去（JSON 导出目前只用于查阅，没有导入按钮） |
@@ -158,7 +169,8 @@ pinboard/
 ├─ run-pinboard.vbs        隐藏窗口启动器（CRLF，被 start.cmd 调用）
 ├─ tools/pinboard.ps1      start|stop|restart|status|logs 控制脚本（UTF-8 带 BOM）
 ├─ logs/                   运行日志 pinboard.log（不进版本库）
-├─ monitor-links.json      观测项 → 项目管理页的跳转表（可随时改）
+├─ monitor-links.json      观测项 → 项目管理页的跳转表（按 id 匹配，可随时改）
+├─ monitor-actions.json    「立即观测」的配方表（按观测项 id / 名字配多步，改完不用重启）
 ├─ package.json            scripts 与依赖
 ├─ vite.config.ts          前端构建（root=web，产物到 dist/web，/api 代理到 7788）
 ├─ tsconfig.json
@@ -170,11 +182,13 @@ pinboard/
 │  ├─ hydrate.ts           便签/资产的行数据补全（标签、关联资产、便签数）
 │  ├─ snapshot.ts          生成 SNAPSHOT.md（写操作后 1.5 秒内重写，启动时也生成）
 │  ├─ mail/                邮件：client.ts（imapflow 连接池 + 缓存 + 摘要 + 正文解析）/ store.ts（信箱 + 本地已读）
-│  └─ routes/              notes.ts / assets.ts / tags.ts / fields.ts / monitors.ts（Kuma 聚合）/ mail.ts
+│  ├─ kuma.ts              跟 Kuma 说话的 socket.io 客户端（列表/详情/心跳/改名/暂停/删除/立刻探一次）+ 目标脱敏
+│  ├─ monitor-actions.ts   「立即观测」配方解析与执行器（kuma-check / http / command 三种步骤）
+│  └─ routes/              notes.ts / assets.ts / tags.ts / fields.ts / monitors.ts（Kuma 聚合 + 写接口）/ mail.ts
 ├─ web/                    前端（React 19）
 │  ├─ App.tsx              布局、侧栏、主题、命令面板
 │  ├─ pages/               NotesPage / MailPage / AssetsPage / MonitorsPage / SettingsPage
-│  ├─ components/          AssetDrawer / MailReader / MailAccountDrawer / CommandPalette / ui / Markdown / KindIcon
+│  ├─ components/          AssetDrawer / MonitorDrawer / BeatStrip / MailReader / MailAccountDrawer / CommandPalette / ui / Markdown / KindIcon
 │  ├─ lib/                 api.ts（类型与请求）、format.ts（时间/金额/到期文案）
 │  └─ styles.css           暖纸色设计令牌 + 深色主题
 ├─ docs/screenshots/       README 用的截图
@@ -206,6 +220,11 @@ pinboard/
 | GET/POST | `/fields` | 自定义字段列表 / 新建 |
 | PATCH/DELETE | `/fields/:id` | 修改 / 删除 |
 | GET | `/monitors` | 观测台数据：`{ kuma, updatedAt, summary, groups }`，聚合 Kuma 状态页 + 心跳；`?fresh=1` 强制重取观测项清单（清单缓存 5 分钟，心跳 5 秒） |
+| GET | `/monitors/:id` | 单个观测项详情：`{ monitor, latest, beats, action, link }`（敏感字段已脱敏，不含 SSH 私钥 / 密码 / token） |
+| PATCH | `/monitors/:id` | 改名 / 改介绍 / 改频率 / 改超时重试（`name` `description` `interval` `timeout` `maxretries` `retryInterval` `showMsg`），写回 Kuma；重名、被策略按名字引用、超时 ≥ 频率都会被拒 |
+| POST | `/monitors/:id/pause`、`/monitors/:id/resume` | 暂停 / 恢复观测（Kuma 不再探测，历史心跳保留） |
+| DELETE | `/monitors/:id?confirm=<名字>` | 删除观测项（名字必须原样输对）；先备份 `kuma/data/kuma.db` 到 `kuma/backups/`，再连带历史心跳删除 |
+| POST | `/monitors/:id/check` | 立即观测：按配方顺序执行并逐步骤返回 `{ ok, steps: [{ type, label, ok, detail, ms }], latest }`；暂停中或推送型没配方会被拒 |
 | GET/POST | `/mail/accounts` | 信箱列表（`?counts=1` 带未读数）/ 新建。**任何返回都不含密码**，只给 `hasPassword` |
 | PUT/DELETE | `/mail/accounts/:id` | 修改（密码留空 = 不改）/ 删除（连带清掉本地已读标记） |
 | POST | `/mail/accounts/test` | 测连接，收原始参数或 `{id}`（复用已存密码）；失败返回可读中文原因 |

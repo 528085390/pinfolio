@@ -29,7 +29,9 @@ if (!target || !other) { console.log('\n无法继续 UI 断言'); process.exit(1
 ok((target.description || '').includes('app-api'), '目标说明已写入：' + JSON.stringify(target.description))
 ok(target.showMsg === true, '目标 showMsg=true')
 ok((target.msg || '').length > 0, '目标有心跳消息：' + JSON.stringify(target.msg))
-ok(all.filter((m) => m.showMsg === true).length === 1, '只有一条开启 showMsg')
+// 数量不写死：用户会在 Kuma 里逐个打开「补充观测信息」，硬编码 1 条早就红了（2026-10-21 已有 6 条）
+const onMonitors = all.filter((m) => m.showMsg === true)
+ok(onMonitors.length >= 1, '至少一条开启 showMsg（当前 ' + onMonitors.length + ' 条）')
 ok(other.showMsg === false, '对照项 showMsg=false')
 ok((other.msg || '').length > 0, '对照项也有心跳消息（否则测不出重复渲染）')
 // 大多数观测项本来就写了 description（操作备注），所以「有说明」的卡片会带下划线钩子；
@@ -79,6 +81,10 @@ if (oi >= 0) {
   ok(await card.locator('.monitor-note').count() === 0, '未开启的卡片没有那行字')
   ok(await card.locator('.monitor-msg').count() === 1, '未开启的卡片保持原来的底部小字')
 }
+
+// 全页一致性：带「本次观测情况」的卡片数 = 开启 showMsg 的观测项数
+const noteCount = await page.locator('.monitor-card .monitor-note').count()
+ok(noteCount === onMonitors.length, '带「本次观测情况」的卡片数 = 开启 showMsg 的观测项数（' + noteCount + '/' + onMonitors.length + '）')
 
 if (bi >= 0) {
   const card = page.locator('.monitor-card').nth(bi)

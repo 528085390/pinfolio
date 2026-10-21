@@ -1,0 +1,15 @@
+import { chromium } from 'playwright-core'
+const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
+const browser = await chromium.launch({ executablePath: exe })
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 950 }, locale: 'zh-CN' })).newPage()
+await page.goto('http://127.0.0.1:7788/monitors', { waitUntil: 'domcontentloaded' })
+await page.waitForSelector('.monitor-card')
+await page.locator('.monitor-card').first().click()
+await page.waitForSelector('.monitor-drawer-confirm, .monitor-drawer-actions')
+await page.locator('.monitor-drawer-actions .btn-danger').click()
+await page.waitForSelector('.monitor-drawer-confirm')
+const val = await page.inputValue('input[name=confirmName]')
+const ph = await page.getAttribute('input[name=confirmName]', 'placeholder')
+const dis = await page.locator('.monitor-drawer-confirm .btn-danger').isDisabled()
+console.log(JSON.stringify({ val, ph, dis }))
+await browser.close()

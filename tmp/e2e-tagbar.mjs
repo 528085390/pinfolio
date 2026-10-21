@@ -44,9 +44,11 @@ await page.locator('.tag-bar .chip', { hasText: '代理' }).first().click()
 await page.waitForTimeout(700)
 const names = (await page.locator('.asset-name').allInnerTexts()).sort()
 console.log('filtered:', JSON.stringify(names))
-ok(names.length === 3, '代理 filter -> 3 assets')
-ok(names.some((n) => n.includes('GLaDOS')) && names.some((n) => n.includes('aws-oregon')) && names.some((n) => n.includes('oracle-proxy')),
-  '代理 covers GLaDOS + aws-oregon 节点 + oracle-proxy 节点')
+// 条数与名字都从 API 取：资产会随用户增删/改名变动（2026-10-21 三台 Oracle 拆成 oj/os/ox 后旧的硬编码就红了）
+const proxyAssets = await (await page.request.get('http://127.0.0.1:7788/api/assets?tag=' + encodeURIComponent('代理'))).json()
+const proxyNames = proxyAssets.map((a) => a.name).sort()
+ok(names.length === proxyNames.length, '代理 filter -> ' + proxyNames.length + ' assets (got ' + names.length + ')')
+ok(JSON.stringify(names) === JSON.stringify(proxyNames), '代理 列表与 API 一致: ' + proxyNames.join(' / '))
 await page.screenshot({ path: 'tmp/shot-tagbar-代理.png', fullPage: true })
 
 // 5. 再点一次取消筛选

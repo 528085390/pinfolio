@@ -3,6 +3,8 @@ import { Search, RefreshCw, LayoutGrid, List, Activity, Globe, Terminal, Plug, E
 import { api, cx, type Monitor, type MonitorSummary, type MonitorsPayload } from '../lib/api'
 import { relativeTime, fullTime } from '../lib/format'
 import { Button, Empty, Spinner } from '../components/ui'
+import { BeatStrip } from '../components/BeatStrip'
+import { MonitorDrawer } from '../components/MonitorDrawer'
 
 // Kuma 心跳状态码：0 DOWN / 1 UP / 2 PENDING / 3 MAINTENANCE
 const STATUS: Record<number, { label: string; color: string }> = {
@@ -63,6 +65,8 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
   const [view, setView] = useState<'grid' | 'table'>('grid')
   const [auto, setAuto] = useState(true)
   const [tick, setTick] = useState(0)
+  // 打开的观测项详情（null = 抽屉关着）
+  const [openId, setOpenId] = useState<number | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setQ(searchInput.trim()), 200)
@@ -87,10 +91,11 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
   useEffect(() => { load() }, [load, tick])
 
   useEffect(() => {
-    if (!auto) return
+    // 抽屉开着时停掉 30s 轮询：详情里有表单，后台刷新会把用户正在改的值冲掉
+    if (!auto || openId !== null) return
     const t = setInterval(() => setTick((n) => n + 1), 30000)
     return () => clearInterval(t)
-  }, [auto])
+  }, [auto, openId])
 
   const groups = data?.groups || []
   const all = useMemo(() => groups.flatMap((g) => g.monitors), [groups])
@@ -206,7 +211,7 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
         />
       ) : view === 'grid' ? (
         <div className="asset-grid monitor-grid" style={{ marginTop: 14 }}>
-          {shown.map((m) => <MonitorCard key={m.id} m={m} />)}
+          {shown.map((m) => <MonitorCard key={m.id} m={m} onOpen={() => setOpenId(m.id)} />)}
         </div>
       ) : (
         <div className="table-wrap" style={{ marginTop: 14 }}>
@@ -220,10 +225,10 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
               {shown.map((m) => {
                 const st = tone(m)
                 return (
-                  <tr key={m.id}>
+                  <tr key={m.id} className={cx('monitor-row', !m.active && 'paused')} onClick={() => setOpenId(m.id)}>
                     <td style={{ fontWeight: 550 }}>
                       {m.link ? (
-                        <a className="monitor-link" href={m.link.url} target="_blank" rel="noreferrer noopener" title={m.link.label}>
+                        <a className="monitor-link" href={m.link.url} target="_blank" rel="noreferrer noopener" title={m.link.label} onClick={(ev) => ev.stopPropagation()}>
                           {shortName(m)}
                           <ExternalLink size={11} className="monitor-link-icon" />
                         </a>
@@ -234,10 +239,12 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
                     <td className="muted" title={m.group}>{shortGroup(m.group)}</td>
                     <td className="muted">{TYPE_LABEL[m.type] || m.type}</td>
                     <td>
-                      <span className="status-pill">
-                        <span className="status-dot" style={{ background: st ? st.color : 'var(--muted)' }} />
-                        {st ? st.label : '无数据'}
-                      </span>
+                      {m.active ? (
+                        <span className="status-pill">
+                          <span className="status-dot" style={{ background: st ? st.color : 'var(--muted)' }} />
+                          {st ? st.label : '无数据'}
+                        </span>
+                      ) : <span className="monitor-chip">已暂停</span>}
                     </td>
                     <td className="mono">{m.ping === null ? '—' : m.ping + ' ms'}</td>
                     <td className="mono" style={{ color: m.uptime24 !== null && m.uptime24 < 0.99 ? 'var(--warn)' : undefined }}>{pct(m.uptime24)}</td>
@@ -249,17 +256,26 @@ export function MonitorsPage({ onSummary }: { onSummary?: (s: MonitorSummary) =>
           </table>
         </div>
       )}
+
+      <MonitorDrawer id={openId} onClose={() => setOpenId(null)} onChanged={() => load(true)} />
     </div>
   )
 }
 
-function MonitorCard({ m }: { m: Monitor }) {
+function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
   const st = tone(m)
   const note = (m.description || '').trim()
   const nameTitle = note || (m.link ? m.link.label : m.name)
   const nameCls = cx('asset-name', m.link && 'monitor-link', note && 'has-note')
   return (
-    <div className={cx('asset-card monitor-card', (m.status === 0 || (m.msg || '').startsWith('[红]')) && 'down')}>
+    <div
+      className={cx('asset-card monitor-card', (m.status === 0 || (m.msg || '').startsWith('[红]')) && 'down', !m.active && 'paused')}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onOpen() } }}
+      title="点开看详情"
+    >
       <div className="asset-card-head">
         <div className="asset-icon"><TypeIcon type={m.type} /></div>
         <div className="grow">
@@ -270,6 +286,7 @@ function MonitorCard({ m }: { m: Monitor }) {
               target="_blank"
               rel="noreferrer noopener"
               title={nameTitle}
+              onClick={(ev) => ev.stopPropagation()}
             >
               {shortName(m)}
               <ExternalLink size={11} className="monitor-link-icon" />
@@ -288,17 +305,11 @@ function MonitorCard({ m }: { m: Monitor }) {
         </span>
       </div>
 
-      <div className="monitor-beats" title={'最近 ' + m.beats.length + ' 次心跳'}>
-        {m.beats.length === 0 ? <i className="s-none" /> : m.beats.map((b, i) => {
-          // 四态监视器：每拍按自己的消息前缀上色（Kuma 的 status 只有 up/down，区分不出黄/灰）
-          const t = m.beatTones?.[i]
-          const cls =
-            t === '绿' ? 's1' : t === '黄' ? 's2' : t === '红' ? 's0' : t === '灰' ? 's3'
-              : m.type === 'push' ? 's-none'
-                : b === 1 ? 's1' : b === 0 ? 's0' : b === 2 ? 's2' : b === 3 ? 's3' : 's-none'
-          return <i key={i} className={cls} />
-        })}
-      </div>
+      <BeatStrip
+        cells={m.beats.map((b, i) => ({ status: b, tone: m.beatTones?.[i] ?? null }))}
+        type={m.type}
+        title={'最近 ' + m.beats.length + ' 次心跳'}
+      />
 
       {m.showMsg && m.msg ? (
         <div className="monitor-note" title={m.msg}>
@@ -319,6 +330,7 @@ function MonitorCard({ m }: { m: Monitor }) {
       </div>
 
       <div className="asset-foot">
+        {!m.active ? <span className="monitor-chip">已暂停</span> : null}
         <span className="monitor-chip">24h {pct(m.uptime24)}</span>
         {m.downCount > 0 ? <span className="monitor-chip bad">{m.downCount} 次异常</span> : null}
         {m.msg && !m.showMsg ? <span className="monitor-msg" title={m.msg}>{m.msg}</span> : null}
