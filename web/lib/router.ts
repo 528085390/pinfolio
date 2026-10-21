@@ -1,37 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { PATHS, TITLES, pageFromPath, type Page } from './paths'
 
-export type Page = 'notes' | 'mail' | 'assets' | 'monitors' | 'settings'
-
-/** 每个页面在地址栏里的规范路径。改这里等于改 URL 约定。 */
-const PATHS: Record<Page, string> = {
-  notes: '/notes',
-  mail: '/mail',
-  assets: '/assets',
-  monitors: '/monitors',
-  settings: '/settings',
-}
-
-const TITLES: Record<Page, string> = {
-  notes: '便签',
-  mail: '邮件',
-  assets: '资产台账',
-  monitors: '观测台',
-  settings: '设置',
-}
-
-/**
- * 路径 → 页面。根路径 /、未知路径、带不带尾斜杠都归到便签页，
- * 保证任何深链都不会白屏（server 的 SPA fallback 已经把非文件路径都回成 index.html）。
- */
-export function pageFromPath(pathname: string): Page {
-  const p = pathname.replace(/\/+$/, '').toLowerCase()
-  if (p === '/mail' || p === '/assets' || p === '/monitors' || p === '/settings') return p.slice(1) as Page
-  return 'notes'
-}
-
-export function pathForPage(page: Page): string {
-  return PATHS[page]
-}
+// 页面 ↔ URL 的映射在 paths.ts（纯函数，可单测）；这里只管 React 状态与地址栏同步。
+export type { Page }
+export { pageFromPath, pathForPage } from './paths'
 
 function applyTitle(page: Page) {
   document.title = TITLES[page] + ' · 便签夹'

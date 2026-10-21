@@ -7,10 +7,22 @@
 ```powershell
 cd D:\pinfolio
 
-pnpm test          # typecheck + 摘要清洗单测（不需要服务）
+pnpm test          # typecheck + 单测 + 摘要清洗单测（不需要服务）
+pnpm test:unit     # 只跑单测（node:test，秒级）
 pnpm test:e2e      # core + monitor 全套（需要服务已在跑）
 pnpm test:mail     # 邮件套件（必须先按下面起隔离实例）
 ```
+
+## 单测（`tests/unit/`，2026-10-21 新增）
+
+`pnpm test:unit` 用 Node 自带的 `node:test` 跑 `tests/unit/*.test.mts`（经 tsx 转译，零新依赖，秒级）。
+覆盖的是**纯函数**：标签解析与配色（`server/tags.ts`）、代理地址规范化（`server/mail/proxy.ts`）、
+Kuma 脱敏/策略说人话（`server/kuma/redact.ts`）、四态心跳与时间串（`server/kuma/beat.ts`）、
+到期天数（`server/dates.ts`）、前端 URL ↔ 页面（`web/lib/paths.ts`）、金额/日期/相对时间（`web/lib/format.ts`）。
+
+这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` 里，那几个模块**一 import 就有副作用**
+（打开 SQLite、连 socket、热状态页），单测碰不得，所以整理时把它们挪成独立纯模块，原模块再导出一次保持调用点不变。
+新增纯逻辑优先放进对应纯模块，别塞回有副作用的文件里。
 
 `pnpm test:e2e` 默认跑 `core` + `monitor`，串行执行并汇总。单独跑某一组：
 

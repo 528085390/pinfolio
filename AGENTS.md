@@ -21,12 +21,13 @@
 - `docs/screenshots/` —— README 引用的截图（notes / assets / asset-drawer / tag-picker / note-done / dark / monitors / monitors-2560 / monitor-drawer / monitor-drawer-delete / monitor-alert / monitor-alert-jump / monitor-alert-dark / mail-inbox / mail-dark / mail-account），从 `tmp/` 挑出来固化，不受 `tmp/` 清理影响。
 - `data/` —— 运行时 SQLite 数据（不进版本库）。
 - `dist/web/` —— 前端构建产物，server 直接托管（不进版本库）。
-- `tests/` —— 冒烟 / 端到端 / 单测 + 串行 runner（`tests/run.mjs`）+ 假 IMAP（`tests/fakeimap/`）。
+- `tests/` —— 冒烟 / 端到端 / 单测（`tests/unit/`，`pnpm test:unit`，node:test 秒级）+ 串行 runner（`tests/run.mjs`）+ 假 IMAP（`tests/fakeimap/`）。
 - `tools/screenshots/` —— 截图脚本（产物写 `tmp/`，已被 .gitignore 忽略）。
 - `tmp/` —— 运行期临时产物（日志、截图），可整目录删除（见「可清理项」）。
 
 服务端（Node 24 + Hono + `node:sqlite`，无原生编译）：
-- `server/schema/core.ts` / `server/schema/mail.ts` —— 建表语句（core：tags / field_defs / assets / notes / note_tags / asset_tags + 5 个索引；mail：mail_accounts / mail_local_read）。`server/db.ts` 只负责打开库、执行两段 schema、封装 `all/get/run` 与标签工具（`extractTags`（TAG_RE 支持中英文标点前缀）、`syncNoteTags`/`setAssetTags`、`TAG_COLORS`/`tagColor`），并做 `notes.done` / `mail_accounts.proxy` 的启动迁移。
+- `server/schema/core.ts` / `server/schema/mail.ts` —— 建表语句（core：tags / field_defs / assets / notes / note_tags / asset_tags + 5 个索引；mail：mail_accounts / mail_local_read）。`server/db.ts` 只负责打开库、执行两段 schema、封装 `all/get/run` 与标签同步（`syncNoteTags`/`setAssetTags`），并做 `notes.done` / `mail_accounts.proxy` 的启动迁移。
+- `server/tags.ts` / `server/dates.ts` —— 纯函数（不碰库、不碰网络）：`extractTags`（TAG_RE 支持中英文标点前缀）、`tagColor`/`TAG_COLORS`/`PRESET_TAGS`；`daysLeft()` 到期天数。**纯逻辑放这里才测得了**（`db.ts` 一 import 就打开 SQLite），db.ts / meta.ts 再导出。
 - `server/hydrate.ts` —— `hydrateNotes`/`hydrateAssets`：批量 IN 查询拼 tags、asset、noteCount，解析 custom JSON。
 - `server/routes/notes.ts` —— 便签 CRUD + 筛选（q/tag/pinned/archived/assetId），内容变更时同步标签。
 - `server/routes/assets.ts` —— 资产 CRUD + 筛选（q/kind/status/tag），GET /:id 附带 `linkedNotes`（已 hydrate 标签）。
@@ -34,17 +35,18 @@
 - `server/routes/fields.ts` —— 自定义字段定义 CRUD（key 正则 `^[a-zA-Z][a-zA-Z0-9_]*$`，type 限 text/number/date/url/select/bool）。
 - `server/kuma/routes.ts` —— 观测台 HTTP 面（列表/详情/写操作/立即观测）：聚合 Uptime Kuma 的 `/api/status-page/:slug`（观测项清单）与 `/api/status-page/heartbeat/:slug`（心跳 + 24h 可用率）成 `{kuma, updatedAt, summary, groups}`；**两半分开缓存**（清单 5 分钟 + 启动预热 + 每 5 分钟续一次，心跳 5 秒），Kuma 慢/挂了沿用旧值并标 `stale`；`monitor-links.json` 把观测项映射到项目管理页（**按 `id` 匹配，`name` 只兜底**——名字能在抽屉里改）。
   写接口都在这里：`GET /:id`（详情：脱敏后的 monitor + 最近 24h 心跳 + 立即观测配方 + 跳转链接）、`PATCH /:id`（改名/介绍/频率/超时重试，校验后整体回传 Kuma）、`POST /:id/pause|resume`、`DELETE /:id?confirm=<名字>`（先备份 Kuma 库再删）、`POST /:id/check`（跑立即观测配方）。**所有写接口都要求 `Content-Type: application/json`**（挡跨站表单提交，DELETE 只在带 body 时校验）；写完统一 `invalidate()` 清缓存 + 15 秒内强制绕过 Kuma 的状态页缓存 + 防抖 1.5 秒后 spawn `kuma/tools/snapshot.cjs` 重生成 `kuma/SNAPSHOT.md`。
-- `server/kuma/client.ts` —— 跟 Kuma 说话的 **socket.io 客户端**（不是 HTTP）：`connect()` 登录后常驻连接（`reconnection:false`，**别加 `transports:['websocket']`**，会握手超时）、`call()` 等 ack（20 秒超时，`res.ok===false` 抛 `KumaError`）、`listMonitors()`（先 `on('monitorList')` 再 `emit('getMonitorList')`，ack 里没有数据）、`getMonitor`/`getBeats`/`editMonitor`/`pauseMonitor`/`resumeMonitor`/`deleteMonitor`/`kickCheck`。`toView()` 只输出白名单字段，`redactUrl()`/`describeTarget()` 把 URL 里的账号密码与 `key|token|pass|secret|auth|sign` 参数打码，**别把 Kuma 的原始 bean 直接吐给前端**（含 SSH 私钥）。
+- `server/kuma/client.ts` —— 跟 Kuma 说话的 **socket.io 客户端**（不是 HTTP）：`connect()` 登录后常驻连接（`reconnection:false`，**别加 `transports:['websocket']`**，会握手超时）、`call()` 等 ack（20 秒超时，`res.ok===false` 抛 `KumaError`）、`listMonitors()`（先 `on('monitorList')` 再 `emit('getMonitorList')`，ack 里没有数据）、`getMonitor`/`getBeats`/`editMonitor`/`pauseMonitor`/`resumeMonitor`/`deleteMonitor`/`kickCheck`。`toView()` 只输出白名单字段，`redactUrl()`/`describeTarget()` 把 URL 里的账号密码与 `key|token|pass|secret|auth|sign` 参数打码，**别把 Kuma 的原始 bean 直接吐给前端**（含 SSH 私钥）。脱敏与展示映射实际在 `server/kuma/redact.ts`（纯函数，可单测），client.ts 只再导出。
 - `server/kuma/actions.ts` —— 「立即观测」的配方解析 + 执行器：配方来自根目录 `monitor-actions.json`（**每次请求热读**，改完不用重启；写坏了当没配方），按 `id` 再按 `name` 匹配；没配方时非推送型默认 `[{type:'kuma-check'}]`、推送型置灰（要外部心跳驱动，没法本地触发）。步骤类型 `kuma-check`（重启检查循环，Kuma 几百毫秒内真探一次）/ `http`（发请求，优先读回包里的 `message|msg|error`）/ `command`（`shell:false` + argv 数组，不过 shell）。执行语义：顺序跑、失败即中止、整体 60 秒上限、每步独立超时，逐步骤回 `{type,label,ok,detail,ms}`。
 - `server/mail/client.ts` —— 邮件后端（imapflow + mailparser，纯 JS，无原生编译）：连接池 `pool`（按账号 id 存，账号改密码/连接不可用时自动重建）、`listMessages()` 多账号归并（每账号按 UID 倒序、每批 `CHUNK = 50` 封 fetch，用「取各账号队头比大小」的方式归并，`offset` 跳过、`hasMore` 表示还有）、`getMessage()`（`fetchOne(uid, {source:true})` → `simpleParser`，>25 MB 直接报错不下载）、`listFolders()`、`testConnection()`、`friendlyError(err, proxy?)`（把 ECONNREFUSED / EAUTH / 证书 / STARTTLS 等翻成中文人话，传了代理会说明「经代理 socks5://…」）、`proxyOf(a)`（账号 `proxy` 优先，环境变量 `PINBOARD_MAIL_PROXY` 兜底）。**代理是 imapflow 原生能力**：`makeClient()` 里 `...(proxy ? { proxy } : {})`，依赖里自带 `socks`，不用加包（见坑 29）。`sigOf()` 把 `proxy` 也算进签名，改代理会重建连接。
   **缓存全在内存**：列表 `LIST_TTL = 60_000`、正文 `BODY_TTL = 10 分钟`（`BODY_CACHE_MAX = 40` 封，LRU）、文件夹 5 分钟；`?fresh=1` 绕过。**只读靠 `getMailboxLock(folder, { readOnly: true })`**（EXAMINE 打开信箱）——别改成可写打开，那等于给 imapflow 留了 `STORE` 的机会。列表摘要只抓 `bodyParts: [{ key: 'TEXT', maxLength: 800 }]`，不下载整封信。
-- `server/mail/store.ts` —— `mail_accounts`（label/email/host/port/username/password/security/**proxy**/enabled/sort）与 `mail_local_read`（account_id/folder/uid/read_at，主键三列）两张表的 CRUD；`publicAccount()` 一律剔掉 `password`、只给 `hasPassword`（`proxy` 会返回，它不含密码但含内网地址）；`normalizeProxy()` 校验并规范化代理（空串=直连；省略协议补 `socks5://`；白名单 `socks/socks5/socks4/socks4a/http/https`；必须 host、不能带路径、端口 1–65535）；`normalizeAccountInput()` 做校验与默认值（port 993 / security ssl），**`proxy` 字段 `undefined` = 不改、`''` = 显式改直连**（别把两者混掉）；`updateAccount()` 里**密码传空字符串等于「不改」**；`deleteAccount()` 连带删掉该账号的本地已读标记。
+- `server/mail/store.ts` —— `mail_accounts`（label/email/host/port/username/password/security/**proxy**/enabled/sort）与 `mail_local_read`（account_id/folder/uid/read_at，主键三列）两张表的 CRUD；`publicAccount()` 一律剔掉 `password`、只给 `hasPassword`（`proxy` 会返回，它不含密码但含内网地址）；`normalizeProxy()` 校验并规范化代理（实现在 `server/mail/proxy.ts`，纯函数；空串=直连；省略协议补 `socks5://`；白名单 `socks/socks5/socks4/socks4a/http/https`；必须 host、不能带路径、端口 1–65535）；`normalizeAccountInput()` 做校验与默认值（port 993 / security ssl），**`proxy` 字段 `undefined` = 不改、`''` = 显式改直连**（别把两者混掉）；`updateAccount()` 里**密码传空字符串等于「不改」**；`deleteAccount()` 连带删掉该账号的本地已读标记。
 - `server/mail/routes.ts` —— `/api/mail/*`：`accounts`（`?counts=1&fresh=1` 带未读数）/ `accounts/test` / `folders` / `messages`（`account=all|<id>&folder=&limit=&offset=&fresh=1`，返回 `{items,total,unseen,hasMore,errors,partial}`）/ `message` / `attachment`（`Content-Disposition` 同时给 ASCII 与 `filename*=UTF-8''`，中文文件名不乱码）/ `local-read`（POST 记、DELETE 清，`account=all` 清全部）/ `status`。`shutdownMail()` 在进程退出时断开所有 IMAP 连接。
 - `server/index.ts` —— 薄入口（62 行）：挂 `/api` 各路由 + 写操作后 `scheduleSnapshot()` 中间件 + 静态托管 + notFound/onError + `serve` 7788 + 退出时 `shutdownMail()`。
 - `server/routes/meta.ts` —— 杂项接口：`/api/health`、`/api/bootstrap`、`/api/search`、`/api/stats`、`/api/export`、`POST /api/seed`（仅空库时写 2 个字段定义 + 4 资产 + 4 便签）。
 - `server/static.ts` —— `mountStatic(app)` 托管 `dist/web`（MIME 表、index.html no-cache、深链回 index.html）。
 - `server/kuma/feed.ts` —— 观测数据的抓取与缓存：状态页清单（5 分钟 + 预热）、心跳（5 秒）、`collect()` 组装 `{kuma, updatedAt, summary, groups}`、`lastPayload()` 供 Kuma 挂掉时回旧值、`invalidate()` 清缓存并让 15 秒内请求带 `x-apicache-bypass:1`。
 - `server/kuma/links.ts` —— `monitor-links.json` 的加载与 `pickLink()`（id 优先、name 兜底）。
+- `server/kuma/beat.ts` —— 心跳纯函数：`toneChar()` 解析 `[绿|黄|红|灰]` 前缀、`toIso()` 把 Kuma 无时区 UTC 串转 ISO、`mapBeat()` 归一单条心跳；feed.ts 再导出。
 - `server/kuma/backup.ts` —— `refreshSnapshot()`（防抖 1.5 秒 spawn `kuma/tools/snapshot.cjs`）与 `backupDb()`（`VACUUM INTO`，留最近 5 份）。
 前端（Vite 7 + React 19 + 手写 CSS，无 UI 框架）：
 - `web/App.tsx` —— 侧栏导航（便签/**邮件**/资产/观测/设置 + 计数）、主题切换（localStorage `pinboard-theme`，data-theme）、Ctrl/⌘+K 命令面板；**页面状态不在这里用 `useState`，而是 `const [page, setPage] = usePage()` 从 URL 取**（2026-10-20 起）。
@@ -71,6 +73,7 @@
 - `web/lib/api/` —— 按领域拆开：`http.ts`（`request()` 统一拼 `/api`、带 JSON 头、把后端 error 抛成 Error）、`types.ts`（Tag/FieldDef/Stats）、`notes.ts`、`assets.ts`、`monitors.ts`（Monitor* 类型 + 客户端）、`mail.ts`（Mail* 类型 + 客户端）、`core.ts`（bootstrap/stats/search/export/seed + tags + fields）。
 - `web/lib/cx.ts` —— `cx()` 拼 className（从 api.ts 挪出来，api.ts 仍再导出）。
 - `web/lib/format.ts` —— 相对时间/金额/到期状态/类型与状态文案。
+- `web/lib/paths.ts` —— 页面 ↔ URL 映射（`PATHS`/`TITLES`/`pageFromPath()`/`pathForPage()`，纯函数）；`router.ts` 只剩 `usePage()` 的 React 状态与地址栏同步，并再导出这些。
 - `web/lib/monitors.ts` —— 观测异常通知的数据层：`useMonitorAlerts()`（30 秒轮询 `/api/monitors`，首轮只当基线，`stale` 整轮跳过，恢复自动移除，`dismiss` 记本地已关）+ 共享 helper `isDown()` / `shortName()` / `shortGroup()` / `plainMsg()`（MonitorsPage 也改用这几个，**别再各写一份**）。
 - `web/styles/` —— 样式按区块拆成 12 个文件，`index.css` 用 `@import` 定顺序（顺序即层叠顺序）：tokens（暖纸色令牌 --paper #f6f3ec / --accent #b45309 + 深色覆盖）、shell、controls、notes、assets、overlay、palette、markdown、misc、monitors、mail、alerts。`main.tsx` 只 import `./styles/index.css`。
 
@@ -131,7 +134,8 @@ pnpm typecheck        # tsc --noEmit
 ② **服务端归位**：`routes/monitors.ts`(614 行) → `server/kuma/routes.ts` + `feed.ts`（抓取缓存）+ `links.ts` + `backup.ts`；`kuma.ts` → `server/kuma/client.ts`；`monitor-actions.ts` → `server/kuma/actions.ts`；`routes/mail.ts` → `server/mail/routes.ts`；建表 SQL 拆到 `server/schema/core.ts` / `mail.ts`；`index.ts` 的杂项接口搬到 `routes/meta.ts`、静态托管搬到 `static.ts`，`index.ts` 从 239 行瘦到 62 行。
 ③ **前端归位**：`web/lib/api.ts`(233 行) → `web/lib/api/`（http/types/notes/assets/monitors/mail/core）+ `web/lib/cx.ts`，`api.ts` 保留门面再导出，**所有页面 import 零改动**；`web/styles.css`(786 行) → `web/styles/` 12 个分片 + `index.css` 按序 `@import`，`main.tsx` 改 import `./styles/index.css`。
 ④ **清理**：一次性探针（`dbg/dbg2/inspect/probe-*/verify-domain-link`）与生成物（`tmp/*.png`、e2e payload、旧日志）删除；截图脚本进 `tools/screenshots/`（附 README，注明须在项目根运行）、`seed-assets.mjs` 进 `tools/`；README / AGENTS / adding-assets / 设计文档里的旧路径同步更新。
-验证：`pnpm typecheck` 0 错误、`pnpm build` 通过、`pnpm test` 7/7、`pnpm test:e2e` **14/14 套件全绿**（重启后跑的真实回归）、`/api/*` 11 个端点逐个 200。顺手修了 `e2e-monitor-drawer` 的备份断言——备份目录只留 5 份，满 5 份后数量不再增加，改成比对「最新一份是否换人」。
+⑤ **单测护栏（2026-10-21 追加）**：把埋在 `db.ts`/`store.ts`/`client.ts`/`feed.ts`/`meta.ts` 里的纯函数拆成 `server/tags.ts`、`server/dates.ts`、`server/mail/proxy.ts`、`server/kuma/redact.ts`、`server/kuma/beat.ts`、`web/lib/paths.ts`（原模块再导出，调用点零改动），用 Node 自带 `node:test` 补 `tests/unit/*.test.mts`（**57 条，秒级**），加 `pnpm test:unit` 并进 `pnpm test`；`tsconfig` 的 include 加 `tests/unit`，测试文件也走 typecheck。
+验证：`pnpm typecheck` 0 错误、`pnpm build` 通过（CSS/JS 哈希与拆分前一致）、`pnpm test` 57 + 7 全过、`pnpm test:e2e --only=core` 全绿、`/api/*` 11 个端点逐个 200。顺手修了 `e2e-monitor-drawer` 的备份断言——备份目录只留 5 份，满 5 份后数量不再增加，改成比对「最新一份是否换人」。
 
 已知问题与坑（都踩过，勿回退）：
 1. SQLite 建表语句每条必须以 `;` 结尾，否则 `db.exec` 报 `near "CREATE": syntax error`。

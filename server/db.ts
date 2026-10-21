@@ -4,6 +4,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CORE_SCHEMA } from './schema/core.js'
 import { MAIL_SCHEMA } from './schema/mail.js'
+import { extractTags, PRESET_TAGS, TAG_COLORS, tagColor } from './tags.js'
+
+// 纯函数挪到 tags.ts 是为了能单测（本文件一 import 就打开 SQLite、跑迁移）；
+// 这里再导出一次，老的 `from '../db.js'` 调用点不用改。
+export { extractTags, PRESET_TAGS, TAG_COLORS, tagColor }
 
 const here = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(here, '..')
@@ -31,26 +36,9 @@ export function run(sql: string, ...params: any[]) {
   return { changes: Number(r.changes), id: Number(r.lastInsertRowid) }
 }
 
-export const TAG_COLORS = ['#b45309', '#0f766e', '#7c3aed', '#be123c', '#0369a1', '#4d7c0f', '#a16207', '#c2410c', '#0e7490', '#9333ea']
-export function tagColor(name: string) {
-  let h = 0
-  for (const ch of name) h = (h * 31 + (ch.codePointAt(0) || 0)) >>> 0
-  return TAG_COLORS[h % TAG_COLORS.length]
-}
-
 export function upsertTag(name: string) {
   run('INSERT INTO tags (name, color) VALUES (?, ?) ON CONFLICT(name) DO NOTHING', name, tagColor(name))
   return get<{ id: number }>('SELECT id FROM tags WHERE name = ?', name)!.id
-}
-
-const TAG_RE = /(?:^|[\s(（\[【,，、。．！!？?；;：:>"'“”‘’《》「」『』])#([\p{L}\p{N}_\-\/]+)/gu
-export function extractTags(text: string): string[] {
-  const out = new Set<string>()
-  for (const m of text.matchAll(TAG_RE)) {
-    const t = m[1].replace(/[.,;:!?]+$/, '')
-    if (t) out.add(t)
-  }
-  return [...out]
 }
 
 export function syncNoteTags(noteId: number, content: string) {
@@ -88,20 +76,6 @@ if (!mailCols.includes('proxy')) {
 }
 
 // ---- 预设标签：只写一次（用 PRAGMA user_version 做标记，删掉不会再被塞回来）----
-export const PRESET_TAGS: [string, string][] = [
-  ['待办', '#d97706'],
-  ['想法', '#7c3aed'],
-  ['阅读', '#0369a1'],
-  ['工作', '#0f766e'],
-  ['学习', '#4d7c0f'],
-  ['生活', '#15803d'],
-  ['灵感', '#a16207'],
-  ['重要', '#b91c1c'],
-  ['整理', '#65a30d'],
-  ['运维', '#57534e'],
-  ['账号', '#be123c'],
-  ['购物', '#c2410c'],
-]
 const userVersion = get<{ user_version: number }>('PRAGMA user_version')!.user_version
 if (userVersion < 1) {
   for (const [name, color] of PRESET_TAGS) {

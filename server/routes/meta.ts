@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { DB_PATH, all, get, nowIso, run, setAssetTags, syncNoteTags } from '../db.js'
 import { hydrateAssets, hydrateNotes, type AssetRow, type NoteRow } from '../hydrate.js'
+import { daysLeft } from '../dates.js'
 
 // 不属于某个具体资源的杂项接口：健康检查、启动引导、全局搜索、统计、导出、示例数据。
 export const metaRoute = new Hono()
@@ -33,14 +34,6 @@ metaRoute.get('/search', (c) => {
   )
   return c.json({ notes: hydrateNotes(notes), assets: hydrateAssets(assets) })
 })
-
-function daysLeft(date: string) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const d = new Date(date + 'T00:00:00')
-  if (isNaN(d.getTime())) return null
-  return Math.round((d.getTime() - today.getTime()) / 86400000)
-}
 
 metaRoute.get('/stats', (c) => {
   const notes = get<{ n: number }>('SELECT COUNT(*) AS n FROM notes WHERE archived = 0')!.n

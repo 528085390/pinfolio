@@ -1,5 +1,6 @@
 import { listMonitors } from './client.js'
 import { loadLinks, pickLink } from './links.js'
+import { mapBeat, toIso, toneChar, type RawBeat } from './beat.js'
 
 // 观测台数据源：把本机 Uptime Kuma 的「公开状态页」接口收敛成一份给前端卡片用的结构。
 // Kuma 只当探测后端，页面在 pinboard 里（见 web/pages/MonitorsPage.tsx）。
@@ -19,14 +20,10 @@ const STATUS_TIMEOUT = 25000
 const BEAT_TTL = 5000
 const BEAT_TIMEOUT = 15000
 
-/** 四态心跳：消息前缀 `[绿|黄|红|灰]` 决定这一拍的颜色（Kuma 自身只有 up/down）。 */
-const TONE_RE = /^\s*\[(绿|黄|红|灰)\]/
-const toneChar = (m?: string | null): string | null => {
-  const hit = TONE_RE.exec(m || '')
-  return hit ? hit[1] : null
-}
+// 心跳四态、Kuma 时间串转换、beat 映射都在 beat.ts（纯函数，可单测）；这里再导出，老的调用点不用改。
+export { mapBeat, toIso, toneChar }
+export type { RawBeat }
 
-export type RawBeat = { status?: number; time?: string; msg?: string | null; ping?: number | null }
 export type RawMonitor = { id: number; name: string; type?: string; description?: string; showMsg?: boolean }
 type RawGroup = { id: number; name: string; monitorList?: RawMonitor[] }
 
@@ -63,18 +60,6 @@ export type Payload = {
   updatedAt: string
   summary: { total: number; up: number; down: number; pending: number; uptime24: number | null }
   groups: Group[]
-}
-
-// Kuma 的心跳时间是**不带时区的 UTC 串**（"2026-10-19 08:35:24.131"，
-// 实测 08:43 UTC 对应本机 16:43 CST），直接丢给浏览器 new Date() 会被当本地时间解析，
-// 于是「刚刚」显示成「8 小时前」。这里按 UTC 解析再转 ISO，前端才拿到真实时刻。
-export function toIso(s?: string | null): string | null {
-  if (!s) return null
-  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/.exec(s)
-  if (!m) return null
-  const ms = Number((m[7] || '0').padEnd(3, '0'))
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]), ms))
-  return isNaN(d.getTime()) ? null : d.toISOString()
 }
 
 async function getJson<T>(path: string, timeoutMs: number, headers?: Record<string, string>): Promise<T> {
@@ -229,16 +214,6 @@ export function groupOf(id: number): string {
     if ((g.monitorList || []).some((m) => m.id === id)) return g.name
   }
   return ''
-}
-
-export function mapBeat(b: RawBeat) {
-  return {
-    status: typeof b.status === 'number' ? b.status : null,
-    time: toIso(b.time),
-    msg: String(b.msg || '').trim(),
-    ping: typeof b.ping === 'number' ? b.ping : null,
-    tone: toneChar(b.msg),
-  }
 }
 
 // 启动时先热一次状态页，并每 5 分钟续一次：用户打开页面时永远命中缓存，不会撞上 Kuma 的慢查询。
