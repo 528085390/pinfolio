@@ -114,7 +114,7 @@ mailRoute.get('/messages', async (c) => {
   const fresh = c.req.query('fresh') === '1'
 
   if (!accounts.length) {
-    return c.json({ items: [], total: 0, unseen: 0, hasMore: false, errors: [], partial: false, noAccounts: true })
+    return c.json({ items: [], total: 0, unseen: 0, hasMore: false, errors: [], partial: false, fetchedAt: 0, noAccounts: true })
   }
   const target = which === 'all' ? accounts : accounts.filter((a) => String(a.id) === which)
   if (!target.length) return c.json({ error: '账号不存在或已停用' }, 404)

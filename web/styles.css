@@ -495,6 +495,7 @@ button:focus-visible, a:focus-visible { outline-offset: 3px; }
 .mail-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
 .mail-chip-err { color: var(--danger); flex: none; }
 .mail-tools { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.mail-updated { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mail-folder { display: flex; align-items: center; gap: 4px; color: var(--muted); }
 .mail-folder .select { max-width: 170px; }
 

@@ -1,5 +1,10 @@
 import { chromium } from 'playwright-core'
-import { startFakeImap } from './fakeimap/server.mjs'
+import { createRequire } from 'node:module'
+import { startFakeImap, makeRaw } from './fakeimap/server.mjs'
+
+// imapflow 装在 tmp/fakeimap 自己那份 package.json 里，不污染项目依赖
+const requireFake = createRequire(new URL('./fakeimap/package.json', import.meta.url))
+const { ImapFlow } = requireFake('imapflow')
 
 const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
 // 默认打 7788（正常实例），但可以指到隔离实例上跑：
@@ -242,7 +247,66 @@ try {
   ok('改名后 chips 跟着变', (await page.locator('.mail-chips .chip').nth(1).innerText()).includes('测试邮箱2'), await page.locator('.mail-chips .chip').nth(1).innerText())
   ok('编辑时密码留空不影响（账号仍在）', (await page.locator('.drawer .mail-acc-item').count()) === 1)
 
-  // ---------- 13. 删除账号 ----------
+  // ---------- 13. 自动刷新（页面可见时轮询，隐藏时暂停） ----------
+  {
+    const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 950 }, locale: 'zh-CN' })
+    const p2 = await ctx2.newPage()
+    let autoFresh = 0
+    p2.on('request', (r) => {
+      const u = r.url()
+      if (u.includes('/api/mail/messages?') && u.includes('fresh=1')) autoFresh++
+    })
+    // ?poll=1500：把 60 秒的轮询间隔缩短，只为测试；不传就是默认 60 秒
+    await p2.goto(B + '/mail?poll=1500', { waitUntil: 'domcontentloaded' })
+    await p2.waitForSelector('.mail-row', { timeout: 20000 })
+    const stamp0 = await p2.evaluate(() => document.querySelector('.mail-updated')?.textContent?.trim() || '')
+    ok('工具栏显示「数据截至」时间', /^数据截至 \d{2}:\d{2}:\d{2}$/.test(stamp0), JSON.stringify(stamp0))
+    const subj0 = await p2.evaluate(() => document.querySelector('.mail-row .mail-row-subject')?.textContent?.trim() || '')
+    ok('轮询前第一封是 120', subj0 === '第 120 封邮件', subj0)
+
+    // 直接往假 IMAP 里塞一封新信（UID 更大、时间最新），全程不点刷新、不重载页面
+    const ic = new ImapFlow({
+      host: '127.0.0.1', port: PORT, secure: false,
+      auth: { user: 'testuser', pass: 'testpass' }, logger: false, disableAutoIdle: true,
+    })
+    await ic.connect()
+    await ic.append('INBOX', makeRaw({ n: 999, subject: '自动刷新测试信', fromName: '新人', fromAddr: 'new@example.com', date: new Date() }), ['\\Seen'])
+    await ic.logout().catch(() => {})
+
+    let arrived = false
+    for (let i = 0; i < 30 && !arrived; i++) {
+      await p2.waitForTimeout(500)
+      arrived = (await p2.evaluate(() => document.querySelector('.mail-row .mail-row-subject')?.textContent?.trim() || '')) === '自动刷新测试信'
+    }
+    ok('新信自己冒出来（没点刷新、没重载）', arrived)
+    ok('轮询请求带了 fresh=1', autoFresh >= 1, String(autoFresh))
+    const stamp1 = await p2.evaluate(() => document.querySelector('.mail-updated')?.textContent?.trim() || '')
+    ok('「数据截至」时间跟着更新', stamp1 !== '' && stamp1 !== stamp0, stamp0 + ' → ' + stamp1)
+
+    // 切到后台：轮询必须停
+    await p2.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { get: () => 'hidden', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    const beforeHide = autoFresh
+    await p2.waitForTimeout(4500)
+    ok('页面在后台时不再轮询', autoFresh === beforeHide, beforeHide + ' → ' + autoFresh)
+
+    // 回到前台：立刻补一次，不用等下一个 60 秒
+    await p2.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    let back = false
+    for (let i = 0; i < 16 && !back; i++) {
+      await p2.waitForTimeout(500)
+      back = autoFresh > beforeHide
+    }
+    ok('切回前台立刻补拉一次', back, beforeHide + ' → ' + autoFresh)
+    await ctx2.close()
+  }
+
+  // ---------- 14. 删除账号 ----------
   await page.locator('.drawer .mail-acc-item button').last().click()
   await page.waitForTimeout(300)
   await page.locator('.drawer .mail-acc-item button', { hasText: '确认删除' }).click()
@@ -251,7 +315,7 @@ try {
   await page.waitForTimeout(800)
   ok('删完回到空态', (await page.locator('.empty-title').first().innerText()).includes('还没有添加邮箱'), await page.locator('.empty-title').first().innerText())
 
-  // ---------- 14. 其它页面没被影响 ----------
+  // ---------- 15. 其它页面没被影响 ----------
   await page.locator('.nav-item', { hasText: '便签' }).click()
   await page.waitForTimeout(600)
   ok('便签页仍正常', (await page.locator('.composer').count()) === 1)
@@ -259,7 +323,7 @@ try {
   await page.waitForTimeout(600)
   ok('从便签切回邮件仍在 /mail', new URL(page.url()).pathname === '/mail', page.url())
 
-  await page.screenshot({ path: 'shot-mail-empty.png', fullPage: false })
+  await page.screenshot({ path: 'tmp/shot-mail-empty.png', fullPage: false })
 } catch (e) {
   results.push('FAIL 顶层异常: ' + e.message)
 }

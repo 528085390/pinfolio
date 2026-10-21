@@ -9,6 +9,16 @@ import { MailAccountDrawer } from '../components/MailAccountDrawer'
 
 const PAGE = 50
 
+/**
+ * 自动刷新间隔：默认 60 秒。
+ * ?poll=毫秒 可覆盖（自动化测试与手工调参用），夹在 1 秒 ~ 1 小时之间。
+ */
+const POLL_MS = (() => {
+  const q = Number(new URLSearchParams(window.location.search).get('poll'))
+  if (Number.isFinite(q) && q >= 1000) return Math.min(q, 3_600_000)
+  return 60_000
+})()
+
 type Sel = { accountId: number; folder: string; uid: number }
 
 function pad(n: number) {
@@ -44,12 +54,16 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [listError, setListError] = useState('')
+  /** 这批列表数据真正从服务器取回的时刻（服务端 fetchedAt），用来显示「数据截至」 */
+  const [fetchedAt, setFetchedAt] = useState(0)
 
   const [q, setQ] = useState('')
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [sel, setSel] = useState<Sel | null>(null)
   const [drawer, setDrawer] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  /** 轮询时要知道当前翻到第几页，但不希望分页动作重建定时器 */
+  const offsetRef = useRef(0)
 
   const fetchAccounts = useCallback(async (fresh = false) => {
     try {
@@ -62,8 +76,8 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
     }
   }, [folder])
 
-  const fetchList = useCallback(async (off: number, fresh: boolean) => {
-    setLoading(true)
+  const fetchList = useCallback(async (off: number, fresh: boolean, silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const res = await api.mail.messages({ account: accountFilter, folder, limit: PAGE, offset: off, fresh })
       if (res.noAccounts) {
@@ -79,13 +93,14 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
       setTotal(res.total)
       setHasMore(res.hasMore)
       setUnseen(res.unseen)
+      setFetchedAt(res.fetchedAt || Date.now())
       setOffset(off)
       setListError(res.errors && res.errors.length ? res.errors.map((e) => (e.label || '账号') + '：' + e.error).join('；') : '')
     } catch (e: any) {
       // 保留旧列表，避免刷新失败时整页变空
       setListError(e.message)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [accountFilter, folder])
 
@@ -98,6 +113,35 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
   useEffect(() => {
     fetchAccounts(false)
   }, [fetchAccounts])
+
+  useEffect(() => {
+    offsetRef.current = offset
+  }, [offset])
+
+  // 自动刷新：页面可见时每 POLL_MS 静默拉一次（fresh=1 绕过 60 秒缓存，只刷新列表与未读数，
+  // 不动正文、不动选中项）。切到后台就停，回到前台立刻补一次。
+  useEffect(() => {
+    if (!accountsLoaded || !accounts.length) return
+    let busy = false
+    const tick = async () => {
+      if (busy || document.visibilityState !== 'visible') return
+      busy = true
+      try {
+        await Promise.all([fetchList(offsetRef.current, true, true), fetchAccounts(true)])
+      } finally {
+        busy = false
+      }
+    }
+    const timer = window.setInterval(tick, POLL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [accountsLoaded, accounts.length, fetchList, fetchAccounts])
 
   // 文件夹下拉：按当前账号取（"全部"时用第一个账号的文件夹当代表）
   const firstAccountId = accounts[0]?.id
@@ -238,6 +282,14 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
               ))}
             </select>
           </div>
+          {fetchedAt ? (
+            <span
+              className="mail-updated"
+              title={'每 ' + Math.round(POLL_MS / 1000) + ' 秒自动刷新；页面切到后台时暂停。这个时间是数据从邮箱服务器取回的时刻（可能命中 60 秒缓存）。'}
+            >
+              数据截至 {new Date(fetchedAt).toLocaleTimeString('zh-CN', { hour12: false })}
+            </span>
+          ) : null}
           <button
             type="button"
             className="btn btn-ghost btn-sm"

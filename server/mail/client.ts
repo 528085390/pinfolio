@@ -426,6 +426,8 @@ export type ListResult = {
   hasMore: boolean
   errors: { accountId: number; label: string; error: string }[]
   partial: boolean
+  /** 这批数据真正从 IMAP 取回的时刻（命中缓存时是缓存的取回时间），0 = 没取到 */
+  fetchedAt: number
 }
 
 export async function listMessages(opts: {
@@ -474,7 +476,8 @@ export async function listMessages(opts: {
   let hasMore = false
   for (const h of heads) if (!h.done && h.value) hasMore = true
 
-  return { items, total, unseen, hasMore, errors: errors.filter((e) => e.accountId !== 0), partial: errors.length > 0 }
+  const fetchedAt = sources.length ? Math.min(...sources.map((s) => s.snap.at)) : 0
+  return { items, total, unseen, hasMore, errors: errors.filter((e) => e.accountId !== 0), partial: errors.length > 0, fetchedAt }
 }
 
 export async function unseenCounts(accounts: MailAccountRow[], folder: string, fresh = false): Promise<{

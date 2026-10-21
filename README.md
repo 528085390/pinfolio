@@ -96,7 +96,8 @@
 - **图片**：**远程图片默认加载**（这样排版与配图才是原样）。不想给发件人追踪信号时，点阅读区顶部「隐藏图片」即可切到虚线占位，隐藏后正文顶部会提示「已拦截 N 张外部图片」并可一键恢复，选择记在本机浏览器里。⚠️ 加载远程图片**不会**改邮箱里的已读状态（本页永不回写服务器），但会给发件人一个「这封被打开过」的追踪信号。
 - 附件只列清单 + 下载，不落库；超过 25 MB 的邮件不下载正文，直接提示。
 - 搜索框在当前已加载的 50 封里做客户端筛选（发件人 / 主题 / 摘要），另有「只看未读」；`j` / `k` 上下选邮件。
-- 缓存：列表 60 秒、正文 10 分钟（只在内存里，不写磁盘），手动点「刷新」绕过缓存并重新取未读数。
+- **自动收信**：页面开着时每 60 秒静默回源一次（只更新列表和未读数，不动你正在读的正文），切到别的标签页就暂停、切回来立刻补一次；工具栏的「数据截至 11:05:03」是这批数据真正从邮箱服务器取回的时刻。想立刻看新的就点「刷新」（绕过缓存）。
+- 缓存：列表 60 秒、正文 10 分钟（只在内存里，不写磁盘），手动点「刷新」或自动轮询时绕过缓存并重新取未读数。
 - 账号连接失败不会拖垮整页：那个信箱的 chip 上会出现红色感叹号，鼠标悬停看原因；其它信箱照常显示。
 - 163 需要客户端发 `IMAP ID`（否则报 `Unsafe Login`），imapflow 登录时自动发，不用管；Gmail 要「应用专用密码」，QQ / 163 要「授权码」，填登录密码一定失败。
 
@@ -209,7 +210,7 @@ pinboard/
 | PUT/DELETE | `/mail/accounts/:id` | 修改（密码留空 = 不改）/ 删除（连带清掉本地已读标记） |
 | POST | `/mail/accounts/test` | 测连接，收原始参数或 `{id}`（复用已存密码）；失败返回可读中文原因 |
 | GET | `/mail/folders?account=` | 文件夹列表（带 special-use，只列可选中的） |
-| GET | `/mail/messages?account=all\|<id>&folder=INBOX&limit=50&offset=0` | 合并收件箱一页；`?fresh=1` 绕过 60 秒缓存。返回 `{ items, total, unseen, hasMore, errors, partial }` |
+| GET | `/mail/messages?account=all\|<id>&folder=INBOX&limit=50&offset=0` | 合并收件箱一页；`?fresh=1` 绕过 60 秒缓存（前端每 60 秒自动轮询也用它）。返回 `{ items, total, unseen, hasMore, errors, partial, fetchedAt }`，`fetchedAt` 是这批数据从 IMAP 取回的时刻 |
 | GET | `/mail/message?account=&folder=&uid=` | 单封正文（`text` / `html` / 附件清单） |
 | GET | `/mail/attachment?account=&folder=&uid=&index=` | 下载附件（`Content-Disposition` 带中文文件名） |
 | POST/DELETE | `/mail/local-read` | 标记本地已读 / 取消（`account=all` 或指定 id 清空）。**没有写服务器的接口** |

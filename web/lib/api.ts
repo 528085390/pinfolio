@@ -61,6 +61,8 @@ export type MailAccountError = { accountId: number; label: string; error: string
 export type MailListResult = {
   items: MailRow[]; total: number; unseen: number; hasMore: boolean
   errors: MailAccountError[]; partial: boolean
+  /** 这批数据从 IMAP 取回的时刻（命中缓存时是缓存时间），前端显示「数据截至」 */
+  fetchedAt?: number
   /** 一个账号都没配时后端会给 true，前端据此显示引导 */
   noAccounts?: boolean
 }
