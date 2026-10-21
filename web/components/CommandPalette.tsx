@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, StickyNote, Mail, Package, Settings, Plus, Download, CornerDownLeft, Activity } from 'lucide-react'
 import { api, cx, type Asset, type Note } from '../lib/api'
-import { KIND_META } from '../lib/format'
 import { KindIcon } from './KindIcon'
+import { assetSub, moveSel, noteLabel, noteSub, paletteHint } from './command-palette/items'
 
 type Item = { key: string; label: string; sub?: string; icon: React.ReactNode; run: () => void }
 
@@ -74,8 +74,8 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
     for (const n of notes) {
       out.push({
         key: 'n' + n.id,
-        label: n.content.replace(/\s+/g, ' ').slice(0, 70),
-        sub: n.tags.length ? n.tags.map((t) => '#' + t.name).join(' ') : '便签',
+        label: noteLabel(n.content),
+        sub: noteSub(n.tags),
         icon: <StickyNote size={15} />,
         run: () => onNavigate('notes'),
       })
@@ -84,7 +84,7 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
       out.push({
         key: 's' + a.id,
         label: a.name,
-        sub: KIND_META[a.kind]?.label + (a.location ? ' · ' + a.location : ''),
+        sub: assetSub(a),
         icon: <KindIcon kind={a.kind} size={15} />,
         run: () => { onNavigate('assets'); onOpenAsset(a.id) },
       })
@@ -94,12 +94,14 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
 
   useEffect(() => { setSel(0) }, [items.length])
 
+  const hint = paletteHint(q, loading, items.length)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); onClose(); return }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(items.length - 1, s + 1)) }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(0, s - 1)) }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => moveSel(s, 1, items.length)) }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => moveSel(s, -1, items.length)) }
       if (e.key === 'Enter') {
         e.preventDefault()
         const it = items[sel]
@@ -136,12 +138,8 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
 
         <div className="palette-list" ref={listRef}>
           {loading ? <div className="palette-group">搜索中…</div> : null}
-          {!loading && q.trim() && items.length === 0 ? (
-            <div className="palette-group">没有找到「{q.trim()}」</div>
-          ) : null}
-          {items.length > 0 ? (
-            <div className="palette-group">{q.trim() ? '结果' : '命令'}</div>
-          ) : null}
+          {hint.empty ? <div className="palette-group">{hint.empty}</div> : null}
+          {hint.group ? <div className="palette-group">{hint.group}</div> : null}
           {items.map((it, i) => (
             <button
               key={it.key}

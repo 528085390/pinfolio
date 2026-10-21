@@ -24,7 +24,9 @@ Kuma 脱敏/策略说人话（`server/kuma/redact.ts`）、四态心跳与时间
 资产页取值（`web/pages/assets/meta.ts`：标签栏排序规则、卡片中间几行的顺序与「自定义字段最多 2 个」）、
 两个编辑抽屉的表单逻辑（`web/components/monitor-drawer/form.ts` 的「只发改动字段」与三处校验、
 `web/components/asset-drawer/form.ts` 的标签解析与提交形状、`monitor-drawer/display.ts` 的状态点取色、
-`monitor-drawer/form.ts` 的三条按钮判断：能不能保存（有改动 + 校验全过 + 不在保存中）、能不能立即观测（有配方 + 没置灰 + 没在跑 + 没暂停）、删除确认是否匹配）、
+`monitor-drawer/form.ts` 的三条按钮判断：能不能保存（有改动 + 校验全过 + 不在保存中）、能不能立即观测（有配方 + 没置灰 + 没在跑 + 没暂停）、删除确认是否匹配、
+命令面板的行拼装与键盘下标（`web/components/command-palette/items.ts`：便签标题压空白截 70 字、标签副标题、资产类型+位置、
+上下移动夹在 0..length-1、顶部「命令/结果」标题与「没有找到「x」」空态）、
 邮件阅读区的地址与大小格式化（`web/components/mail-reader/text.ts`）与邮件 CSS 清洗（`mail-reader/css.ts`：
 去 `@import` / `expression(` / `behavior` / `-moz-binding`、`position:fixed|sticky` 改 `static`、隐藏图片时 `url(https?:…)` 换 `none`）、
 邮箱账号表单（`web/components/mail-account/form.ts`：编辑时密码留空就不发该字段、常用邮箱 chip 不冲掉已填的用户名密码）、

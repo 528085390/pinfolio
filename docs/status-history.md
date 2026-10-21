@@ -230,3 +230,20 @@ core e2e **11/11**（设置页新增标签那一步照常通过）。
 `pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）、JS `index-4cmWmmsU.js` 415.66 kB；
 monitor e2e **3/3（63s，e2e-monitor-drawer 88 passed 0 failed）**、core e2e **11/11（80s）**。
 
+## 2026-10-21 补充：命令面板的行拼装抽成纯模块
+
+㉑ **命令面板的行拼装抽成纯模块**：`web/components/CommandPalette.tsx`（155 行）里，结果行的文案拼装、
+键盘上下移动的下标、「命令/结果」标题与「没有找到「x」」空态都写在组件里，测不到。
+- 新建 `web/components/command-palette/items.ts`（**纯函数**）：`NOTE_LABEL_MAX = 70`、`noteLabel(content)`
+  （连续空白压成一个空格再截断）、`noteSub(tags)`（有标签列 `#标签`，没有写「便签」）、`assetSub(a)`
+  （`KIND_META[kind].label` + 可选「 · 位置」）、`moveSel(sel, delta, length)`、`paletteHint(term, loading, count)`
+  → `{group, empty}`。
+- `CommandPalette.tsx` 只用这些函数，JSX / 三个 effect（重置、170ms 防抖搜索、键盘）原样不动。
+- 两处**实测行为、别改成猜的**：① 长度 0 时按 ↓ 会得到 -1（原实现 `Math.min(-1, s+1)`，下一轮 `items.length`
+  变化会把 sel 重置回 0）；② 不认识的资产类型让 `assetSub` 回字符串 `'undefined'`（`KIND_META[kind]?.label` 拼空串）。
+- 新增 `tests/unit/command-palette-items.test.mts`（8 条），单测 251 → **259/259**。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）、
+JS `index-Cya2EhMt.js` 415.91 kB；core e2e **11/11（80s）**（含 `e2e.mjs` 的命令面板搜索、`e2e-archive` 的 Ctrl+K 不返回归档便签、
+`e2e-mail` 的「邮件」入口）。
+
