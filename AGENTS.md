@@ -25,10 +25,10 @@
 | 快照 | `server/snapshot.ts` + `server/snapshot/{rows,markdown,write}.ts` | 取数 / 渲染（纯函数，有单测）/ 写文件与 1.5 秒防抖；`pnpm snapshot` 立即重生成，隔离实例不写 |
 | 前端壳 | `web/App.tsx`、`web/app/*`、`web/lib/router.ts` | 组合层 + `useShell`（页面/主题/命令面板/异常通知跳转）+ `Sidebar`/`Topbar`/`titles.ts`；页面状态从 URL 取，**别改回 `useState`** |
 | 页面 | `web/pages/*` + `web/pages/{notes,mail,monitors,assets,settings}/*` | 便签（useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件（useInbox/MailList/MailToolbar）、观测（useMonitors/Stats/Filters/Card/Table/status）、资产（useAssets/Stats/Filters/TagBar/Card/Table/meta）、设置（useSettings + 四张卡片 + fields.ts） |
-| 组件 | `web/components/*` + `web/components/{monitor-drawer,asset-drawer,mail-reader,mail-account}/*` | 抽屉（`FormDrawer` 是共用壳；两个编辑抽屉各自拆成容器 + 分段/表单，纯逻辑在各自的 `form.ts`）/ 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM，清洗规则在 `mail-reader/doc.ts`、`css.ts`）/ 邮箱账号抽屉（规则在 `mail-account/form.ts`） |
+| 组件 | `web/components/*` + `web/components/{monitor-drawer,asset-drawer,mail-reader,mail-account}/*` | 抽屉（`FormDrawer` 是共用壳；两个编辑抽屉各自拆成容器 + 分段/表单，纯逻辑在各自的 `form.ts`，观测抽屉的状态与接口调用在 `monitor-drawer/useMonitorDetail.ts`）/ 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM，清洗规则在 `mail-reader/doc.ts`、`css.ts`）/ 邮箱账号抽屉（规则在 `mail-account/form.ts`） |
 | 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（六域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
 | 样式 | `web/styles/`（12 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
-| 测试 | `tests/`（`unit/` 247 条单测 + 14 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
+| 测试 | `tests/`（`unit/` 251 条单测 + 14 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
 | 工具 | `tools/screenshots/`、`tools/seed-assets.mjs` | 截图脚本（须在项目根跑，产物进 `tmp/`）、批量灌数据 |
 
 ## 怎么用
@@ -58,7 +58,7 @@ pnpm typecheck        # tsc --noEmit
 
 **当前状态（2026-10-21）**：7788 运行中，五页（便签 / 邮件 / 资产 / 观测 / 设置）全部可用。工程整理已收口——
 服务端按职责拆分（`server/kuma/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
-前端 api 与样式分片，`tests/` 里有 247 条单测 + 14 套 e2e（`pnpm test` / `pnpm test:e2e`）。
+前端 api 与样式分片，`tests/` 里有 251 条单测 + 14 套 e2e（`pnpm test` / `pnpm test:e2e`）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
 未做：Gmail 跨页翻页（`hasMore:true` 的下一页）待信箱多于一页时复测；kuma 的 Windows Defender 排除项随旧路径失效，
 需管理员重跑 `kuma\tools\add-defender-exclusions.ps1`。

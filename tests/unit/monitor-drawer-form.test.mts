@@ -2,7 +2,9 @@
 // 运行：pnpm test:unit
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildPatch, emptyForm, sameForm, toForm, validateForm } from '../../web/components/monitor-drawer/form.js'
+import {
+  buildPatch, canSaveForm, confirmMatches, emptyForm, runDisabledOf, sameForm, toForm, validateForm,
+} from '../../web/components/monitor-drawer/form.js'
 import { toneOf } from '../../web/components/monitor-drawer/display.js'
 
 const detail = (over: Record<string, any> = {}) => ({
@@ -105,4 +107,38 @@ test('toneOf：没有四态就看 Kuma 状态码', () => {
 
 test('toneOf：认不出的四态字符直接算无数据（实测行为，别改成回退状态码）', () => {
   assert.equal(toneOf({ tone: '紫', status: 1 }), null)
+})
+
+test('canSaveForm：没改动 / 校验不过 / 保存中 都不能点', () => {
+  const base = { ...emptyForm(), name: 'app-api' }
+  assert.equal(canSaveForm(base, base, false), false)
+  assert.equal(canSaveForm({ ...base, name: '改名' }, base, false), true)
+  assert.equal(canSaveForm({ ...base, name: '改名' }, base, true), false)
+  assert.equal(canSaveForm({ ...base, name: '' }, base, false), false)
+  assert.equal(canSaveForm({ ...base, name: '改名', interval: 10 }, base, false), false)
+  assert.equal(canSaveForm({ ...base, name: '改名', timeout: 999 }, base, false), false)
+})
+
+test('canSaveForm：没有基准（详情没读到）时一律不能点', () => {
+  assert.equal(canSaveForm({ ...emptyForm(), name: 'x' }, null, false), false)
+})
+
+test('runDisabledOf：没配方 / 配方置灰 / 正在跑 / 已暂停 都不能点', () => {
+  const m = { active: true } as any
+  const action = { steps: [], source: 'config' } as any
+  assert.equal(runDisabledOf(action, m, false), false)
+  assert.equal(runDisabledOf(undefined, m, false), true)
+  assert.equal(runDisabledOf({ ...action, disabledReason: '没配配方' }, m, false), true)
+  assert.equal(runDisabledOf(action, m, true), true)
+  assert.equal(runDisabledOf(action, { active: false } as any, false), true)
+  assert.equal(runDisabledOf(action, undefined, false), true)
+})
+
+test('confirmMatches：去掉首尾空白后必须完全一样', () => {
+  const m = { name: ' app-api ' } as any
+  assert.equal(confirmMatches(m, 'app-api'), true)
+  assert.equal(confirmMatches(m, '  app-api  '), true)
+  assert.equal(confirmMatches(m, 'wb2ap'), false)
+  assert.equal(confirmMatches(m, ''), false)
+  assert.equal(confirmMatches(undefined, 'app-api'), false)
 })

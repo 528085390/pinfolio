@@ -50,3 +50,24 @@ export function validateForm(form: MonitorForm) {
   const timeoutOk = Number.isFinite(form.timeout) && form.timeout >= 1 && form.timeout <= 120 && form.timeout < form.interval
   return { nameOk, intervalOk, timeoutOk }
 }
+
+/** 「保存」按钮能不能点：有改动 + 三项校验都过 + 不在保存中。没有基准（详情还没读到）时一律不能点。 */
+export function canSaveForm(form: MonitorForm, base: MonitorForm | null, saving: boolean): boolean {
+  const dirty = base ? !sameForm(form, base) : false
+  const { nameOk, intervalOk, timeoutOk } = validateForm(form)
+  return dirty && nameOk && intervalOk && timeoutOk && !saving
+}
+
+/** 「立即观测」按钮能不能点：有配方、配方没被置灰、没在跑、观测项存在且没暂停。 */
+export function runDisabledOf(
+  action: MonitorDetail['action'] | undefined,
+  m: MonitorDetail['monitor'] | undefined,
+  running: boolean,
+): boolean {
+  return !action || !!action.disabledReason || running || !m || !m.active
+}
+
+/** 删除二次确认：手输的名字（去空白）必须和当前名字（去空白）完全一样。 */
+export function confirmMatches(m: MonitorDetail['monitor'] | undefined, confirmName: string): boolean {
+  return !!m && confirmName.trim() === m.name.trim()
+}

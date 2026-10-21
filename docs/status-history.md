@@ -213,3 +213,20 @@ core e2e **11/11**（设置页新增标签那一步照常通过）。
 重启后 `/api/health`、`/api/mail/status`（marked 11 / accounts 1）、`/api/mail/accounts`、`/api/stats`、`/api/monitors` 全 200；
 隔离实例（`PORT=7799` + `PINBOARD_DATA=tests\e2e-data`）mail e2e **2/2（25s，72/72 + 58/58）**、core e2e **11/11（91s）**。
 
+## 2026-10-21 补充：观测项抽屉抽出状态 hook
+
+⑳ **观测项抽屉抽出状态 hook**：`web/components/MonitorDrawer.tsx`（201 行）此前把 16 个 useState、详情 effect、
+保存/暂停恢复/删除/立即观测四个接口调用全放在组件里，组件文件里既看不清界面也测不到判断。
+- 新建 `web/components/monitor-drawer/useMonitorDetail.ts`：`useMonitorDetail({id, onClose, onChanged})` 搬走全部状态、
+  详情 effect（切 id 时清空保存/删除/立即观测的回显）、`save`（只发 `buildPatch` 的改动字段）、`toggleActive`、
+  `remove`、`runNow`，并返回 `m`/`action`/`canSave`/`runDisabled`/`confirmOk`；导出 `type MonitorDetailState`。
+- `form.ts` 新增三条**纯函数**（都能单测）：`canSaveForm(form, base, saving)`（有改动 + 三项校验全过 + 不在保存中，
+  没有基准时一律 false）、`runDisabledOf(action, m, running)`（没配方 / 配方置灰 / 正在跑 / 已暂停 / 详情没到 都不能点）、
+  `confirmMatches(m, confirmName)`（去首尾空白后必须完全一样）。
+- `MonitorDrawer.tsx` 只剩组合层：`const d = useMonitorDetail({...})` + `FormDrawer` 外壳 + 五段（Now/Basic/Advanced/Run/Danger）。
+  **界面结构、类名、文案一个没动**（e2e-monitor-drawer 依赖 `button` 文本「保存」、「删除观测」/「确认删除」、`.monitor-drawer-confirm`）。
+
+验证：`pnpm typecheck` 0 错误；`tests/unit/monitor-drawer-form.test.mts` 15 → 19 条，单测 247 → **251/251**；
+`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）、JS `index-4cmWmmsU.js` 415.66 kB；
+monitor e2e **3/3（63s，e2e-monitor-drawer 88 passed 0 failed）**、core e2e **11/11（80s）**。
+
