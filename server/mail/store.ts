@@ -11,6 +11,7 @@ export type MailAccountRow = {
   username: string
   password: string
   security: string
+  proxy: string
   enabled: number
   sort: number
   created_at: string
@@ -43,8 +44,40 @@ export type AccountInput = {
   username?: string
   password?: string
   security?: string
+  proxy?: string
   enabled?: boolean | number | string
   sort?: number | string
+}
+
+/** imapflow 支持的代理协议（http/https 走 CONNECT，其余走 SOCKS） */
+const PROXY_SCHEMES = ['socks', 'socks5', 'socks4', 'socks4a', 'http', 'https']
+
+/**
+ * 规范化代理地址：允许只写 host:port（默认按 socks5 处理），
+ * 统一成 imapflow 能吃的 URL。空字符串 = 直连。
+ */
+export function normalizeProxy(raw: unknown): { value: string } | { error: string } {
+  const text = String(raw ?? '').trim()
+  if (!text) return { value: '' }
+  let url: URL
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : 'socks5://' + text)
+  } catch {
+    return { error: '代理地址格式不对，应形如 socks5://127.0.0.1:10808' }
+  }
+  const scheme = url.protocol.replace(/:$/, '').toLowerCase()
+  if (!PROXY_SCHEMES.includes(scheme)) {
+    return { error: '代理只支持 socks5 / socks4 / socks4a / socks / http / https' }
+  }
+  if (!url.hostname) return { error: '代理地址缺少主机名' }
+  if (url.pathname && url.pathname !== '/') return { error: '代理地址不要带路径' }
+  if (url.port && !(Number(url.port) >= 1 && Number(url.port) <= 65535)) {
+    return { error: '代理端口必须是 1-65535 之间的数字' }
+  }
+  const auth = url.username
+    ? url.username + (url.password ? ':' + url.password : '') + '@'
+    : ''
+  return { value: scheme + '://' + auth + url.hostname + (url.port ? ':' + url.port : '') }
 }
 
 export function normalizeAccountInput(body: AccountInput) {
@@ -55,6 +88,10 @@ export function normalizeAccountInput(body: AccountInput) {
   const label = String(body.label ?? '').trim()
   const email = String(body.email ?? '').trim()
   const password = body.password === undefined ? undefined : String(body.password)
+  // proxy 不传 = 不改（编辑时前端没这个字段也不会把已有代理清掉）；传空串 = 显式改成直连
+  const proxy: { value: string | undefined } | { error: string } =
+    body.proxy === undefined ? { value: undefined } : normalizeProxy(body.proxy)
+  if ('error' in proxy) return { error: proxy.error }
   const enabled = body.enabled === undefined ? 1 : (body.enabled === true || body.enabled === 1 || body.enabled === '1' ? 1 : 0)
   const sort = Number(body.sort ?? 0)
 
@@ -72,6 +109,7 @@ export function normalizeAccountInput(body: AccountInput) {
       label,
       email,
       password,
+      proxy: proxy.value,
       enabled,
       sort: Number.isFinite(sort) ? sort : 0,
     },
@@ -79,18 +117,18 @@ export function normalizeAccountInput(body: AccountInput) {
 }
 
 export function createAccount(v: {
-  host: string; username: string; port: number; security: Security; label: string; email: string; password?: string; enabled: number; sort: number
+  host: string; username: string; port: number; security: Security; label: string; email: string; password?: string; proxy?: string; enabled: number; sort: number
 }): MailAccountRow {
   const now = nowIso()
   const r = run(
-    'INSERT INTO mail_accounts (label, email, host, port, username, password, security, enabled, sort, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    v.label, v.email, v.host, v.port, v.username, v.password ?? '', v.security, v.enabled, v.sort, now, now,
+    'INSERT INTO mail_accounts (label, email, host, port, username, password, security, proxy, enabled, sort, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    v.label, v.email, v.host, v.port, v.username, v.password ?? '', v.security, v.proxy ?? '', v.enabled, v.sort, now, now,
   )
   return getAccount(r.id)!
 }
 
 export function updateAccount(id: number, v: Partial<{
-  host: string; username: string; port: number; security: Security; label: string; email: string; password: string; enabled: number; sort: number
+  host: string; username: string; port: number; security: Security; label: string; email: string; password: string; proxy: string; enabled: number; sort: number
 }>): MailAccountRow | undefined {
   const cur = getAccount(id)
   if (!cur) return undefined
@@ -102,12 +140,13 @@ export function updateAccount(id: number, v: Partial<{
     username: v.username ?? cur.username,
     password: v.password === undefined || v.password === '' ? cur.password : v.password,
     security: v.security ?? (cur.security as Security),
+    proxy: v.proxy ?? cur.proxy,
     enabled: v.enabled ?? cur.enabled,
     sort: v.sort ?? cur.sort,
   }
   run(
-    'UPDATE mail_accounts SET label = ?, email = ?, host = ?, port = ?, username = ?, password = ?, security = ?, enabled = ?, sort = ?, updated_at = ? WHERE id = ?',
-    next.label, next.email, next.host, next.port, next.username, next.password, next.security, next.enabled, next.sort, nowIso(), id,
+    'UPDATE mail_accounts SET label = ?, email = ?, host = ?, port = ?, username = ?, password = ?, security = ?, proxy = ?, enabled = ?, sort = ?, updated_at = ? WHERE id = ?',
+    next.label, next.email, next.host, next.port, next.username, next.password, next.security, next.proxy, next.enabled, next.sort, nowIso(), id,
   )
   return getAccount(id)
 }

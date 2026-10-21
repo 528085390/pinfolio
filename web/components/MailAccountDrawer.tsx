@@ -12,6 +12,7 @@ type FormState = {
   username: string
   password: string
   security: MailSecurity
+  proxy: string
 }
 
 const EMPTY: FormState = {
@@ -23,6 +24,7 @@ const EMPTY: FormState = {
   username: '',
   password: '',
   security: 'ssl',
+  proxy: '',
 }
 
 /** 常见邮箱的预设：只填 host/port，用户名密码仍要自己来 */
@@ -76,6 +78,7 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
       username: a.username,
       password: '',
       security: (a.security as MailSecurity) || 'ssl',
+      proxy: a.proxy || '',
     })
     setMsg(null)
   }
@@ -100,6 +103,7 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
         username: form.username,
         password: form.password || undefined,
         security: form.security,
+        proxy: form.proxy,
       })
       setMsg({ kind: 'ok', text: '连接成功：' + r.server + '，看到 ' + r.folders + ' 个文件夹' + (r.encrypted ? '，连接已加密' : '') })
     } catch (e: any) {
@@ -121,6 +125,7 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
         port: Number(form.port) || 993,
         username: form.username,
         security: form.security,
+        proxy: form.proxy,
       }
       // 编辑时留空 = 不改密码
       if (form.password || form.id === null) body.password = form.password
@@ -238,6 +243,9 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
                 <option value="starttls">STARTTLS（143）</option>
                 <option value="none">不加密（仅本机调试）</option>
               </select>
+            </Field>
+            <Field label="代理（可选）" hint="国内直连 imap.gmail.com 常超时：填本机 SOCKS5 代理，如 socks5://127.0.0.1:10808；QQ/163 留空直连">
+              <input className="input" value={form.proxy} placeholder="socks5://127.0.0.1:10808" onChange={(e) => patch({ proxy: e.target.value })} />
             </Field>
           </div>
 

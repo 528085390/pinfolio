@@ -5,7 +5,7 @@ import {
 } from '../mail/store.js'
 import {
   clearAccountCaches, dropAllConnections, dropConnection, getMessage, listFolders, listMessages,
-  testConnection, unseenCounts, friendlyError,
+  testConnection, unseenCounts, friendlyError, proxyOf,
 } from '../mail/client.js'
 
 export const mailRoute = new Hono()
@@ -72,6 +72,7 @@ mailRoute.post('/accounts/test', async (c) => {
     username: String(body.username ?? '').trim(),
     password: body.password === undefined ? '' : String(body.password),
     security: String(body.security ?? 'ssl'),
+    proxy: body.proxy === undefined ? '' : String(body.proxy),
   }
   if (body.id) {
     const acc = getAccount(Number(body.id))
@@ -82,6 +83,7 @@ mailRoute.post('/accounts/test', async (c) => {
       username: input.username || acc.username,
       password: input.password || acc.password,
       security: input.security || acc.security,
+      proxy: input.proxy || acc.proxy,
     }
   }
   if (!input.host || !input.username || !input.password) return c.json({ error: '服务器地址、用户名、密码都要填' }, 400)
@@ -89,7 +91,7 @@ mailRoute.post('/accounts/test', async (c) => {
     const res = await testConnection(input)
     return c.json({ ok: true, ...res })
   } catch (err) {
-    return c.json({ ok: false, error: friendlyError(err) }, 400)
+    return c.json({ ok: false, error: friendlyError(err, proxyOf({ proxy: input.proxy })) }, 400)
   }
 })
 
@@ -101,7 +103,7 @@ mailRoute.get('/folders', async (c) => {
     const folders = await listFolders(acc, c.req.query('fresh') === '1')
     return c.json({ folders })
   } catch (err) {
-    return c.json({ error: friendlyError(err), folders: [] }, 502)
+    return c.json({ error: friendlyError(err, proxyOf(acc)), folders: [] }, 502)
   }
 })
 
@@ -141,7 +143,7 @@ mailRoute.get('/message', async (c) => {
     const { message } = await getMessage(acc, folder, uid)
     return c.json({ ...message, accountLabel: acc.label, accountEmail: acc.email })
   } catch (err) {
-    return c.json({ error: friendlyError(err) }, 502)
+    return c.json({ error: friendlyError(err, proxyOf(acc)) }, 502)
   }
 })
 
@@ -167,7 +169,7 @@ mailRoute.get('/attachment', async (c) => {
       'Cache-Control': 'private, max-age=600',
     })
   } catch (err) {
-    return c.json({ error: friendlyError(err) }, 502)
+    return c.json({ error: friendlyError(err, proxyOf(acc)) }, 502)
   }
 })
 

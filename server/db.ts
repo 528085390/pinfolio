@@ -77,6 +77,7 @@ const SCHEMA = [
   '  username TEXT NOT NULL,',
   '  password TEXT NOT NULL DEFAULT \'\',',
   '  security TEXT NOT NULL DEFAULT \'ssl\',',
+  '  proxy TEXT NOT NULL DEFAULT \'\',',
   '  enabled INTEGER NOT NULL DEFAULT 1,',
   '  sort INTEGER NOT NULL DEFAULT 0,',
   '  created_at TEXT NOT NULL,',
@@ -157,6 +158,12 @@ export function toBool(v: any) {
 const noteCols = all<{ name: string }>('PRAGMA table_info(notes)').map((r) => r.name)
 if (!noteCols.includes('done')) {
   db.exec('ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0')
+}
+
+// ---- 迁移：给老库补 mail_accounts.proxy 列（2026-10-21：国内直连 imap.gmail.com 被墙，需要 SOCKS5 代理）----
+const mailCols = all<{ name: string }>('PRAGMA table_info(mail_accounts)').map((r) => r.name)
+if (!mailCols.includes('proxy')) {
+  db.exec("ALTER TABLE mail_accounts ADD COLUMN proxy TEXT NOT NULL DEFAULT ''")
 }
 
 // ---- 预设标签：只写一次（用 PRAGMA user_version 做标记，删掉不会再被塞回来）----

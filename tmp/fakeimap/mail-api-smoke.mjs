@@ -47,6 +47,32 @@ try {
   r = await req('POST', '/accounts', { host: '', username: '', password: '', security: 'ssl' })
   ok('缺字段被拒（400）', r.status === 400, r.text.slice(0, 80))
 
+  // ---- 代理字段（Gmail 直连被墙时用） ----
+  const base = { label: '测试邮箱', host: '127.0.0.1', port: fake.port, username: 'testuser', security: 'none' }
+  r = await req('PUT', '/accounts/' + accountId, { ...base, proxy: '127.0.0.1:10808' })
+  ok('代理省略协议自动补 socks5://', r.status === 200 && r.json?.proxy === 'socks5://127.0.0.1:10808', r.text.slice(0, 120))
+
+  r = await req('PUT', '/accounts/' + accountId, { ...base })
+  ok('不传 proxy 时保留已有代理', r.status === 200 && r.json?.proxy === 'socks5://127.0.0.1:10808', String(r.json?.proxy))
+
+  r = await req('PUT', '/accounts/' + accountId, { ...base, proxy: 'ftp://127.0.0.1:21' })
+  ok('不支持的代理协议被拒（400）', r.status === 400 && /代理/.test(r.json?.error || ''), r.text.slice(0, 120))
+
+  r = await req('PUT', '/accounts/' + accountId, { ...base, proxy: 'socks5://127.0.0.1:1080/abc' })
+  ok('代理地址不能带路径（400）', r.status === 400, r.text.slice(0, 120))
+
+  r = await req('PUT', '/accounts/' + accountId, { ...base, proxy: 'socks5://127.0.0.1:1' })
+  ok('代理可保存到端口 1', r.status === 200 && r.json?.proxy === 'socks5://127.0.0.1:1', r.text.slice(0, 120))
+  r = await req('GET', '/accounts?counts=1&fresh=1')
+  const proxyErr = (r.json?.accounts || []).find((a) => a.id === accountId)?.error || ''
+  ok('代理不通时错误提示提到代理', /代理/.test(proxyErr), proxyErr)
+
+  r = await req('POST', '/accounts/test', { ...base, password: 'testpass', proxy: 'socks5://127.0.0.1:1' })
+  ok('连接测试走代理失败时提示代理', r.status === 400 && /代理/.test(r.json?.error || ''), String(r.json?.error))
+
+  r = await req('PUT', '/accounts/' + accountId, { ...base, proxy: '' })
+  ok('代理可清空回直连', r.status === 200 && r.json?.proxy === '', JSON.stringify(r.json?.proxy))
+
   // ---- 连接测试 ----
   r = await req('POST', '/accounts/test', { host: '127.0.0.1', port: fake.port, username: 'testuser', password: 'testpass', security: 'none' })
   ok('连接测试成功', r.status === 200 && r.json?.ok === true, r.text.slice(0, 160))

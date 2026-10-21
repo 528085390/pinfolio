@@ -71,17 +71,37 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 
 const AUTH_RE = /auth|credentials|LOGIN failed|AUTHENTICATIONFAILED|invalid user|password/i
 
-/** 把 imapflow / 网络错误翻译成人能看懂的一句话 */
-export function friendlyError(err: unknown): string {
+/** 代理地址去掉账号密码，避免把凭据写进界面提示 */
+function proxyLabel(proxy: string): string {
+  return String(proxy || '').replace(/\/\/[^@/]*@/, '//')
+}
+
+/** 账号没填代理时，允许用环境变量兜底（PINBOARD_MAIL_PROXY=socks5://127.0.0.1:10808） */
+export function proxyOf(a: { proxy?: string }): string {
+  return String(a.proxy || process.env.PINBOARD_MAIL_PROXY || '').trim()
+}
+
+/** 把 imapflow / 网络错误翻译成人能看懂的一句话；传了 proxy 会说明「这是走代理失败」 */
+export function friendlyError(err: unknown, proxy = ''): string {
   const e = err as any
   const code = String(e?.code || '')
   const msg = String(e?.responseText || e?.message || e || '').trim()
   const lower = msg.toLowerCase()
+  const via = proxy ? '（经代理 ' + proxyLabel(proxy) + '）' : ''
+  if (code === 'EPROXY' || code === 'ProxyError' || code === 'UnsupportedProxyAddress' || /proxy/i.test(msg)) {
+    return '代理连接失败：请确认代理程序在运行、地址端口正确' + (proxy ? '（' + proxyLabel(proxy) + '）' : '（例如 socks5://127.0.0.1:10808）')
+  }
   if (code === 'CONNECT_TIMEOUT' || /timeout|timed out|超时/.test(lower)) {
-    return '连接超时：请检查服务器地址、端口和网络（国内访问 Gmail 的 993 端口通常正常）'
+    return proxy
+      ? '连接超时' + via + '：代理不通或目标服务器不可达，请确认代理程序在运行、服务器地址与端口正确'
+      : '连接超时：服务器或网络不通。国内直连 imap.gmail.com 经常被墙，请在账号里填 SOCKS5 代理（例如 socks5://127.0.0.1:10808）；QQ/163 一般直连即可'
   }
   if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return '服务器地址解析失败，请检查 IMAP 服务器地址是否写错'
-  if (code === 'ECONNREFUSED') return '端口拒绝连接：请确认端口号与加密方式（SSL/TLS 一般为 993，STARTTLS 一般为 143）'
+  if (code === 'ECONNREFUSED') {
+    return proxy
+      ? '连接被拒绝' + via + '：请确认代理程序在运行（端口对得上），以及服务器端口与加密方式（SSL 一般为 993）'
+      : '端口拒绝连接：请确认端口号与加密方式（SSL/TLS 一般为 993，STARTTLS 一般为 143）'
+  }
   if (code === 'ECONNRESET' || code === 'EPIPE') return '连接被服务器中断，请稍后重试'
   if (code === 'EAUTH' || AUTH_RE.test(msg) && !/certificate/i.test(msg)) {
     return '登录被拒绝：用户名或密码不对。Gmail 需用「应用专用密码」，QQ/163 需用「授权码」而不是登录密码'
@@ -224,14 +244,17 @@ type PoolEntry = { client: ImapFlow; sig: string }
 const pool = new Map<number, PoolEntry>()
 
 function sigOf(a: MailAccountRow): string {
-  return [a.host, a.port, a.username, a.password, a.security].join('\u0000')
+  return [a.host, a.port, a.username, a.password, a.security, a.proxy].join('\u0000')
 }
 
-function makeClient(a: Pick<MailAccountRow, 'host' | 'port' | 'username' | 'password' | 'security'>): ImapFlow {
+function makeClient(a: Pick<MailAccountRow, 'host' | 'port' | 'username' | 'password' | 'security'> & { proxy?: string }): ImapFlow {
+  const proxy = proxyOf(a)
   return new ImapFlow({
     host: a.host,
     port: Number(a.port) || 993,
     secure: a.security === 'ssl',
+    // imapflow 原生支持代理（http/https 走 CONNECT，socks/socks5/socks4/socks4a 走 SOCKS）
+    ...(proxy ? { proxy } : {}),
     auth: { user: a.username, pass: a.password },
     clientInfo: { name: 'pinboard', version: '0.1.0', vendor: 'pinboard' },
     disableAutoIdle: true,
@@ -312,7 +335,7 @@ export function clearAccountCaches(accountId: number) {
 // ---------- IMAP 操作 ----------
 
 export async function testConnection(input: {
-  host: string; port: number; username: string; password: string; security: string
+  host: string; port: number; username: string; password: string; security: string; proxy?: string
 }): Promise<{ server: string; folders: number; encrypted: boolean }> {
   const client = makeClient(input as any)
   try {
@@ -323,7 +346,7 @@ export async function testConnection(input: {
     const list = await withTimeout(client.list(), OP_TIMEOUT, '获取文件夹列表')
     return { server: String((client as any).serverInfo?.name || ''), folders: list.length, encrypted: isEncrypted(client) }
   } catch (err) {
-    throw new Error(friendlyError(err))
+    throw new Error(friendlyError(err, proxyOf(input)))
   } finally {
     try { await withTimeout(client.logout(), 3000, '断开') } catch { try { client.close() } catch { /* ignore */ } }
   }
@@ -450,7 +473,7 @@ export async function listMessages(opts: {
       total += snap.uids.length
       unseen += snap.unseen
     } catch (err) {
-      errors.push({ accountId: a.id, label: a.label || a.email || a.username, error: friendlyError(err) })
+      errors.push({ accountId: a.id, label: a.label || a.email || a.username, error: friendlyError(err, proxyOf(a)) })
     }
   }
 
@@ -491,7 +514,7 @@ export async function unseenCounts(accounts: MailAccountRow[], folder: string, f
       const snap = await getSnapshot(a, folder, fresh)
       counts[a.id] = { unseen: snap.unseen, total: snap.uids.length }
     } catch (err) {
-      errors.push({ accountId: a.id, label: a.label || a.email || a.username, error: friendlyError(err) })
+      errors.push({ accountId: a.id, label: a.label || a.email || a.username, error: friendlyError(err, proxyOf(a)) })
     }
   }))
   return { counts, errors }

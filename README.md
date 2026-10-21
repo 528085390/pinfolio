@@ -111,6 +111,7 @@
 - 缓存：列表 60 秒、正文 10 分钟（只在内存里，不写磁盘），手动点「刷新」或自动轮询时绕过缓存并重新取未读数。
 - 账号连接失败不会拖垮整页：那个信箱的 chip 上会出现红色感叹号，鼠标悬停看原因；其它信箱照常显示。
 - 163 需要客户端发 `IMAP ID`（否则报 `Unsafe Login`），imapflow 登录时自动发，不用管；Gmail 要「应用专用密码」，QQ / 163 要「授权码」，填登录密码一定失败。
+- **代理（Gmail 必备）**：国内直连 `imap.gmail.com:993` 经常被墙（表现为「连接超时」），账号抽屉里有个**「代理（可选）」**字段，填本机 SOCKS5 代理即可，如 `socks5://127.0.0.1:10808`（只写 `127.0.0.1:10808` 会自动补 `socks5://`）。也支持 `http(s)://` / `socks4://`；QQ / 163 留空直连。整库兜底可以设环境变量 `PINBOARD_MAIL_PROXY`（账号没填时生效）。
 
 ### 全局
 - **每页都有自己的地址**：`/notes`、`/mail`、`/assets`、`/monitors`、`/settings`。切页时地址栏跟着变，**刷新（F5）不会跳回便签页**，前进/后退也按页面走；直接打开 `http://127.0.0.1:7788/monitors` 能直达观测台。根路径 `/` 和未知路径一律归到 `/notes`，`document.title` 随页面变（如「观测台 · 便签夹」）。
@@ -225,9 +226,9 @@ pinboard/
 | POST | `/monitors/:id/pause`、`/monitors/:id/resume` | 暂停 / 恢复观测（Kuma 不再探测，历史心跳保留） |
 | DELETE | `/monitors/:id?confirm=<名字>` | 删除观测项（名字必须原样输对）；先备份 `kuma/data/kuma.db` 到 `kuma/backups/`，再连带历史心跳删除 |
 | POST | `/monitors/:id/check` | 立即观测：按配方顺序执行并逐步骤返回 `{ ok, steps: [{ type, label, ok, detail, ms }], latest }`；暂停中或推送型没配方会被拒 |
-| GET/POST | `/mail/accounts` | 信箱列表（`?counts=1` 带未读数）/ 新建。**任何返回都不含密码**，只给 `hasPassword` |
+| GET/POST | `/mail/accounts` | 信箱列表（`?counts=1` 带未读数）/ 新建。**任何返回都不含密码**，只给 `hasPassword`；带 `proxy` 字段（空 = 直连） |
 | PUT/DELETE | `/mail/accounts/:id` | 修改（密码留空 = 不改）/ 删除（连带清掉本地已读标记） |
-| POST | `/mail/accounts/test` | 测连接，收原始参数或 `{id}`（复用已存密码）；失败返回可读中文原因 |
+| POST | `/mail/accounts/test` | 测连接，收原始参数或 `{id}`（复用已存密码与代理）；失败返回可读中文原因（配了代理会说明是「经代理 …」失败） |
 | GET | `/mail/folders?account=` | 文件夹列表（带 special-use，只列可选中的） |
 | GET | `/mail/messages?account=all\|<id>&folder=INBOX&limit=50&offset=0` | 合并收件箱一页；`?fresh=1` 绕过 60 秒缓存（前端每 60 秒自动轮询也用它）。返回 `{ items, total, unseen, hasMore, errors, partial, fetchedAt }`，`fetchedAt` 是这批数据从 IMAP 取回的时刻 |
 | GET | `/mail/message?account=&folder=&uid=` | 单封正文（`text` / `html` / 附件清单） |
@@ -266,9 +267,9 @@ pnpm start      # 生产模式（tsx server/index.ts，非 watch：改服务端�
 | `tmp/e2e-dblclick.mjs` | 双击卡片切换完成（8 条断言） |
 | `tmp/e2e-filter.mjs` | 完成状态下筛选行的行为（4 条断言） |
 | `tmp/e2e-archive.mjs` | 归档 / 已归档视图 / 恢复 / 永久删除 / Ctrl+K 排除（20 条断言） |
-| `tmp/e2e-mail.mjs` | 邮件页端到端（60 条断言：加账号 / 列表 / 分页 / 正文 / 拦图 / 本地已读 / 筛选 / 键盘 / 文件夹 / 账号增删改），自带假 IMAP 服务器 |
+| `tmp/e2e-mail.mjs` | 邮件页端到端（72 条断言：加账号 / 列表 / 分页 / 正文 / 图片显示与隐藏 / 本地已读 / 筛选 / 键盘 / 文件夹 / 账号增删改 / 60 秒自动收信），自带假 IMAP 服务器 |
 | `tmp/fakeimap/server.mjs` | 假 IMAP 服务器（hoodiecrow-imap，120 封信 + 附件 + 追踪像素），**只装在 `tmp/fakeimap/` 自己的 node_modules 里**，不是项目依赖 |
-| `tmp/fakeimap/mail-api-smoke.mjs` | 邮件 API 冒烟（50 条断言，含「打开邮件后服务器未读数不变」） |
+| `tmp/fakeimap/mail-api-smoke.mjs` | 邮件 API 冒烟（58 条断言，含「打开邮件后服务器未读数不变」与代理字段校验） |
 | `tmp/shots.mjs` / `tmp/shots-assets.mjs` / `tmp/shots-mail.mjs` | 批量截图 |
 | `tmp/seed-assets.mjs` | 按当前资产清单重建台账（一次性脚本） |
 

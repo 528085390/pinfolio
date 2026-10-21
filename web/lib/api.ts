@@ -70,6 +70,8 @@ export type MailSecurity = 'ssl' | 'starttls' | 'none'
 export type MailAccount = {
   id: number; label: string; email: string; host: string; port: number; username: string
   security: MailSecurity; enabled: number; sort: number
+  /** 可选代理，如 socks5://127.0.0.1:10808；空 = 直连 */
+  proxy: string
   created_at: string; updated_at: string; hasPassword: boolean
   /** 只读：服务端未读数 / 总数 / 该账号这次的错误（取不到就是 null） */
   unseen?: number | null; total?: number | null; error?: string | null
@@ -186,7 +188,7 @@ export const api = {
     update: (id: number, b: Partial<MailAccount> & { password?: string }) =>
       request<MailAccount>('/mail/accounts/' + id, { method: 'PUT', body: JSON.stringify(b) }),
     remove: (id: number) => request<{ ok: boolean }>('/mail/accounts/' + id, { method: 'DELETE' }),
-    test: (b: { id?: number; host?: string; port?: number; username?: string; password?: string; security?: MailSecurity }) =>
+    test: (b: { id?: number; host?: string; port?: number; username?: string; password?: string; security?: MailSecurity; proxy?: string }) =>
       request<MailTestResult>('/mail/accounts/test', { method: 'POST', body: JSON.stringify(b) }),
     folders: (account: number, fresh?: boolean) =>
       request<{ folders: MailFolder[] }>('/mail/folders?account=' + account + (fresh ? '&fresh=1' : '')),
