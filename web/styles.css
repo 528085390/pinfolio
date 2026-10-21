@@ -598,25 +598,22 @@ button:focus-visible, a:focus-visible { outline-offset: 3px; }
 .mail-seg-btn.active { background: var(--surface); color: var(--ink); }
 .mail-seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .mail-hint { font-size: 11.5px; color: var(--muted); }
+/* 用户点了「隐藏图片」时的顶部提示条（默认显示图片，所以平时不出现） */
+.mail-img-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px; padding: 8px 12px; border-radius: 10px;
+  background: var(--accent-soft); border: 1px solid var(--accent-ring);
+  color: var(--ink-2); font-size: 12px;
+}
 
 .mail-reader-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px 40px; }
 .mail-text {
   margin: 0; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.75;
   color: var(--ink-2); white-space: pre-wrap; word-break: break-word;
 }
-.mail-html { font-size: 13.5px; line-height: 1.7; color: var(--ink-2); overflow-wrap: anywhere; }
-.mail-html img { max-width: 100%; height: auto; }
-/* 被拦下的远程图片：占位虚线框，点了「显示图片」才真正加载 */
-.mail-html img[data-blocked] {
-  display: inline-block; min-width: 132px; min-height: 34px; padding: 6px 8px;
-  border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--surface-2);
-  color: var(--muted); font-size: 11.5px; line-height: 20px; text-align: center;
-}
-.mail-html a { color: var(--accent); }
-.mail-html table { max-width: 100%; border-collapse: collapse; }
-.mail-html td, .mail-html th { padding: 2px 6px; }
-.mail-html blockquote { margin: 8px 0; padding-left: 10px; border-left: 2px solid var(--line-strong); color: var(--muted); }
-.mail-html pre { white-space: pre-wrap; overflow-x: auto; }
+/* 正文宿主。邮件自己的样式全部在 shadow root 里的 BASE_CSS（web/components/MailReader.tsx），
+   这里只管宿主本身，别往下写后代选择器——后代选择器穿不透 shadow 边界，写了也是死代码。 */
+.mail-html { display: block; min-width: 0; }
 
 .mail-attach { margin-top: 22px; padding-top: 12px; border-top: 1px dashed var(--line-strong); }
 .mail-attach-title { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }

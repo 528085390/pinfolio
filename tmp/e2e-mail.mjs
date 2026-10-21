@@ -2,15 +2,26 @@ import { chromium } from 'playwright-core'
 import { startFakeImap } from './fakeimap/server.mjs'
 
 const exe = 'C:\\Users\\you\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe'
-const B = 'http://127.0.0.1:7788'
+// 默认打 7788（正常实例），但可以指到隔离实例上跑：
+//   $env:PINBOARD_DATA='...\tmp\e2e-data'; $env:PORT='7789'; pnpm start
+//   $env:MAIL_E2E_BASE='http://127.0.0.1:7789'; node tmp/e2e-mail.mjs
+const B = process.env.MAIL_E2E_BASE || 'http://127.0.0.1:7788'
 
 const fake = await startFakeImap(120)
 const PORT = fake.port
 
-// 起始状态：清空邮箱账号与本地已读标记
+// 起始状态：清空邮箱账号与本地已读标记。
+// 只删本机假 IMAP 的账号——用户自己绑的真实邮箱（比如 Gmail）绝不能被测试删掉，密码也只在库里一份。
 const accs0 = (await (await fetch(B + '/api/mail/accounts')).json()).accounts
-for (const a of accs0) await fetch(B + '/api/mail/accounts/' + a.id, { method: 'DELETE' })
-await fetch(B + '/api/mail/local-read?account=all', { method: 'DELETE' })
+const isFakeHost = (a) => /^(127\.0\.0\.1|localhost)$/i.test(String(a.host || ''))
+for (const a of accs0) {
+  if (!isFakeHost(a)) {
+    console.warn('[e2e] 跳过真实账号 ' + a.email + '（只清本机假 IMAP 账号；要干净结果请用隔离实例）')
+    continue
+  }
+  await fetch(B + '/api/mail/accounts/' + a.id, { method: 'DELETE' })
+  await fetch(B + '/api/mail/local-read?account=' + a.id, { method: 'DELETE' })
+}
 
 const browser = await chromium.launch({ executablePath: exe })
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 950 }, deviceScaleFactor: 1.5, locale: 'zh-CN' })).newPage()
@@ -109,7 +120,7 @@ try {
   ok('「全部」带未读数 96', allChip.includes('96'), allChip)
   ok('账号 chip 带未读数', (await chips.nth(1).innerText()).includes('96'))
 
-  // ---------- 5. 打开邮件（正文 / 头部 / 附件 / 拦图） ----------
+  // ---------- 5. 打开邮件（正文 / 头部 / 附件 / 图片开关） ----------
   await rows().nth(0).click()
   await page.waitForSelector('.mail-reader-subject', { timeout: 15000 })
   ok('阅读区标题正确', (await page.locator('.mail-reader-subject').innerText()).includes('第 120 封邮件'))
@@ -118,17 +129,25 @@ try {
   ok('头部含收件人', metaText.includes('收件人'))
   ok('头部含时间', metaText.includes('时间'))
   ok('头部含账号', metaText.includes('测试邮箱'))
-  ok('HTML 正文已渲染', (await page.locator('.mail-html').count()) === 1)
-  ok('正文内容正确（第 120 封是带附件那封）', (await page.locator('.mail-html').textContent()).includes('带附件的邮件'), await page.locator('.mail-html').textContent())
+  ok('HTML 正文已渲染（shadow root）', (await page.locator('.mail-html').count()) === 1)
+  // 正文在 shadow root 里：宿主的 textContent 是空的，断言一律打 .mail-doc（Playwright 的 CSS 选择器会穿透 shadow）
+  ok('正文内容正确（第 120 封是带附件那封）', (await page.locator('.mail-doc').textContent()).includes('带附件的邮件'))
+  ok('邮件自带样式进了 shadow（style 标签在 shadow 里）', (await page.locator('.mail-doc').count()) === 1)
   ok('附件列了 1 个', (await page.locator('.mail-attach-item').count()) === 1)
   ok('附件名是 报告.txt', (await page.locator('.mail-attach-name').innerText()).includes('报告.txt'))
-  const blockedBtn = page.locator('.mail-viewbar button', { hasText: '显示图片' })
-  ok('远程图片默认拦住并提示', (await blockedBtn.count()) === 1, await page.locator('.mail-viewbar').innerText())
-  ok('被拦的 img 没有 src', (await page.locator('.mail-html img[data-blocked]').count()) === 1)
-  ok('被拦的 img 保留 data-src', (await page.locator('.mail-html img[data-blocked]').getAttribute('data-src')).includes('track.example.com'))
-  await blockedBtn.click()
-  await page.waitForTimeout(300)
-  ok('点「显示图片」后真正加载', (await page.locator('.mail-html img[data-blocked]').count()) === 0 && (await page.locator('.mail-html img[src^="https://track.example.com"]').count()) === 1)
+  // 图片默认显示（决策 D4）：远程图直接带 src
+  ok('远程图片默认直接加载', (await page.locator('.mail-doc img[src^="https://track.example.com"]').count()) === 1)
+  const hideBtn = page.locator('.mail-viewbar button', { hasText: '隐藏图片' })
+  ok('viewbar 有「隐藏图片」开关', (await hideBtn.count()) === 1, await page.locator('.mail-viewbar').innerText())
+  await hideBtn.click()
+  await page.waitForTimeout(400)
+  ok('隐藏后被拦的 img 没有 src', (await page.locator('.mail-doc img[data-blocked]').count()) === 1 && (await page.locator('.mail-doc img[data-blocked][src]').count()) === 0)
+  ok('隐藏后保留 data-src', ((await page.locator('.mail-doc img[data-blocked]').getAttribute('data-src')) || '').includes('track.example.com'))
+  ok('隐藏后出顶部提示条', (await page.locator('.mail-img-banner').count()) === 1)
+  await page.locator('.mail-viewbar button', { hasText: '显示图片' }).click()
+  await page.waitForTimeout(400)
+  ok('点「显示图片」恢复加载', (await page.locator('.mail-doc img[data-blocked]').count()) === 0 && (await page.locator('.mail-doc img[src^="https://track.example.com"]').count()) === 1)
+  ok('恢复后提示条消失', (await page.locator('.mail-img-banner').count()) === 0)
 
   await page.locator('.mail-seg-btn', { hasText: '纯文本' }).click()
   await page.waitForTimeout(200)

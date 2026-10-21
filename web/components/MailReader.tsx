@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DOMPurify from 'dompurify'
-import { FileText, Image as ImageIcon, Paperclip } from 'lucide-react'
+import { Eye, EyeOff, FileText, Paperclip } from 'lucide-react'
 import { api, cx, type MailAddr, type MailMessage } from '../lib/api'
 import { Button, Empty, Spinner } from './ui'
 import { fullTime } from '../lib/format'
@@ -23,29 +23,83 @@ function bytes(n: number) {
   return (n / 1024 / 1024).toFixed(1) + ' MB'
 }
 
+/** 图片策略记在本机：默认显示，用户点过「隐藏图片」就一直隐藏 */
+const IMG_KEY = 'pinboard-mail-images'
+
 /**
- * 把邮件 HTML 处理成可安全注入的片段：
- * 1. 用 DOMParser 解析成游离文档（不会执行脚本、不会发请求）
- * 2. 删掉 script/style/link/iframe 等，去掉所有内联 style（邮件自带的样式会污染整页）
- * 3. 远程图片默认摘掉 src 存到 data-src（FR-20：默认不加载远程资源），cid: 图片换成附件接口地址
- * 4. 链接一律新窗口打开（FR-23）
- * 5. 最后交给 DOMPurify 兜底
+ * 阅读区的基础样式（注入到 Shadow DOM 里，跟邮件自带样式一起生效）。
+ * 用 CSS 变量取主界面的暖纸色，变量能穿透 shadow 边界；写死颜色的话深色模式就不跟了。
+ * max-width/height 加 !important 是为了压住邮件自带的 width=600 之类固定宽度，避免横向溢出。
  */
-function renderMailHtml(
+const BASE_CSS = `
+  :host { display: block; }
+  .mail-doc { font-size: 13.5px; line-height: 1.7; color: var(--ink-2); overflow-wrap: anywhere; max-width: 100%; }
+  /* 邮件常用固定宽度（这封就是 width:720px），阅读区只有 650 出头，不压住就会横向溢出被裁 */
+  .mail-doc * { max-width: 100% !important; box-sizing: border-box; }
+  .mail-doc img { height: auto !important; }
+  .mail-doc img[data-blocked] {
+    display: inline-block; min-width: 120px; min-height: 30px;
+    border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--surface-2);
+  }
+  .mail-doc a { color: var(--accent); }
+  .mail-doc table { max-width: 100%; border-collapse: collapse; }
+  .mail-doc td, .mail-doc th { padding: 2px 6px; }
+  .mail-doc blockquote { margin: 8px 0; padding-left: 10px; border-left: 2px solid var(--line-strong); color: var(--muted); }
+  .mail-doc pre { white-space: pre-wrap; overflow-x: auto; }
+`
+
+/**
+ * 邮件里常见 width:720px 这种固定宽度，阅读区只有 650 出头。
+ * 光靠 max-width 压不住：表格（table-layout:auto）的 used width 取 min-content，
+ * 内部元素按 100% 解析又绕回表格自身宽度，结果是整块 720 硬撑着、右边被裁。
+ * 所以按比例缩小（CSS zoom）——排版完全不变，只是整体缩到放得下。
+ */
+function fitWidth(host: HTMLElement, root: ShadowRoot) {
+  const doc = root.querySelector('.mail-doc') as HTMLElement | null
+  if (!doc) return
+  doc.style.zoom = ''
+  const avail = host.clientWidth
+  const need = doc.scrollWidth
+  if (avail > 0 && need > avail + 2) doc.style.zoom = String(Math.max(0.5, avail / need))
+}
+
+/** 邮件 CSS 里的危险/越界写法：@import 拉外链、expression()、behavior、fixed 定位会盖住整个应用 */
+function scrubCss(css: string, allowRemote: boolean): string {
+  let out = css
+    .replace(/@import[^;]*;?/gi, '')
+    .replace(/expression\s*\(/gi, 'none(')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/behavior\s*:[^;}]*;?/gi, '')
+    .replace(/-moz-binding\s*:[^;}]*;?/gi, '')
+    .replace(/position\s*:\s*(fixed|sticky)/gi, 'position:static')
+  if (!allowRemote) out = out.replace(/url\(\s*['"]?https?:[^)]*\)/gi, 'none')
+  return out
+}
+
+/**
+ * 把邮件 HTML 变成能安全塞进 Shadow DOM 的片段：
+ * 1. 用 DOMParser 解析成游离文档（不执行脚本、不发请求），只取 body 内容 + 所有 <style> 的文本
+ * 2. 删掉 script/iframe/form/link 等；<style> 不删——它要跟着进 shadow root，排版才不散
+ * 3. 内联 style 只清洗不删除（原来整段剥掉，邮件排版就崩了）：去掉 @import / expression / fixed 定位
+ * 4. 图片：cid: 换成附件接口地址（内嵌图，安全）；远程图片默认保留，用户点了「隐藏图片」才摘成 data-src
+ * 5. 链接一律新窗口打开，javascript: 一律去掉
+ * 6. 最后交给 DOMPurify 兜底
+ */
+function buildMailDoc(
   html: string,
   opts: { showImages: boolean; cidMap: Map<string, number>; attUrl: (index: number) => string },
-): { html: string; blocked: number } {
+): { docHtml: string; blocked: number; remote: number } {
   const doc = new DOMParser().parseFromString(html, 'text/html')
-  doc.querySelectorAll('script,style,link,iframe,frame,object,embed,form,meta,base,noscript,svg use').forEach((el) => el.remove())
-  doc.querySelectorAll('*').forEach((el) => {
-    el.removeAttribute('style')
-    el.removeAttribute('srcset')
-    el.removeAttribute('ping')
-    el.removeAttribute('background')
-  })
+  const emailCss = [...doc.querySelectorAll('style')].map((s) => s.textContent || '').join('\n')
+  doc.querySelectorAll('style').forEach((el) => el.remove())
+  doc
+    .querySelectorAll('script,iframe,frame,object,embed,form,meta,base,link,noscript,svg use')
+    .forEach((el) => el.remove())
+
   let blocked = 0
+  let remote = 0
   doc.querySelectorAll('img').forEach((img) => {
-    const src = img.getAttribute('src') || ''
+    const src = (img.getAttribute('src') || '').trim()
     if (/^cid:/i.test(src)) {
       const key = src.slice(4).replace(/^<|>$/g, '').toLowerCase()
       const index = opts.cidMap.get(key)
@@ -56,17 +110,29 @@ function renderMailHtml(
       img.setAttribute('src', opts.attUrl(index))
       return
     }
-    if (!src) return
+    if (!src || /^data:/i.test(src)) return
+    if (!/^(https?:)?\/\//i.test(src)) return
+    remote++
     if (!opts.showImages) {
       img.setAttribute('data-src', src)
       img.setAttribute('data-blocked', '1')
       img.removeAttribute('src')
-      if (!img.getAttribute('alt')) img.setAttribute('alt', '图片已拦截')
       blocked++
     }
   })
+
+  doc.querySelectorAll('*').forEach((el) => {
+    el.removeAttribute('srcset')
+    el.removeAttribute('ping')
+    el.removeAttribute('background')
+  })
+  doc.querySelectorAll('[style]').forEach((el) => {
+    const cleaned = scrubCss(el.getAttribute('style') || '', opts.showImages)
+    if (cleaned.trim()) el.setAttribute('style', cleaned)
+    else el.removeAttribute('style')
+  })
   doc.querySelectorAll('a').forEach((a) => {
-    const href = a.getAttribute('href') || ''
+    const href = (a.getAttribute('href') || '').trim()
     if (!href || /^javascript:/i.test(href)) {
       a.removeAttribute('href')
       return
@@ -74,12 +140,14 @@ function renderMailHtml(
     a.setAttribute('target', '_blank')
     a.setAttribute('rel', 'noopener noreferrer')
   })
+
   const clean = DOMPurify.sanitize(doc.body.innerHTML, {
-    FORBID_TAGS: ['style', 'link', 'script', 'iframe', 'frame', 'object', 'embed', 'form', 'meta', 'base'],
-    FORBID_ATTR: ['style', 'srcset', 'ping', 'background'],
+    FORBID_TAGS: ['script', 'iframe', 'frame', 'object', 'embed', 'form', 'meta', 'base', 'link', 'style'],
+    FORBID_ATTR: ['srcset', 'ping', 'background', 'action', 'formaction'],
     ADD_ATTR: ['target', 'data-src', 'data-blocked'],
   })
-  return { html: clean, blocked }
+  const docHtml = '<style>' + BASE_CSS + '\n' + scrubCss(emailCss, opts.showImages) + '</style>' + '<div class="mail-doc">' + clean + '</div>'
+  return { docHtml, blocked, remote }
 }
 
 export function MailReader({ accountId, folder, uid, folderLabel }: {
@@ -92,8 +160,15 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [mode, setMode] = useState<'html' | 'text'>('html')
-  const [showImages, setShowImages] = useState(false)
+  const [showImages, setShowImages] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(IMG_KEY) !== 'hide'
+    } catch {
+      return true
+    }
+  })
   const scroller = useRef<HTMLDivElement>(null)
+  const htmlHost = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let alive = true
@@ -101,7 +176,6 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
     setError('')
     setMsg(null)
     setMode('html')
-    setShowImages(false)
     if (scroller.current) scroller.current.scrollTop = 0
     api.mail
       .message({ account: accountId, folder, uid })
@@ -135,13 +209,46 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
   const attUrl = (index: number) => api.mail.attachmentUrl({ account: accountId, folder, uid, index })
 
   const rendered = useMemo(() => {
-    if (!msg || !msg.html) return { html: '', blocked: 0 }
+    if (!msg || !msg.html) return { docHtml: '', blocked: 0, remote: 0 }
     try {
-      return renderMailHtml(msg.html, { showImages, cidMap, attUrl })
+      return buildMailDoc(msg.html, { showImages, cidMap, attUrl })
     } catch {
-      return { html: '', blocked: 0 }
+      return { docHtml: '', blocked: 0, remote: 0 }
     }
   }, [msg, showImages, cidMap, accountId, folder, uid])
+
+  const useText = mode === 'text' || !msg?.html
+
+  // 正文走 Shadow DOM：邮件自带的 <style> 只在 shadow 里生效，不会污染整个便签夹的样式
+  useEffect(() => {
+    if (useText || !htmlHost.current) return
+    const host = htmlHost.current
+    const root = host.shadowRoot || host.attachShadow({ mode: 'open' })
+    root.innerHTML = rendered.docHtml
+    fitWidth(host, root)
+    // 拖窗口 / 收起侧栏会改阅读区宽度，宽度变了才重算（缩完高度也变，不看宽度会自激）
+    let lastW = host.clientWidth
+    const ro = new ResizeObserver(() => {
+      const w = host.clientWidth
+      if (w === lastW) return
+      lastW = w
+      fitWidth(host, root)
+    })
+    ro.observe(host)
+    return () => ro.disconnect()
+  }, [rendered.docHtml, useText])
+
+  function toggleImages() {
+    setShowImages((v) => {
+      const next = !v
+      try {
+        localStorage.setItem(IMG_KEY, next ? 'show' : 'hide')
+      } catch {
+        /* 隐私模式下写不了，忽略 */
+      }
+      return next
+    })
+  }
 
   if (loading) {
     return (
@@ -160,8 +267,6 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
   }
 
   if (!msg) return null
-
-  const useText = mode === 'text' || !msg.html
 
   return (
     <div className="mail-reader">
@@ -212,19 +317,28 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
             纯文本
           </button>
         </div>
-        {rendered.blocked > 0 ? (
-          <Button size="sm" variant="ghost" onClick={() => setShowImages(true)}>
-            <ImageIcon size={14} /> 显示图片（{rendered.blocked}）
+        {rendered.remote > 0 ? (
+          <Button size="sm" variant="ghost" onClick={toggleImages} title={showImages ? '不再请求发件人的图片' : '加载邮件里的远程图片'}>
+            {showImages ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showImages ? '隐藏图片' : '显示图片（' + rendered.remote + '）'}
           </Button>
         ) : null}
-        {showImages && rendered.blocked > 0 ? <span className="mail-hint">远程图片已放行</span> : null}
       </div>
 
       <div className="mail-reader-body" ref={scroller}>
+        {!showImages && rendered.blocked > 0 ? (
+          <div className="mail-img-banner">
+            <span>已拦截 {rendered.blocked} 张外部图片（防止追踪像素，不影响邮箱里的已读状态）</span>
+            <Button size="sm" variant="ghost" onClick={toggleImages}>
+              <Eye size={13} /> 显示图片
+            </Button>
+          </div>
+        ) : null}
+
         {useText ? (
           <pre className="mail-text">{msg.text || '（这封邮件没有纯文本正文）'}</pre>
         ) : (
-          <div className="mail-html" dangerouslySetInnerHTML={{ __html: rendered.html }} />
+          <div className="mail-html" ref={htmlHost} />
         )}
 
         {msg.attachments.length ? (

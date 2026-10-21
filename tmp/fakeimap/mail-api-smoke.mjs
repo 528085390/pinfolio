@@ -1,6 +1,7 @@
 import { startFakeImap } from './server.mjs'
 
-const BASE = 'http://127.0.0.1:7788/api/mail'
+// 默认打 7788；用隔离实例时：$env:MAIL_E2E_BASE='http://127.0.0.1:7799'; node tmp/fakeimap/mail-api-smoke.mjs
+const BASE = (process.env.MAIL_E2E_BASE || 'http://127.0.0.1:7788') + '/api/mail'
 const results = []
 let failed = 0
 function ok(name, cond, extra = '') {
