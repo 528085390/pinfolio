@@ -35,7 +35,9 @@ SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类
 置灰原因三档、推送型没配方、每步超时按类型取默认并夹在 1 秒与剩余预算之间、`clip`/`statusText`），
 以及邮件路由的参数解析与拼装（`server/mail/params.ts`：limit 夹 1–100、offset 不为负、`account=all|<id>`、
 未读数缺失给 null、`posInt`、附件三参数与 `Content-Disposition` 的 ASCII 兜底 + `filename*=UTF-8''`、
-测试连接时用库里那份补空字段、本地已读三档清理）。
+测试连接时用库里那份补空字段、本地已读三档清理），
+以及设置页的纯逻辑（`web/pages/settings/fields.ts`：类型表、未知类型原样显示、选项中英文逗号、
+新建字段校验、导出文件名、标签名去 `#`、删除确认文案）。
 
 这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` / `snapshot.ts` 里，那几个模块**一 import 就有副作用**
 （打开 SQLite、连 socket、热状态页），单测碰不得，所以整理时把它们挪成独立纯模块，原模块再导出一次保持调用点不变。

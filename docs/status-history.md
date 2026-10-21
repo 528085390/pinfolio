@@ -154,3 +154,17 @@ limit 夹取、附件三参数、`Content-Disposition` 拼装、测试连接补�
 `pnpm test` 全过；重启（pid 66396，1.1s）后 `/api/health`、`/api/mail/status`（`{"marked":11,"accounts":1}`）、`/api/mail/accounts`、`/api/stats` 全 200；
 隔离实例（`PORT=7799` + `tests/e2e-data`）跑邮件 e2e **2/2、e2e-mail 58/58（25s）**，含附件下载头、本地已读不改服务器 unseen=96、编辑账号保留密码。
 一处**测试假设错、代码对**：`parseListQuery({limit:'abc'}).limit` 是 NaN（`Math.max/min` 不纠正 NaN，原实现同样如此），断言改成实测行为并注明。
+
+## 2026-10-21 补充：设置页拆分
+
+⑯ **设置页拆分**：`web/pages/SettingsPage.tsx`（214 行）把外观、自定义字段、标签管理、导出/灌数据四块和它们的表单状态全塞在一个组件里。拆成：
+- `web/pages/settings/useSettings.ts`：字段/标签表单状态 + `addField`/`removeField`/`addTag`/`removeTag`/`exportData`/`seed`，导出 `SettingsState`。
+- `web/pages/settings/fields.ts`（**纯函数，有单测**）：`FIELD_TYPES`、`fieldTypeLabel()`（未知类型原样显示，别悄悄变「文本」）、
+  `parseFieldOptions()`（中英文逗号都认）、`validateNewField()`、`exportFilename()`、`normalizeTagName()`、两条删除确认文案。
+- 四张卡片：`AppearanceCard.tsx`（三档主题 chip）、`FieldsCard.tsx`（字段表 + 新建表单）、`TagsCard.tsx`（标签 chip + 新增）、
+  `DataCard.tsx`（导出 JSON / 空库灌示例）；`SettingsPage.tsx` 只剩组合层（四张卡片按原顺序摆）。
+- **e2e 依赖的东西一个没动**：`input[placeholder="新标签名"]`、按钮文案「添加」/「添加字段」/「导出 JSON」/「写入示例数据」、
+  卡片顺序（`e2e.mjs` 用 `text=添加 >> nth=-1` 取最后一个「添加」，顺序变了会点错卡片）、`.tag` 文案。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/settings-fields.test.mts`（7 条），单测 210 → **217/217**；
+core e2e **11/11**（设置页新增标签那一步照常通过）。
