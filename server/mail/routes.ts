@@ -7,10 +7,14 @@ import {
   clearAccountCaches, dropAllConnections, dropConnection, getMessage, listFolders, listMessages,
   testConnection, unseenCounts, friendlyError, proxyOf,
 } from './client.js'
+import {
+  DEFAULT_FOLDER, attachmentHeaders, decorateItems, fillTestInput, mergeAccountCounts,
+  missingTestField, parseAttachmentQuery, parseClearQuery, parseListQuery, parseMarkBody, pickTargets,
+  posInt, testInputFrom,
+} from './params.js'
 
+// 邮件页的 HTTP 面。参数解析与纯拼装在 params.ts（有单测），这里只做取账号、调 client、拼响应。
 export const mailRoute = new Hono()
-
-const DEFAULT_FOLDER = 'INBOX'
 
 mailRoute.get('/accounts', async (c) => {
   const accounts = listAccounts()
@@ -24,14 +28,7 @@ mailRoute.get('/accounts', async (c) => {
     counts = res.counts
     errors = res.errors
   }
-  return c.json({
-    accounts: accounts.map((a) => ({
-      ...publicAccount(a),
-      unseen: counts[a.id]?.unseen ?? null,
-      total: counts[a.id]?.total ?? null,
-      error: errors.find((e) => e.accountId === a.id)?.error ?? null,
-    })),
-  })
+  return c.json({ accounts: mergeAccountCounts(accounts.map((a) => publicAccount(a)), counts, errors) })
 })
 
 mailRoute.post('/accounts', async (c) => {
@@ -66,27 +63,13 @@ mailRoute.delete('/accounts/:id', (c) => {
 
 mailRoute.post('/accounts/test', async (c) => {
   const body: any = await c.req.json().catch(() => ({}))
-  let input: any = {
-    host: String(body.host ?? '').trim(),
-    port: Number(body.port ?? 993),
-    username: String(body.username ?? '').trim(),
-    password: body.password === undefined ? '' : String(body.password),
-    security: String(body.security ?? 'ssl'),
-    proxy: body.proxy === undefined ? '' : String(body.proxy),
-  }
+  let input = testInputFrom(body)
   if (body.id) {
     const acc = getAccount(Number(body.id))
     if (!acc) return c.json({ error: '账号不存在' }, 404)
-    input = {
-      host: input.host || acc.host,
-      port: Number(body.port ?? acc.port),
-      username: input.username || acc.username,
-      password: input.password || acc.password,
-      security: input.security || acc.security,
-      proxy: input.proxy || acc.proxy,
-    }
+    input = fillTestInput(input, body, acc)
   }
-  if (!input.host || !input.username || !input.password) return c.json({ error: '服务器地址、用户名、密码都要填' }, 400)
+  if (missingTestField(input)) return c.json({ error: '服务器地址、用户名、密码都要填' }, 400)
   try {
     const res = await testConnection(input)
     return c.json({ ok: true, ...res })
@@ -109,36 +92,24 @@ mailRoute.get('/folders', async (c) => {
 
 mailRoute.get('/messages', async (c) => {
   const accounts = listAccounts().filter((a) => a.enabled === 1)
-  const which = (c.req.query('account') || 'all').trim()
-  const folder = (c.req.query('folder') || DEFAULT_FOLDER).trim() || DEFAULT_FOLDER
-  const limit = Math.min(Math.max(Number(c.req.query('limit') || 50), 1), 100)
-  const offset = Math.max(Number(c.req.query('offset') || 0), 0)
-  const fresh = c.req.query('fresh') === '1'
-
+  const { which, folder, limit, offset, fresh } = parseListQuery(c.req.query())
   if (!accounts.length) {
     return c.json({ items: [], total: 0, unseen: 0, hasMore: false, errors: [], partial: false, fetchedAt: 0, noAccounts: true })
   }
-  const target = which === 'all' ? accounts : accounts.filter((a) => String(a.id) === which)
+  const target = pickTargets(accounts, which)
   if (!target.length) return c.json({ error: '账号不存在或已停用' }, 404)
 
   const res = await listMessages({ accounts: target, folder, offset, limit, fresh })
   const marks = localReadKeys(target.map((a) => a.id), folder)
-  const items = res.items.map((r) => ({
-    ...r,
-    accountLabel: target.find((a) => a.id === r.accountId)?.label || '',
-    accountEmail: target.find((a) => a.id === r.accountId)?.email || '',
-    localRead: marks.has(r.accountId + ':' + r.uid),
-  }))
-  return c.json({ ...res, items })
+  return c.json({ ...res, items: decorateItems(res.items, target, marks) })
 })
 
 mailRoute.get('/message', async (c) => {
-  const id = Number(c.req.query('account'))
-  const acc = getAccount(id)
+  const acc = getAccount(Number(c.req.query('account')))
   if (!acc) return c.json({ error: '账号不存在' }, 404)
   const folder = (c.req.query('folder') || DEFAULT_FOLDER).trim() || DEFAULT_FOLDER
-  const uid = Number(c.req.query('uid'))
-  if (!Number.isFinite(uid) || uid <= 0) return c.json({ error: 'uid 不合法' }, 400)
+  const uid = posInt(c.req.query('uid'))
+  if (uid === null) return c.json({ error: 'uid 不合法' }, 400)
   try {
     const { message } = await getMessage(acc, folder, uid)
     return c.json({ ...message, accountLabel: acc.label, accountEmail: acc.email })
@@ -148,26 +119,16 @@ mailRoute.get('/message', async (c) => {
 })
 
 mailRoute.get('/attachment', async (c) => {
-  const id = Number(c.req.query('account'))
-  const acc = getAccount(id)
+  const acc = getAccount(Number(c.req.query('account')))
   if (!acc) return c.json({ error: '账号不存在' }, 404)
-  const folder = (c.req.query('folder') || DEFAULT_FOLDER).trim() || DEFAULT_FOLDER
-  const uid = Number(c.req.query('uid'))
-  const index = Number(c.req.query('index'))
-  if (!Number.isFinite(uid) || uid <= 0 || !Number.isFinite(index) || index < 0) return c.json({ error: '参数不合法' }, 400)
+  const q = parseAttachmentQuery(c.req.query())
+  if ('error' in q) return c.json({ error: q.error }, 400)
   try {
-    const entry = await getMessage(acc, folder, uid)
-    const meta = entry.message.attachments[index]
-    const data = entry.attachments[index]
+    const entry = await getMessage(acc, q.folder, q.uid)
+    const meta = entry.message.attachments[q.index]
+    const data = entry.attachments[q.index]
     if (!meta || !data) return c.json({ error: '附件不存在' }, 404)
-    const filename = meta.filename || 'attachment'
-    const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
-    return c.body(new Uint8Array(data), 200, {
-      'Content-Type': meta.contentType || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-      'Content-Length': String(data.length),
-      'Cache-Control': 'private, max-age=600',
-    })
+    return c.body(new Uint8Array(data), 200, attachmentHeaders(meta, data.length))
   } catch (err) {
     return c.json({ error: friendlyError(err, proxyOf(acc)) }, 502)
   }
@@ -175,28 +136,24 @@ mailRoute.get('/attachment', async (c) => {
 
 mailRoute.post('/local-read', async (c) => {
   const body: any = await c.req.json().catch(() => ({}))
-  const account = Number(body.account)
-  const uid = Number(body.uid)
-  const folder = String(body.folder || DEFAULT_FOLDER)
-  if (!Number.isFinite(account) || !Number.isFinite(uid)) return c.json({ error: '参数不合法' }, 400)
-  if (!getAccount(account)) return c.json({ error: '账号不存在' }, 404)
-  markLocalRead(account, folder, uid)
+  const parsed = parseMarkBody(body)
+  if ('error' in parsed) return c.json({ error: parsed.error }, 400)
+  if (!getAccount(parsed.account)) return c.json({ error: '账号不存在' }, 404)
+  markLocalRead(parsed.account, parsed.folder, parsed.uid)
   return c.json({ ok: true, marked: localReadCount() })
 })
 
 mailRoute.delete('/local-read', (c) => {
-  const account = c.req.query('account')
-  const folder = c.req.query('folder') || DEFAULT_FOLDER
-  const uid = Number(c.req.query('uid'))
-  if (account === 'all' || account === undefined) {
+  const q = parseClearQuery(c.req.query())
+  if (q.mode === 'all') {
     clearLocalRead()
     return c.json({ ok: true, cleared: 'all' })
   }
-  if (!Number.isFinite(uid)) {
-    clearLocalRead(Number(account))
-    return c.json({ ok: true, cleared: Number(account) })
+  if (q.mode === 'account') {
+    clearLocalRead(q.account)
+    return c.json({ ok: true, cleared: q.account })
   }
-  unmarkLocalRead(Number(account), folder, uid)
+  unmarkLocalRead(q.account, q.folder, q.uid)
   return c.json({ ok: true })
 })
 

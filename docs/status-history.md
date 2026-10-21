@@ -139,3 +139,18 @@ kuma-check / http / command 三种步骤的执行器，挑配方的规则（id �
 id 优先于名字、配方自带置灰原因、空配方、推送型没配方、每步超时按类型取默认与边界夹取、`clip`/`statusText`），单测 171 → **193/193**；
 `pnpm test` 全过；重启（pid 21096，1.2s）后端点全 200；monitor e2e **3/3（54s，含立即观测的 http / command / kuma-check 三种步骤与热读配方）**、core **11/11（79s）**。
 文档：`docs/architecture.md` 的 `actions.ts` 条目拆成 recipe / runner / actions 三条，`README.md` 的目录树按当前结构重写（server/ 与 web/ 子目录、tests/、tools/）。
+
+## 2026-10-21 补充：邮件路由参数拆分
+
+⑮ **邮件路由参数拆分**：`server/mail/routes.ts`（208 行）里一半是「取账号 → 调 client → 拼响应」的胶水，一半是
+limit 夹取、附件三参数、`Content-Disposition` 拼装、测试连接补空字段、本地已读三档清理这类规则，埋在路由里测不到。拆成：
+- `server/mail/params.ts`（纯函数）：`parseListQuery()`（limit 夹 1–100、offset 不为负、空白 folder 回 INBOX）、`pickTargets()`、
+  `decorateItems()`（补账号标签/邮箱 + 本地已读）、`mergeAccountCounts()`（取不到计数给 null，前端显示「—」）、`posInt()`、
+  `parseAttachmentQuery()`、`attachmentHeaders()`（filename 只留 ASCII、中文走 `filename*=UTF-8''`）、
+  `testInputFrom()`/`fillTestInput()`/`missingTestField()`、`parseMarkBody()`、`parseClearQuery()`。
+- `server/mail/routes.ts` 208 → **159 行**：只剩端点、取账号、调 client、拼响应；`shutdownMail()` 仍在末尾。
+
+验证：`pnpm typecheck` 0 错误；新增 `tests/unit/mail-params.test.mts`（17 条），单测 193 → **210/210**；
+`pnpm test` 全过；重启（pid 66396，1.1s）后 `/api/health`、`/api/mail/status`（`{"marked":11,"accounts":1}`）、`/api/mail/accounts`、`/api/stats` 全 200；
+隔离实例（`PORT=7799` + `tests/e2e-data`）跑邮件 e2e **2/2、e2e-mail 58/58（25s）**，含附件下载头、本地已读不改服务器 unseen=96、编辑账号保留密码。
+一处**测试假设错、代码对**：`parseListQuery({limit:'abc'}).limit` 是 NaN（`Math.max/min` 不纠正 NaN，原实现同样如此），断言改成实测行为并注明。
