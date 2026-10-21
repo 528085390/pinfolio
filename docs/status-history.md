@@ -109,3 +109,18 @@
 **顺手修了一个真 bug**：隔离实例（`PINBOARD_DATA=tests\e2e-data` + `PORT=7799` 跑邮件 e2e）只隔离了数据库，启动时 `writeSnapshot()` 拿空库生成 1 KB 的 `SNAPSHOT.md`，把真库那份 40 KB 覆盖掉了（2026-10-21 踩过，`pnpm snapshot` 补回）。护栏在 `write.ts`：`const ISOLATED = DATA_DIR !== join(ROOT, 'data')`，隔离实例直接跳过写入；正式实例不设该变量，所以正式快照不受影响。已记为坑 30。
 
 验证：`pnpm typecheck` 0 错误；**新旧实现输出逐行一致**（从 `git show HEAD:server/snapshot.ts` 取出旧实现跑一遍，与新版生成的 SNAPSHOT.md 比 700 行，除「生成时间」外完全相同）；新增 `tests/unit/snapshot-markdown.test.mts`（13 条：空库四处「暂无」、概览计数、中文类型/状态、custom 里的 ip 进表格、自定义字段中文 label、备注多行缩进、便签标记与关联资产、标签/字段表、坏 options 不抛错、不传 now 也能出时间），单测 139 → **152/152**；`pnpm test` 全过；重启后 `/api/health`、`/api/stats`、`/api/notes`、`/api/monitors` 全 200。
+
+## 2026-10-21 补充：观测台 PATCH 校验拆出来
+
+⑬ **观测台 PATCH 校验拆分**：`server/kuma/routes.ts`（289 行）里一半是 HTTP 胶水、一半是「名字 1–120 / 重名 / 策略按名字引用 /
+频率 20–86400 / 超时 1–120 且小于频率 / 重试 1–3600 与 0–10 / showMsg 只认 true 与 1 / accepted_statuscodes 归一」这些规则，
+埋在路由里一个都测不到。拆成：
+- `server/kuma/patch.ts`（纯函数）：`buildMonitorPatch(body, bean, beans)` 按原顺序逐项校验（文案与状态码逐字照搬）、`normalizeForKuma()`、`policyNameRefs()`、`asInt()`。返回的 `next` 可能没有 `showMsg`（Kuma 的 `toJSON()` 不返回它），由路由补。
+- `server/kuma/http.ts`（纯函数）：`isJsonContentType(ct)`、`kumaErrorStatus(e)`（404 / 502 判定）。
+- `routes.ts` 289 → **190 行**：只剩取数、补 `showMsg`（新助手 `showMsgFromPage(id)`）、写回 Kuma、拼响应。
+
+验证：`pnpm typecheck` 0 错误；新增 `tests/unit/kuma-patch.test.mts`（19 条：asInt 边界、名字空/超长/重名、改回自己不算重名、
+策略引用旧名 409 与引用别人不拦、介绍 trim 与 500 边界、频率/超时/重试四组边界、超时必须小于频率（只改名也校验）、
+showMsg 的 true/1/其他、`accepted_statuscodes` 转字符串与空值回 `['200-299']`、`conditions` 与 `policyJson` 三种归一化、
+`policy_json` 下划线也认、`policyNameRefs` 字符串/对象/坏 JSON、`isJsonContentType`、`kumaErrorStatus`），单测 152 → **171/171**；
+`pnpm test` 全过；重启后端点全 200；monitor e2e 3/3（e2e-monitor-drawer 88 条全过，含策略按名字引用拒绝改名、删除确认、415）、core 11/11。

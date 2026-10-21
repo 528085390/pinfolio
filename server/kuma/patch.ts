@@ -1,0 +1,146 @@
+/**
+ * PATCH /api/monitors/:id 的校验与归一化 —— 纯函数，不碰网络、不碰数据库，所以能单测。
+ *
+ * 为什么值得单独一块：Kuma 的 `editMonitor` 是**全量覆盖**，前端漏传一个字段就会把库里那份清掉；
+ * 而这里每一条边界（名字 1–120、频率 20–86400、超时 1–120 且小于频率、重试 1–3600 / 0–10、
+ * accepted_statuscodes 归一成字符串数组、policyJson 只认字符串或对象）都是踩过才写下的。
+ */
+
+export type PatchOk = { next: Record<string, any> }
+export type PatchFail = { error: string; status: 400 | 409 }
+export type PatchResult = PatchOk | PatchFail
+
+/** 宽松取整：空值 / 非数字回 null，其余四舍五入 */
+export function asInt(v: unknown): number | null {
+  if (v === undefined || v === null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n) : null
+}
+
+/** 收集所有策略里「按名字」引用观测项的地方（policy_json 的 monitorStatus.name）。 */
+export function policyNameRefs(beans: Record<string, any>): Map<string, number[]> {
+  const out = new Map<string, number[]>()
+  const walk = (v: any, hit: (name: string) => void) => {
+    if (Array.isArray(v)) {
+      for (const x of v) walk(x, hit)
+      return
+    }
+    if (!v || typeof v !== 'object') return
+    const ms = (v as any).monitorStatus
+    if (ms && typeof ms === 'object' && typeof ms.name === 'string') hit(ms.name)
+    for (const k of Object.keys(v)) walk((v as any)[k], hit)
+  }
+  for (const key of Object.keys(beans)) {
+    const raw = beans[key]?.policyJson ?? beans[key]?.policy_json
+    if (!raw) continue
+    let parsed: any = raw
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed)
+      } catch {
+        continue
+      }
+    }
+    walk(parsed, (name) => {
+      const list = out.get(name) || []
+      list.push(Number(beans[key]?.id || key))
+      out.set(name, list)
+    })
+  }
+  return out
+}
+
+/**
+ * editMonitor 会把这些原样 JSON.stringify 写库，所以先归一化：
+ * - accepted_statuscodes 必须是**字符串**数组（数字会让 Kuma 的匹配失效），空值回 `['200-299']`
+ * - conditions 必须是数组
+ * - policyJson 只认字符串或对象（对象转字符串），空值一律 null
+ */
+export function normalizeForKuma(next: Record<string, any>): Record<string, any> {
+  next.accepted_statuscodes = Array.isArray(next.accepted_statuscodes) && next.accepted_statuscodes.length
+    ? next.accepted_statuscodes.map((s: any) => String(s))
+    : ['200-299']
+  next.conditions = Array.isArray(next.conditions) ? next.conditions : []
+  const pol = next.policyJson ?? next.policy_json
+  if (pol === undefined || pol === null || pol === '') next.policyJson = null
+  else if (typeof pol === 'object') next.policyJson = JSON.stringify(pol)
+  else next.policyJson = String(pol)
+  return next
+}
+
+/**
+ * 把 PATCH 请求体合并到现有 bean 上，逐项校验。
+ *
+ * - `bean` 是 `getMonitor(id)` 拿到的原始 bean（不是脱敏后的 view）
+ * - `beans` 是 `listMonitors()` 的全量（判重名、扫策略引用用）
+ * - 返回的 `next` **可能没有 showMsg**：Kuma 的 toJSON 不返回它，要调用方从状态页补
+ *   （不补的话 `Boolean(undefined)` 会把 show_msg 静默改成 false）
+ */
+export function buildMonitorPatch(
+  body: Record<string, unknown>,
+  bean: Record<string, any>,
+  beans: Record<string, any>,
+): PatchResult {
+  const id = Number(bean?.id)
+  const next: Record<string, any> = { ...bean }
+
+  // ---- 名字 ----
+  if (body.name !== undefined) {
+    const name = String(body.name ?? '').trim()
+    if (!name) return { error: '名字不能为空', status: 400 }
+    if (name.length > 120) return { error: '名字最长 120 字', status: 400 }
+    if (name !== String(bean.name || '').trim()) {
+      const dup = Object.values(beans).find((b: any) => Number(b?.id) !== id && String(b?.name || '').trim() === name)
+      if (dup) return { error: '已经有同名观测项：' + name, status: 400 }
+      const refs = policyNameRefs(beans).get(String(bean.name || '').trim())
+      if (refs && refs.length) {
+        return {
+          error:
+            '有策略按名字引用了「' + String(bean.name) + '」（观测项 #' + refs.join('、#') +
+            '），改名会让策略失效。请先把那些策略改成按 id 引用或改掉名字。',
+          status: 409,
+        }
+      }
+    }
+    next.name = name
+  }
+
+  // ---- 介绍 ----
+  if (body.description !== undefined) {
+    const desc = String(body.description ?? '').trim()
+    if (desc.length > 500) return { error: '介绍最长 500 字', status: 400 }
+    next.description = desc
+  }
+
+  // ---- 频率 / 超时 / 重试 ----
+  if (body.interval !== undefined) {
+    const v = asInt(body.interval)
+    if (v === null || v < 20 || v > 86400) return { error: '检查频率要在 20–86400 秒之间', status: 400 }
+    next.interval = v
+  }
+  if (body.timeout !== undefined) {
+    const v = asInt(body.timeout)
+    if (v === null || v < 1 || v > 120) return { error: '超时要在 1–120 秒之间', status: 400 }
+    next.timeout = v
+  }
+  if (body.retryInterval !== undefined) {
+    const v = asInt(body.retryInterval)
+    if (v === null || v < 1 || v > 3600) return { error: '重试间隔要在 1–3600 秒之间', status: 400 }
+    next.retryInterval = v
+  }
+  if (body.maxretries !== undefined) {
+    const v = asInt(body.maxretries)
+    if (v === null || v < 0 || v > 10) return { error: '重试次数要在 0–10 之间', status: 400 }
+    next.maxretries = v
+  }
+  // 这一条对「只改名」的请求也生效：用的是合并后的值
+  if (Number(next.timeout) >= Number(next.interval)) {
+    return {
+      error: '超时（' + next.timeout + 's）必须小于检查频率（' + next.interval + 's）',
+      status: 400,
+    }
+  }
+  if (body.showMsg !== undefined) next.showMsg = body.showMsg === true || body.showMsg === 1
+
+  return { next: normalizeForKuma(next) }
+}

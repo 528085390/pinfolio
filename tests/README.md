@@ -27,7 +27,10 @@ Kuma 脱敏/策略说人话（`server/kuma/redact.ts`）、四态心跳与时间
 邮件阅读区的地址与大小格式化（`web/components/mail-reader/text.ts`）与邮件 CSS 清洗（`mail-reader/css.ts`：
 去 `@import` / `expression(` / `behavior` / `-moz-binding`、`position:fixed|sticky` 改 `static`、隐藏图片时 `url(https?:…)` 换 `none`）、
 邮箱账号表单（`web/components/mail-account/form.ts`：编辑时密码留空就不发该字段、常用邮箱 chip 不冲掉已填的用户名密码）、
-SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类型/状态、自定义字段用中文 label、便签标记、字段 options 坏掉不抛错）。
+SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类型/状态、自定义字段用中文 label、便签标记、字段 options 坏掉不抛错）、
+观测项 PATCH 的校验与归一化（`server/kuma/patch.ts`：名字 1–120 / 重名 / 策略按名字引用 409、频率与超时边界、
+超时必须小于频率、showMsg 只认 true 与 1、`accepted_statuscodes` 转字符串数组、`policyJson` 三种归一化），
+以及观测台的两个 HTTP 小工具（`server/kuma/http.ts`：`isJsonContentType`、`kumaErrorStatus` 的 404/502 判定）。
 
 这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` / `snapshot.ts` 里，那几个模块**一 import 就有副作用**
 （打开 SQLite、连 socket、热状态页），单测碰不得，所以整理时把它们挪成独立纯模块，原模块再导出一次保持调用点不变。
