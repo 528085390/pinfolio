@@ -33,6 +33,9 @@ SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类
 观测台的两个 HTTP 小工具（`server/kuma/http.ts`：`isJsonContentType`、`kumaErrorStatus` 的 404/502 判定），
 以及「立即观测」配方的纯逻辑（`server/kuma/recipe.ts`：配置两种写法、坏配置当没配方、id 优先于名字、
 置灰原因三档、推送型没配方、每步超时按类型取默认并夹在 1 秒与剩余预算之间、`clip`/`statusText`），
+以及观测台列表的纯拼装（`server/kuma/payload.ts`：空状态页全零、最新一拍决定状态、`beatWindow` 截断但
+`lastDown` 看完整历史、非数字 status 记 -1、`active`/`interval` 从 bean 补、`uptime24` 汇总只平均有值的项、
+`pickLink` 的 id 优先 name 兜底），
 以及邮件路由的参数解析与拼装（`server/mail/params.ts`：limit 夹 1–100、offset 不为负、`account=all|<id>`、
 未读数缺失给 null、`posInt`、附件三参数与 `Content-Disposition` 的 ASCII 兜底 + `filename*=UTF-8''`、
 测试连接时用库里那份补空字段、本地已读三档清理），

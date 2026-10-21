@@ -17,9 +17,9 @@
 | 文档 | `README.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 五篇专题（架构、录入、邮件需求、坑 30 条、进展记录） |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
 | 数据 | `server/schema/{core,mail}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
-| 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params}.ts`、`kuma/{redact,beat,patch,http,recipe}.ts`、`web/lib/paths.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
+| 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params}.ts`、`kuma/{redact,beat,patch,http,recipe,payload}.ts`、`web/lib/paths.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
 | 路由 | `server/routes/{notes,assets,tags,fields,meta}.ts`、`server/mail/routes.ts`、`server/kuma/routes.ts` | 各页 HTTP 面；写接口都要求 `Content-Type: application/json` |
-| 观测 | `server/kuma/{client,feed,recipe,runner,actions,links,backup}.ts` + `routes.ts` | socket.io 客户端 / 抓取缓存 / 立即观测（配方纯逻辑在 `recipe.ts`、执行在 `runner.ts`、读配置在 `actions.ts`）/ 跳转链接 / Kuma 库备份；PATCH 校验在 `patch.ts` |
+| 观测 | `server/kuma/{client,source,payload,feed,recipe,runner,actions,links,backup}.ts` + `routes.ts` | socket.io 客户端 / 取数与两层缓存（`source.ts`）/ 列表纯拼装（`payload.ts`）/ 编排（`feed.ts`）/ 立即观测（`recipe.ts` 纯逻辑、`runner.ts` 执行、`actions.ts` 读配置）/ 跳转链接 / Kuma 库备份；PATCH 校验在 `patch.ts` |
 | 邮件 | `server/mail/{types,parse,params,errors,pool,client,store}.ts` | 类型 / 摘要解析（纯函数）/ 路由参数（纯函数）/ 错误翻译 / 连接池 / 归并列表与缓存（**只读**）/ 两张表 CRUD |
 | 入口 | `server/index.ts`（62 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
 | 快照 | `server/snapshot.ts` + `server/snapshot/{rows,markdown,write}.ts` | 取数 / 渲染（纯函数，有单测）/ 写文件与 1.5 秒防抖；`pnpm snapshot` 立即重生成，隔离实例不写 |
@@ -28,7 +28,7 @@
 | 组件 | `web/components/*` + `web/components/{monitor-drawer,asset-drawer,mail-reader,mail-account}/*` | 抽屉（`FormDrawer` 是共用壳；两个编辑抽屉各自拆成容器 + 分段/表单，纯逻辑在各自的 `form.ts`）/ 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM，清洗规则在 `mail-reader/doc.ts`、`css.ts`）/ 邮箱账号抽屉（规则在 `mail-account/form.ts`） |
 | 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（六域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
 | 样式 | `web/styles/`（12 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
-| 测试 | `tests/`（`unit/` 223 条单测 + 14 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
+| 测试 | `tests/`（`unit/` 238 条单测 + 14 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
 | 工具 | `tools/screenshots/`、`tools/seed-assets.mjs` | 截图脚本（须在项目根跑，产物进 `tmp/`）、批量灌数据 |
 
 ## 怎么用
@@ -58,7 +58,7 @@ pnpm typecheck        # tsc --noEmit
 
 **当前状态（2026-10-21）**：7788 运行中，五页（便签 / 邮件 / 资产 / 观测 / 设置）全部可用。工程整理已收口——
 服务端按职责拆分（`server/kuma/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
-前端 api 与样式分片，`tests/` 里有 223 条单测 + 14 套 e2e（`pnpm test` / `pnpm test:e2e`）。
+前端 api 与样式分片，`tests/` 里有 238 条单测 + 14 套 e2e（`pnpm test` / `pnpm test:e2e`）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
 未做：Gmail 跨页翻页（`hasMore:true` 的下一页）待信箱多于一页时复测；kuma 的 Windows Defender 排除项随旧路径失效，
 需管理员重跑 `kuma\tools\add-defender-exclusions.ps1`。

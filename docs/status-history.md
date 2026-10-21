@@ -182,3 +182,19 @@ core e2e **11/11**（设置页新增标签那一步照常通过）。
 验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；
 新增 `tests/unit/app-titles.test.mts`（6 条），单测 217 → **223/223**；core e2e **11/11（80s，含 e2e-router 的前进后退与深链）**。
 
+## 2026-10-21 补充：观测台取数拆分
+
+⑱ **观测台取数拆分**：`server/kuma/feed.ts`（224 行）把「Kuma 状态页/心跳的取数与两层缓存」「列表拼装」「5 秒列表缓存」
+「`groupOf`」「启动预热」挤在一个文件里，其中拼装逻辑（状态取哪一拍、`beats` 怎么截、`active/interval` 怎么补、
+`uptime24` 怎么汇总）一条都测不到。拆成三件，`routes.ts` 的 import 零改动：
+- `server/kuma/payload.ts`（**纯函数，有单测**）：`buildPayload({statusPage, heartbeats, beans, links, base, slug, beatWindow, now})`
+  → `{kuma, updatedAt, summary, groups}`，外加 `groupNameIn()`。不碰网络与缓存，`now` 可注入。
+- `server/kuma/source.ts`：`KUMA_BASE`/`KUMA_SLUG`、状态页清单（5 分钟 TTL + 启动预热 + 到期续一次，失败沿用旧值）、
+  心跳（5 秒）、`invalidateSource()`（清两层缓存并让接下来 15 秒带 `x-apicache-bypass:1`）、`lastStatusPage()`。
+- `server/kuma/feed.ts` 224 → **62 行**：只做编排（并行拉三份数据交给 `buildPayload`）、5 秒列表缓存、`lastPayload()`、
+  `invalidate()`、`groupOf()`，并把拆出去的东西再导出。
+
+验证：`pnpm typecheck` 0 错误；新增 `tests/unit/kuma-payload.test.mts`（15 条），单测 223 → **238/238**；
+重启后 `/api/monitors` 仍是 19 项（up 18 / down 1、5 组、uptime24 0.9779）、`/api/monitors/1` 仍带 40 拍与 1 步配方、
+`/api/stats` notes 3 / assets 17 与拆分前一致；monitor e2e **3/3（54s，e2e-monitor-drawer 88 passed）**、core e2e **11/11（80s）**。
+
