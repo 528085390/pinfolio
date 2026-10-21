@@ -27,6 +27,8 @@ Kuma 脱敏/策略说人话（`server/kuma/redact.ts`）、四态心跳与时间
 邮件阅读区的地址与大小格式化（`web/components/mail-reader/text.ts`）与邮件 CSS 清洗（`mail-reader/css.ts`：
 去 `@import` / `expression(` / `behavior` / `-moz-binding`、`position:fixed|sticky` 改 `static`、隐藏图片时 `url(https?:…)` 换 `none`）、
 邮箱账号表单（`web/components/mail-account/form.ts`：编辑时密码留空就不发该字段、常用邮箱 chip 不冲掉已填的用户名密码）、
+邮件列表行的拼装与排序（`server/mail/rows.ts`：无主题兜底、没 `\\Seen` 算未读、没日期算 0、时间倒序 → uid 倒序 → 账号正序、
+丢掉 `\\Noselect` 文件夹、INBOX 排最前且中文按拼音）、
 SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类型/状态、自定义字段用中文 label、便签标记、字段 options 坏掉不抛错）、
 观测项 PATCH 的校验与归一化（`server/kuma/patch.ts`：名字 1–120 / 重名 / 策略按名字引用 409、频率与超时边界、
 超时必须小于频率、showMsg 只认 true 与 1、`accepted_statuscodes` 转字符串数组、`policyJson` 三种归一化），

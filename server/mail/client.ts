@@ -1,40 +1,22 @@
 // 邮件后端：多账号合并列表、正文按需下载、文件夹与未读数。
 // **只读**：取信一律 getMailboxLock(folder, { readOnly: true })（EXAMINE），一行 STORE 都不许有。
-// 分工：types.ts 类型 / parse.ts 纯解析 / errors.ts 错误翻译 / pool.ts 连接池 / 本文件业务与缓存。
+// 分工：types.ts 类型 / parse.ts 纯解析 / rows.ts 行拼装与排序（纯）/ cache.ts 四层缓存 /
+//       errors.ts 错误翻译 / pool.ts 连接池 / 本文件 IMAP 操作。
 import { simpleParser } from 'mailparser'
 import type { MailAccountRow } from './store.js'
 import type { FolderInfo, ListResult, MailMessage, MailRow } from './types.js'
-import { addrList, addrOne, snippetFromText, toIso } from './parse.js'
+import { addrList, addrOne, toIso } from './parse.js'
 import { friendlyError, proxyOf } from './errors.js'
 import { getClient, isEncrypted, makeClient, OP_TIMEOUT, withMailbox, withTimeout } from './pool.js'
+import {
+  BODY_TTL, FOLDER_TTL, LIST_TTL,
+  bodyCache, chunkCache, folderCache, pruneBodyCache, snapCache, snapKey,
+  type BodyEntry, type Snapshot,
+} from './cache.js'
+import { compareRows, filterSelectable, sortFolders, toRow } from './rows.js'
 
-const LIST_TTL = 60_000
-const BODY_TTL = 10 * 60_000
-const FOLDER_TTL = 5 * 60_000
 const MAX_MESSAGE_BYTES = 25 * 1024 * 1024
 const CHUNK = 50
-const BODY_CACHE_MAX = 40
-
-// ---------- 缓存 ----------
-
-type Snapshot = { at: number; uids: number[]; unseen: number }
-const snapCache = new Map<string, Snapshot>()
-type ChunkEntry = { at: number; rows: MailRow[] }
-const chunkCache = new Map<string, ChunkEntry>()
-type BodyEntry = { at: number; message: MailMessage; attachments: Buffer[] }
-const bodyCache = new Map<string, BodyEntry>()
-const folderCache = new Map<string, { at: number; folders: FolderInfo[] }>()
-
-function snapKey(accountId: number, folder: string) {
-  return accountId + ':' + folder
-}
-
-export function clearAccountCaches(accountId: number) {
-  for (const k of [...snapCache.keys()]) if (k.startsWith(accountId + ':')) snapCache.delete(k)
-  for (const k of [...chunkCache.keys()]) if (k.startsWith(accountId + ':')) chunkCache.delete(k)
-  for (const k of [...bodyCache.keys()]) if (k.startsWith(accountId + ':')) bodyCache.delete(k)
-  folderCache.delete(String(accountId))
-}
 
 // ---------- IMAP 操作 ----------
 
@@ -62,17 +44,7 @@ export async function listFolders(a: MailAccountRow, fresh = false): Promise<Fol
   if (!fresh && hit && Date.now() - hit.at < FOLDER_TTL) return hit.folders
   const client = await getClient(a)
   const raw = await withTimeout(client.list(), OP_TIMEOUT, '获取文件夹列表')
-  const folders: FolderInfo[] = raw
-    .filter((m: any) => ![...(m.flags || [])].some((f: string) => /\\noselect/i.test(f)))
-    .map((m: any) => ({ path: m.path, name: m.name || m.path, delimiter: m.delimiter || '/', specialUse: m.specialUse || null }))
-  folders.sort((x, y) => {
-    if (x.path.toUpperCase() === 'INBOX') return -1
-    if (y.path.toUpperCase() === 'INBOX') return 1
-    const sx = x.specialUse ? 1 : 0
-    const sy = y.specialUse ? 1 : 0
-    if (sx !== sy) return sy - sx
-    return x.path.localeCompare(y.path, 'zh-CN')
-  })
+  const folders = sortFolders(filterSelectable(raw))
   folderCache.set(key, { at: Date.now(), folders })
   return folders
 }
@@ -92,24 +64,6 @@ async function getSnapshot(a: MailAccountRow, folder: string, fresh: boolean): P
   return snap
 }
 
-function toRow(accountId: number, folder: string, m: any): MailRow {
-  const flags: Set<string> = m.flags || new Set()
-  const bodyPart = m.bodyParts ? (m.bodyParts.get('text') || m.bodyParts.get('TEXT')) : undefined
-  return {
-    accountId,
-    folder,
-    uid: Number(m.uid),
-    subject: String(m.envelope?.subject || '').trim() || '(无主题)',
-    from: addrOne(m.envelope?.from),
-    to: addrList(m.envelope?.to),
-    date: toIso(m.internalDate || m.envelope?.date),
-    snippet: snippetFromText(bodyPart),
-    unread: !flags.has('\\Seen'),
-    flagged: flags.has('\\Flagged'),
-    size: Number(m.size || 0),
-  }
-}
-
 async function getChunk(a: MailAccountRow, folder: string, from: number, uids: number[], fresh: boolean): Promise<MailRow[]> {
   const key = a.id + ':' + folder + ':' + from + ':' + uids.length
   const hit = chunkCache.get(key)
@@ -125,11 +79,7 @@ async function getChunk(a: MailAccountRow, folder: string, from: number, uids: n
     }
     return out
   })
-  rows.sort((x, y) => {
-    const dx = x.date ? Date.parse(x.date) : 0
-    const dy = y.date ? Date.parse(y.date) : 0
-    return dy - dx || y.uid - x.uid
-  })
+  rows.sort(compareRows)
   chunkCache.set(key, { at: Date.now(), rows })
   return rows
 }
@@ -140,10 +90,6 @@ async function* accountRows(a: MailAccountRow, folder: string, snap: Snapshot, f
     const rows = await getChunk(a, folder, i, slice, fresh)
     for (const r of rows) yield r
   }
-}
-
-function rowTime(r: MailRow): number {
-  return r.date ? Date.parse(r.date) : 0
 }
 
 export async function listMessages(opts: {
@@ -182,7 +128,7 @@ export async function listMessages(opts: {
     const live: { i: number; row: MailRow }[] = []
     heads.forEach((h, i) => { if (!h.done && h.value) live.push({ i, row: h.value }) })
     if (!live.length) break
-    live.sort((p, q) => rowTime(q.row) - rowTime(p.row) || q.row.uid - p.row.uid || p.row.accountId - q.row.accountId)
+    live.sort((p, q) => compareRows(p.row, q.row))
     const pick = live[0]
     if (skipped < offset) skipped++
     else items.push(pick.row)
@@ -211,14 +157,6 @@ export async function unseenCounts(accounts: MailAccountRow[], folder: string, f
     }
   }))
   return { counts, errors }
-}
-
-function pruneBodyCache() {
-  while (bodyCache.size > BODY_CACHE_MAX) {
-    const oldest = bodyCache.keys().next().value as string | undefined
-    if (oldest === undefined) break
-    bodyCache.delete(oldest)
-  }
 }
 
 export async function getMessage(a: MailAccountRow, folder: string, uid: number): Promise<BodyEntry> {
@@ -263,6 +201,7 @@ export async function getMessage(a: MailAccountRow, folder: string, uid: number)
 }
 
 // ---- 再导出：让 routes.ts / 测试继续从 client.js 取，调用点不用改 ----
+export { clearAccountCaches } from './cache.js'
 export { dropAllConnections, dropConnection } from './pool.js'
 export { friendlyError, proxyOf } from './errors.js'
 export { snippetFromText } from './parse.js'

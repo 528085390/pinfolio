@@ -198,3 +198,18 @@ core e2e **11/11**（设置页新增标签那一步照常通过）。
 重启后 `/api/monitors` 仍是 19 项（up 18 / down 1、5 组、uptime24 0.9779）、`/api/monitors/1` 仍带 40 拍与 1 步配方、
 `/api/stats` notes 3 / assets 17 与拆分前一致；monitor e2e **3/3（54s，e2e-monitor-drawer 88 passed）**、core e2e **11/11（80s）**。
 
+## 2026-10-21 补充：邮件后端第二轮拆分
+
+⑲ **邮件后端第二轮拆分**：`server/mail/client.ts`（246 行）里还挤着四层缓存与列表行的拼装/排序，
+其中「无主题怎么兜、没 `\\Seen` 算不算未读、多账号归并怎么排、文件夹怎么排」这些口径一条都测不到。拆出两件：
+- `server/mail/rows.ts`（**纯函数，有单测**）：`toRow()`、`rowTime()`、`compareRows()`（时间倒序 → uid 倒序 → 账号正序）、
+  `filterSelectable()`（丢掉 `\\Noselect`）、`sortFolders()`（INBOX 第一 → special-use → 中文按拼音）。
+- `server/mail/cache.ts`：`LIST_TTL`/`BODY_TTL`/`FOLDER_TTL`/`BODY_CACHE_MAX` 四个常量、四个 Map、
+  `snapKey()`、`clearAccountCaches()`、`pruneBodyCache()`。
+- `client.ts` 只剩 IMAP 操作（`testConnection`/`listFolders`/`getSnapshot`/`getChunk`/`listMessages`/`unseenCounts`/`getMessage`），
+  并继续再导出 `clearAccountCaches` 与类型，`routes.ts` 的 import 零改动。
+
+验证：`pnpm typecheck` 0 错误；新增 `tests/unit/mail-rows.test.mts`（9 条），单测 238 → **247/247**；
+重启后 `/api/health`、`/api/mail/status`（marked 11 / accounts 1）、`/api/mail/accounts`、`/api/stats`、`/api/monitors` 全 200；
+隔离实例（`PORT=7799` + `PINBOARD_DATA=tests\e2e-data`）mail e2e **2/2（25s，72/72 + 58/58）**、core e2e **11/11（91s）**。
+

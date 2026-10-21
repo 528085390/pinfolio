@@ -14,5 +14,7 @@ SNAPSHOT.md
 .worktrees/
 tmp/*.txt
 tmp/*.bak-*
+# 临时跑测试用的 pwsh 脚本（跑完即删，别进版本库）
+tmp/*.ps1
 # 邮件 e2e 的隔离实例数据目录（tests/README.md 里的 PINBOARD_DATA）
 tests/e2e-data/
