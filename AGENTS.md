@@ -23,7 +23,7 @@
 | 邮件 | `server/mail/{types,parse,errors,pool,client,store}.ts` | 类型 / 摘要解析（纯函数）/ 错误翻译 / 连接池 / 归并列表与缓存（**只读**）/ 两张表 CRUD |
 | 入口 | `server/index.ts`（62 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
 | 前端壳 | `web/App.tsx`、`web/lib/router.ts` | 侧栏/主题/命令面板；页面状态从 URL 取，**别改回 `useState`** |
-| 页面 | `web/pages/*` + `web/pages/notes/*` | 便签（拆成 useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件、资产、观测、设置 |
+| 页面 | `web/pages/*` + `web/pages/notes/*` + `web/pages/mail/*` | 便签（useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件（useInbox/MailList/MailToolbar）、资产、观测、设置 |
 | 组件 | `web/components/*`（`FormDrawer` 是两个编辑抽屉的共用壳） | 抽屉 / 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM） |
 | 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（六域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
 | 样式 | `web/styles/`（12 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
