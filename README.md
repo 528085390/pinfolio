@@ -4,6 +4,7 @@
 
 单进程、单端口、单个 SQLite 文件，不联网、无账号、无 Docker。打开 http://127.0.0.1:7788 就能用。
 
+- 仓库：<https://github.com/528085390/pinfolio>（自用小工具，公开出来给需要的人参考，没发布到 npm）
 - 运行方式：代码放在哪个目录都行，`pnpm install && pnpm build && pnpm start` 就能跑
 - 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 7 + React 19 + 手写 CSS
 - 数据：`data/pinboard.db`（只在本机）
