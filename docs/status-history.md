@@ -75,3 +75,16 @@
 ⑨ **资产页拆分**：`web/pages/AssetsPage.tsx`（264 行：统计条 + 两排筛选 + 卡片/表格 + 抽屉）拆成 `web/pages/assets/` 六件 —— `useAssets.ts`（拉取 + 搜索防抖 220ms + 标签栏统计 + 保存后重拉）、`AssetStats.tsx`（四格统计）、`AssetFilters.tsx`（类型 chips + 状态下拉 + 搜索 + 视图切换 + 登记按钮）、`AssetTagBar.tsx`（标签栏）、`AssetCard.tsx`（卡片视图）、`AssetTable.tsx`（表格视图）、`meta.ts`（`usedTagsOf()` 排序规则 / `cardMeta()` 中间几行取值，**纯函数**）；`AssetsPage.tsx` 只剩组合与空态。
 
 验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/assets-meta.test.mts`（10 条：标签栏只留有关联的、数量降序、同数按中文名称升序、不改原数组；卡片取值顺序、空值不占行、自定义字段最多 2 个、有 label 用 label、数字转字符串），单测 79 → **89**；core 套件 **11/11（80s）**、monitor 套件 **3/3（53s）** —— 依赖资产 UI 的 e2e（`e2e.mjs` 的登记/表格视图、`e2e-tagbar.mjs` 的 `.tag-bar` 筛选、`e2e-monitor-note.mjs` 的 `.asset-name`）全过。
+
+## 2026-10-21 补充：两个编辑抽屉拆分
+
+⑩ **编辑抽屉拆分**：`web/components/MonitorDrawer.tsx`（458 行）与 `web/components/AssetDrawer.tsx`（376 行）各自拆成「容器 + 分段」——
+- 观测项：容器只留状态 / effect / 五个接口调用，界面切成 `web/components/monitor-drawer/` 五段（`NowSection` 顶部状态条、`BasicSection` 基本信息与频率 chip、`AdvancedSection` 折叠的超时与重试、`RunSection` 立即观测与逐步回显、`DangerSection` 暂停恢复与二次确认删除），纯逻辑进 `form.ts`（`toForm`/`sameForm`/`buildPatch`/`validateForm`）与 `display.ts`（`STATUS`/`TONE`/`TYPE_LABEL`/`toneOf`）。
+- 资产：`web/components/asset-drawer/` 的 `BasicFields.tsx`（基本信息 + 标签 + 自定义字段 + 备注预览）、`LinkedNotes.tsx`（关联便签 / 就地记一条 / 时间与参考价）、`CustomFields.tsx`、`form.ts`（`blank`/`toForm`/`parseTags`/`buildPayload`）。
+- e2e 依赖的类名与文案一个没动：`.monitor-drawer-run`、`.monitor-drawer-now`、`.monitor-drawer-result(.ok)`、`.monitor-drawer-confirm`、`input[name=name|interval|description|confirmName]`、「立即观测」「删除观测」「确认删除」；资产侧的 `.note-list`、`.composer`、原生 `confirm()` 删除。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB，说明样式零改动）；新增 `tests/unit/monitor-drawer-form.test.mts`（15 条）与 `tests/unit/asset-drawer-form.test.mts`（8 条），单测 89 → **112/112**；core 套件 **11/11（85s）**、monitor 套件 **3/3（55s，e2e-monitor-drawer 88 条全过）**。
+
+顺手修的两处：
+- `tests/e2e-monitor-drawer.mjs` 里两处「打开抽屉后固定等 600/700ms 再数元素」的竞态（详情接口要问 Kuma，慢起来 1s+）——改成先 `waitFor` 目标元素再断言，不放松任何条件。
+- `tests/unit/assets-meta.test.mts` 的 `tag()` helper 原来返回 `never`，导致 `input.map(t => t.name)` 在 `tsc --noEmit` 下报 `TS2339: Property 'name' does not exist on type 'never'`（此前只跑过 `test:unit`，没跑 typecheck）；改成返回 `Tag` 后两条测试文件一起纳入类型检查。

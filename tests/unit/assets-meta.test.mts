@@ -4,7 +4,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { cardMeta, usedTagsOf } from '../../web/pages/assets/meta.js'
 
-const tag = (name: string, assets: number, id = 0) => ({ id, name, color: '#000000', notes: 0, assets }) as never
+import type { Tag } from '../../web/lib/api/types.js'
+
+const tag = (name: string, assets: number, id = 0): Tag => ({ id, name, color: '#000000', notes: 0, assets })
 
 test('usedTagsOf：只留有资产关联的标签', () => {
   const out = usedTagsOf([tag('有', 2, 1), tag('无', 0, 2)])
@@ -12,7 +14,7 @@ test('usedTagsOf：只留有资产关联的标签', () => {
 })
 
 test('usedTagsOf：assets 缺省（undefined）也算 0，被过滤', () => {
-  const out = usedTagsOf([{ id: 1, name: 'x', color: '#000', notes: 0 } as never, tag('y', 1, 2)])
+  const out = usedTagsOf([{ id: 1, name: 'x', color: '#000', notes: 0 } as Tag, tag('y', 1, 2)])
   assert.deepEqual(out.map((t) => t.name), ['y'])
 })
 

@@ -62,6 +62,8 @@ try {
   ok('抽屉标题是「观测项详情」', (await drawer.locator('.drawer-head').innerText()).includes('观测项'), await drawer.locator('.drawer-head').innerText())
 
   const nameInput = drawer.locator('input[name="name"]')
+  // 抽屉正文要等详情接口回来才渲染，固定 600ms 偶尔不够（详情要问 Kuma，慢起来 1s+）——先等它出现
+  await nameInput.first().waitFor({ timeout: 8000 }).catch(() => {})
   ok('抽屉里有名称输入框', (await nameInput.count()) === 1)
   ok('名称输入框带出当前名字', (await nameInput.inputValue()) === target.name, await nameInput.inputValue())
   ok('抽屉里有介绍输入框', (await drawer.locator('textarea[name="description"]').count()) === 1)
@@ -430,6 +432,7 @@ try {
     await p4.waitForTimeout(700)
     const dw = p4.locator('.drawer')
     const runBtn = dw.locator('.monitor-drawer-run')
+    await runBtn.first().waitFor({ timeout: 8000 }).catch(() => {})
     ok('抽屉里有「立即观测」按钮', (await runBtn.count()) === 1)
     ok('没暂停时按钮可点', !(await runBtn.isDisabled()))
     await runBtn.click()
