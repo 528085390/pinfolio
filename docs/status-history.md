@@ -63,3 +63,9 @@
 ⑦ **邮件前端拆分**：`web/pages/MailPage.tsx`（407 行，20+ 个 useState 全挤在一个组件里）拆成 `web/pages/mail/` 三件 —— `useInbox.ts`（账号 / 文件夹 / 当前页邮件 / 轮询刷新 / 筛选 / 选中与 `j`·`k` 导航，`PAGE=50` 与 `POLL_MS` 一并搬入）、`MailList.tsx`（`MailRowItem` 行 + 空态 + 分页条，`rowTime`/`senderName` 同文件）、`MailToolbar.tsx`（账号 chips + 文件夹下拉 + 「数据截至」+ 刷新 + 邮箱管理 + 搜索 + 只看未读）；`MailPage.tsx` 只剩组合与无账号空态。**e2e 依赖的 `.mail-row` / `.mail-pager` / `.mail-search` / `.mail-page-empty` 类名与文案一个都没动。**
 
 验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB，说明样式零改动）；隔离实例跑 mail 套件 **2/2、e2e-mail 58/58**；主实例 core 套件 **11/11（81s）**。`docs/architecture.md` 补 `web/pages/mail/` 分工，`AGENTS.md` 页面行同步。
+
+## 2026-10-21 补充：观测页拆分
+
+⑧ **观测页拆分**：`web/pages/MonitorsPage.tsx`（367 行：数据拉取 + 30 秒轮询 + 筛选 + 统计条 + 卡片/表格两套渲染 + 抽屉全挤在一起）拆成 `web/pages/monitors/` 六件 —— `useMonitors.ts`（拉取与 `load(force)`、30 秒轮询、分组/状态/关键词筛选、异常通知跳转后的定位高亮；**抽屉开着时停轮询**、**轮询必须走缓存只有手动刷新才 `force`** 这两条约束随代码搬了过去）、`MonitorStats.tsx`（四格统计）、`MonitorFilters.tsx`（分组 chips + 状态下拉 + 搜索 + 自动刷新 + 视图切换 + 手动刷新）、`MonitorCard.tsx`（卡片视图，`id="monitor-<id>"` 是异常通知跳转锚点）、`MonitorTable.tsx`（表格视图）、`status.ts`（`tone()` 四色判定 / `pct()` / `typeLabel()`，**纯函数**）；`MonitorsPage.tsx` 只剩组合与三种空态（读不到 / 没有匹配 / 加载中）。
+
+验证：`pnpm typecheck` 0 错误；`pnpm build` 通过且 **CSS 产物哈希未变**（`index-BslNVajD.css` 37.28 kB）；新增 `tests/unit/monitors-status.test.mts`（9 条：四色前缀优先于状态码、前缀必须在开头、未知状态码回 null、`pct()` 的 99.95% 取整、类型名映射），单测 70 → **79**；monitor 套件 **3/3（55s）**、core 套件 **11/11（82s）** —— e2e-alert 的 E2/E3/E4（点通知跳转并高亮对应卡片、长列表滚进视口）全过，说明卡片锚点没拆坏。
