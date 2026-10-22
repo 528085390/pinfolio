@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, StickyNote, Mail, Package, Settings, Plus, Download, CornerDownLeft, Activity } from 'lucide-react'
+import { Search, StickyNote, Mail, Package, Settings, Plus, Download, CornerDownLeft, Activity, Server } from 'lucide-react'
 import { api, cx, type Asset, type Note } from '../lib/api'
 import { KindIcon } from './KindIcon'
 import { assetSub, moveSel, noteLabel, noteSub, paletteHint } from './command-palette/items'
@@ -9,7 +9,7 @@ type Item = { key: string; label: string; sub?: string; icon: React.ReactNode; r
 export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
   open: boolean
   onClose: () => void
-  onNavigate: (page: 'notes' | 'mail' | 'assets' | 'monitors' | 'settings') => void
+  onNavigate: (page: 'notes' | 'mail' | 'assets' | 'monitors' | 'hosts' | 'settings') => void
   onOpenAsset: (id: number | 'new') => void
 }) {
   const [q, setQ] = useState('')
@@ -56,6 +56,7 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
       out.push({ key: 'a2m', label: '邮件', sub: '多邮箱合并收件箱（只读）', icon: <Mail size={15} />, run: () => onNavigate('mail') })
       out.push({ key: 'a2', label: '登记资产', sub: '打开资产登记表单', icon: <Plus size={15} />, run: () => { onNavigate('assets'); onOpenAsset('new') } })
       out.push({ key: 'a3', label: '观测台', sub: '看所有观测项的实时状态', icon: <Activity size={15} />, run: () => onNavigate('monitors') })
+      out.push({ key: 'a3h', label: '主机', sub: '6 台服务器的 CPU / 内存 / 磁盘 / 服务', icon: <Server size={15} />, run: () => onNavigate('hosts') })
       out.push({ key: 'a4', label: '设置', sub: '自定义字段 / 标签 / 主题', icon: <Settings size={15} />, run: () => onNavigate('settings') })
       out.push({
         key: 'a5', label: '导出 JSON 备份', icon: <Download size={15} />, run: async () => {

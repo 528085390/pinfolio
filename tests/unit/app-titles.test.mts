@@ -9,11 +9,12 @@ const stats = (o: Partial<{ notes: number; archived: number; assets: number; act
   totalValue: 200, expiringSoon: 1, expired: 0, expiring: 1, ...o,
 }) as any
 
-test('pageTitle：五个页面各有标题', () => {
+test('pageTitle：六个页面各有标题', () => {
   assert.equal(pageTitle('notes'), '便签')
   assert.equal(pageTitle('mail'), '邮件')
   assert.equal(pageTitle('assets'), '资产台账')
   assert.equal(pageTitle('monitors'), '观测台')
+  assert.equal(pageTitle('hosts'), '主机')
   assert.equal(pageTitle('settings'), '设置')
 })
 
@@ -45,6 +46,13 @@ test('pageSubtitle：观测页四段拼接（异常数 / 24h 可用率按需出�
   assert.equal(pageSubtitle('monitors', { stats: null, mailSum: null, mon: mon({ down: 0, uptime24: null }) }), '18/19 正常')
   assert.equal(pageSubtitle('monitors', { stats: null, mailSum: null, mon: mon({ down: 0, uptime24: 1 }) }), '18/19 正常 · 24h 100.0%')
   assert.equal(pageSubtitle('monitors', { stats: null, mailSum: null, mon: null }), 'Kuma 探测后端 · 每 30 秒刷新')
+})
+
+test('pageSubtitle：主机页在线数，陈旧台数按需出现', () => {
+  assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: { total: 6, online: 6, stale: 0, paused: 0 } }), '6/6 在线')
+  assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: { total: 6, online: 5, stale: 1, paused: 0 } }), '5/6 在线 · 1 台陈旧')
+  assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: { total: 6, online: 4, stale: 0, paused: 2 } }), '4/6 在线 · 2 台暂停')
+  assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: null }), '服务器指标 · 每 5 分钟采集')
 })
 
 test('pageSubtitle：设置页固定一句', () => {

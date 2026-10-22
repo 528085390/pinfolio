@@ -4,6 +4,7 @@ import { coreApi, tagsApi, fieldsApi } from './api/core'
 import { notesApi } from './api/notes'
 import { assetsApi } from './api/assets'
 import { monitorsApi } from './api/monitors'
+import { hostsApi } from './api/hosts'
 import { mailApi } from './api/mail'
 import { cx } from './cx'
 
@@ -12,6 +13,7 @@ export const api = {
   notes: notesApi,
   assets: assetsApi,
   monitors: monitorsApi,
+  hosts: hostsApi,
   mail: mailApi,
   tags: tagsApi,
   fields: fieldsApi,
@@ -23,6 +25,10 @@ export { request } from './api/http'
 export type { Tag, FieldDef, Stats } from './api/types'
 export type { Note } from './api/notes'
 export type { Asset } from './api/assets'
+export type {
+  Host, HostDisk, HostTop, HostSeriesPoint, HostsPayload, HostSummary,
+  HostInput, HostPatch, HostServiceInput, HostOnboard, UnitMonitor, ProvisionResult,
+} from './api/hosts'
 export type {
   Monitor, MonitorGroup, MonitorSummary, MonitorsPayload, MonitorBeat,
   MonitorAction, MonitorActionStep, MonitorActionStepResult, MonitorDetail,

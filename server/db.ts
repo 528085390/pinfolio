@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CORE_SCHEMA } from './schema/core.js'
 import { MAIL_SCHEMA } from './schema/mail.js'
+import { METRICS_SCHEMA } from './schema/metrics.js'
 import { extractTags, PRESET_TAGS, TAG_COLORS, tagColor } from './tags.js'
 
 // 纯函数挪到 tags.ts 是为了能单测（本文件一 import 就打开 SQLite、跑迁移）；
@@ -20,7 +21,7 @@ export const db = new DatabaseSync(DB_PATH)
 db.exec('PRAGMA journal_mode = WAL')
 db.exec('PRAGMA foreign_keys = ON')
 
-const SCHEMA = CORE_SCHEMA + "\n" + MAIL_SCHEMA
+const SCHEMA = CORE_SCHEMA + "\n" + MAIL_SCHEMA + "\n" + METRICS_SCHEMA
 db.exec(SCHEMA)
 
 export const nowIso = () => new Date().toISOString()

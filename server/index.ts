@@ -8,6 +8,8 @@ import { fieldsRoute } from './routes/fields.js'
 import { metaRoute } from './routes/meta.js'
 import { monitorsRoute } from './kuma/routes.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
+import { hostsRoute } from './metrics/routes.js'
+import { startMetricsPoller } from './metrics/poll.js'
 import { scheduleSnapshot, writeSnapshot } from './snapshot.js'
 import { mountStatic } from './static.js'
 
@@ -28,6 +30,7 @@ api.route('/tags', tagsRoute)
 api.route('/fields', fieldsRoute)
 api.route('/monitors', monitorsRoute)
 api.route('/mail', mailRoute)
+api.route('/hosts', hostsRoute)
 app.route('/api', api)
 
 mountStatic(app)
@@ -50,6 +53,8 @@ serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (info) => {
   console.log('')
   // 启动时先生成一次快照（失败只打日志，不影响服务）
   void writeSnapshot()
+  // 主机指标：开机拉一次，之后每 5 分钟拉一次（见 server/metrics/poll.ts）
+  startMetricsPoller()
 })
 
 // 退出时断开 IMAP 连接（IMAP 是长连接，进程被 Ctrl+C / SIGTERM 时礼貌收尾）

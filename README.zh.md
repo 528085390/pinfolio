@@ -57,9 +57,15 @@ node tools/screenshots/shots.mjs      # 便签 / 资产 / 设置 / 命令面板 
 - 远程图片默认加载，可在阅读区「隐藏图片」换成占位符；页面开着时每 60 秒静默收一次信。
 - 细节（代理设置、163 / Gmail 的坑、缓存、安全处理）：[`docs/features.zh.md`](docs/features.zh.md#邮件只读合并收件箱)。
 
+### 主机
+- 6 台服务器的 **CPU / 内存 / 负载 / 磁盘 / 服务状态**汇总在一页：每台一张卡，四格读数 + 24 小时曲线 + 磁盘条 + 关注服务的 chip，`failed_units` 与在线状态一眼可见。
+- 采集端在**每台服务器自己身上**（`tools/node-metrics/`，systemd timer 每 5 分钟跑一次、跑完即退，零常驻），数据推到一台公网机的 nginx 落盘，本机每 5 分钟拉回来存进 SQLite。
+- 5 分钟没更新就标「N 分钟前」、超过 15 分钟算陈旧；「立即拉取」手动催一次。
+- 细节（字段、安装、回滚、为什么不上 Prometheus）：[`docs/features.zh.md`](docs/features.zh.md#主机指标) 与 [`tools/node-metrics/README.md`](tools/node-metrics/README.md)。
+
 ### 全局
-- **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
-- **Ctrl / ⌘ + K** 命令面板：搜便签、搜资产，或执行「新建便签 / 打开邮件 / 新增资产 / 打开观测台 / 导出 JSON」。
+- **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/hosts` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
+- **Ctrl / ⌘ + K** 命令面板：搜便签、搜资产，或执行「新建便签 / 打开邮件 / 新增资产 / 打开观测台 / 打开主机 / 导出 JSON」。
 - 主题：浅色 / 深色 / 跟随系统；设置页可把整库导出成 JSON，空库可一键写入示例数据。
 
 ## 快速开始
@@ -93,7 +99,7 @@ pnpm start       # http://127.0.0.1:7788
 ```
 pinfolio/
 ├─ start.cmd / stop.cmd        启停（后台隐藏窗口）
-├─ tools/                      pinboard.ps1（控制脚本）、screenshots/、seed-assets.mjs、chrome-path.mjs
+├─ tools/                      pinboard.ps1（控制脚本）、screenshots/、seed-assets.mjs、chrome-path.mjs、streak-panel-trigger.cjs
 ├─ monitor-actions.json        「立即观测」的配方（按观测项 id / 名字匹配）
 ├─ monitor-links.example.json  观测项 → 管理页跳转表示例（复制成 monitor-links.json 再用）
 ├─ server/                     Hono 后端

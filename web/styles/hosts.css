@@ -1,0 +1,340 @@
+/* 主机指标页：每台服务器一张卡，CPU/内存/负载/磁盘/服务/进程一屏看完。
+   数据来自 6 台机自己的 systemd timer（tools/node-metrics/），本页只做展示。 */
+
+.host-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.host-sum {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 0;
+}
+.host-sum-num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.host-sum-label { color: var(--ink-2); }
+.host-sum-sep { color: var(--line-strong); }
+.host-sum-dim { color: var(--muted); }
+
+.host-actions { display: flex; align-items: center; gap: 8px; }
+.host-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.host-auto:hover { border-color: var(--line-strong); color: var(--ink-2); }
+.host-auto-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+.host-auto.is-on { color: var(--ink-2); border-color: var(--accent-ring); background: var(--accent-soft); }
+.host-auto.is-on .host-auto-dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); }
+
+.host-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.host-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 13px 15px 12px;
+  min-width: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.host-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.host-card.is-off { border-style: dashed; background: var(--surface-2); }
+.host-card.is-off .host-figs b { color: var(--muted); }
+
+.host-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.host-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--line-strong);
+}
+.host-dot.is-on { background: var(--ok); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); }
+.host-dot.is-off { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.host-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.host-note {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.host-ago { margin-left: auto; font-size: 11.5px; color: var(--muted); flex: none; }
+
+.host-nodata { padding: 22px 0 18px; font-size: 13px; color: var(--muted); text-align: center; }
+
+.host-figs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.host-fig { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.host-fig > span {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.host-fig b {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.host-fig b.host-fig-sm { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.host-fig i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.host-fig b.tone-ok { color: var(--ok); }
+.host-fig b.tone-warn { color: var(--warn); }
+.host-fig b.tone-bad { color: var(--danger); }
+
+.host-spark {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin: 10px 0 2px;
+}
+.host-spark.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  height: 34px;
+}
+.host-spark polyline { stroke-linecap: round; stroke-linejoin: round; }
+.host-spark .sp-cpu { stroke: var(--accent); stroke-width: 1.5; }
+.host-spark .sp-mem { stroke: var(--muted); stroke-width: 1; opacity: 0.6; }
+
+.host-bars { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.host-bar { min-width: 0; }
+.host-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.host-bar-path {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.host-bar-text { flex: none; font-variant-numeric: tabular-nums; }
+.host-bar-track {
+  height: 5px;
+  margin-top: 3px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.host-bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--ok); }
+.host-bar-fill.tone-warn { background: var(--warn); }
+.host-bar-fill.tone-bad { background: var(--danger); }
+
+.host-units { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; }
+.host-unit {
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+}
+.host-unit.is-on { color: var(--ok); border-color: rgba(21, 128, 61, 0.25); background: transparent; }
+.host-unit.is-off { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+.host-unit.is-bad { color: var(--danger); border-color: var(--danger); }
+
+.host-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+.host-foot-os { flex: none; }
+.host-foot-top {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* 暂停的主机：卡片保留、灰掉，不参与在线统计，也不算离线 */
+.host-card.is-paused { border-style: dashed; background: var(--surface-2); }
+.host-card.is-paused .host-figs b,
+.host-card.is-paused .host-name { color: var(--muted); }
+.host-dot.is-paused { background: var(--warn); box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12); }
+.host-pause-tag {
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  background: var(--surface);
+  flex: none;
+}
+
+/* 卡片右上角：悬停（或键盘 focus）才露出的暂停 / 删除 */
+.host-ops { display: flex; gap: 4px; flex: none; margin-left: 2px; opacity: 0; transition: opacity 0.12s; }
+.host-card:hover .host-ops,
+.host-card:focus-within .host-ops { opacity: 1; }
+@media (hover: none) { .host-ops { opacity: 1; } }
+.host-op {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.host-op:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
+.host-op.is-danger:hover { border-color: var(--danger-soft); color: var(--danger); background: var(--danger-soft); }
+.host-op:disabled { opacity: 0.4; cursor: default; }
+
+/* 能跳观测台的服务 chip：只有配了映射的才是按钮，名字后面挂个小箭头当提示 */
+button.host-unit { cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+.host-unit-go { opacity: 0.5; flex: none; }
+button.host-unit:hover .host-unit-go { opacity: 1; }
+button.host-unit.is-link:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
+.host-unit.is-link.is-on:hover { border-color: var(--ok); }
+
+/* 添加主机抽屉 / 删除主机弹窗 */
+.host-form-tip { margin-top: 12px; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.host-del-text { font-size: 12.5px; line-height: 1.65; color: var(--muted); margin-bottom: 12px; }
+.host-del-text code { font-family: var(--font-mono); font-size: 11.5px; padding: 1px 4px; border-radius: 4px; background: var(--surface-2); }
+.host-del-check { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 12.5px; color: var(--ink); cursor: pointer; }
+
+/* 抽屉里的三段：基本信息 / 采集端 / 观测项 */
+.host-section { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.host-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.host-section-head span { font-weight: 400; font-size: 11.5px; color: var(--muted); }
+.host-check { display: flex; align-items: flex-start; gap: 7px; margin-top: 10px; font-size: 12.5px; line-height: 1.5; color: var(--ink); cursor: pointer; }
+.host-check input { margin-top: 2px; accent-color: var(--accent); flex: none; }
+.host-check-body { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px 22px; }
+.host-check-body.is-col { flex-direction: column; align-items: stretch; gap: 6px; }
+.host-check-hint { font-size: 11.5px; color: var(--muted); }
+.input-sm { height: 30px; font-size: 12.5px; padding: 0 9px; }
+/* 观测项那一行的小输入框别占满整行（否则后面的「端口」两个字会被挤出抽屉） */
+.host-check-body .input-sm { flex: 0 0 auto; width: 180px; }
+.host-check-body.is-col .input-sm { width: auto; }
+.host-check-url { flex: 1 1 auto; width: auto; min-width: 0; }
+
+/* 接入指引弹窗：一条命令 + 等首帧 */
+.host-onboard-lead { margin: 0 0 10px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+.host-cmd {
+  margin: 0;
+  padding: 11px 12px;
+  max-height: 168px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.host-onboard-row { display: flex; gap: 8px; margin-top: 10px; }
+.host-onboard-state { margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+.host-onboard-state.is-ok { color: var(--ok); }
+
+/* 没有数据的卡片：右侧挂一个「接入指引」 */
+.host-nodata-btn {
+  margin-left: 10px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.host-nodata-btn:hover { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-soft); }
+
+@media (max-width: 720px) {
+  .host-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .host-foot { flex-direction: column; align-items: flex-start; gap: 3px; }
+  .host-foot-top { text-align: left; }
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type FieldDef, type MonitorSummary, type Stats, type Tag } from '../lib/api'
+import { api, type FieldDef, type HostSummary, type MonitorSummary, type Stats, type Tag } from '../lib/api'
 import { usePage } from '../lib/router'
 import { useMonitorAlerts } from '../lib/monitors'
 import type { MailSummary } from './titles'
@@ -15,6 +15,7 @@ export function useShell() {
   const [fields, setFields] = useState<FieldDef[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [mon, setMon] = useState<MonitorSummary | null>(null)
+  const [host, setHost] = useState<HostSummary | null>(null)
   const [mailSum, setMailSum] = useState<MailSummary | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
@@ -78,7 +79,7 @@ export function useShell() {
 
   return {
     page, setPage,
-    tags, fields, stats, mon, setMon, mailSum, setMailSum,
+    tags, fields, stats, mon, setMon, host, setHost, mailSum, setMailSum,
     ready, error, refreshMeta,
     openAssetId, setOpenAssetId,
     paletteOpen, setPaletteOpen,

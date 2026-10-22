@@ -36,6 +36,12 @@
 | GET | `/mail/message?account=&folder=&uid=` | 单封正文（`text` / `html` / 附件清单） |
 | GET | `/mail/attachment?account=&folder=&uid=&index=` | 下载附件（`Content-Disposition` 带中文文件名） |
 | POST/DELETE | `/mail/local-read` | 标记本地已读 / 取消（`account=all` 或指定 id 清空）。**没有写服务器的接口** |
+| GET | `/hosts` | 主机指标：`{ hosts, updatedAt, polledAt, pollOk, pollFailed, samples }`。每台机一条最新样本（CPU / 内存 / 磁盘 / 负载 / 服务 / top 进程…）外加 `id`、`label`、`note`、`paused`、`online`、`staleSec`（超过 900 秒算陈旧）、`series`（24 小时的 `[ts, cpuPct, memPct]`）与 `unitMonitors`（`{ unit: { id, name } }`，服务 chip 要跳的观测项，按 `host-services.json` 解析；对不上的 unit 不出现，chip 就是纯文字）。暂停的机既不算在线也不算陈旧，且永远不进 `pollFailed`。库是空的时候这个请求会**等**拉取完再回，不返回空数组 |
+| POST | `/hosts` | 往 `data/metrics.json` 加一台机：`{ id, label?, note?, units?, disks?, address?, port?, http?: { url, keyword? }, services?: [{ unit, user, keyPath }] }`。`id` 限 1–32 位 `[A-Za-z0-9._-]`，`label` 默认等于 `id`，重名回 409。`units` / `disks` / `address` 是采集端参数（之后 `GET /hosts/:id/onboard` 原样复用）；`port` / `http` / `services` 是「顺带建」的观测项 —— 必须同时给 `address`（否则 400），SSH 私钥在写盘前先从 `keyPath` 读好（读不到直接 400，不留半台机）。观测项是尽力而为：建失败主机照样保留，回包里带 `provision: { ok, groupId?, groupName?, monitors?, error? }`。原子写回（保留 `base` 与未知键），随后拉一次。返回新的整包数据 |
+| GET | `/hosts/:id/onboard` | 采集端一条命令 + `{ installUrl, ingestUrl, units, disks, address, ready, firstSampleAt, staleSec }`。**上报地址里带 token，所以只在这个接口出现** —— `/hosts` 列表和 `SNAPSHOT.md` 里都没有。没有这台机回 404 |
+| PATCH | `/hosts/:id` | 改 `{ paused?, label?, note?, units?, disks?, address? }`。`paused: true` 之后不再拉这台机（卡片保留、变灰）；`paused: false` 会立刻拉一次补到最新一帧。没有这台机回 404 |
+| DELETE | `/hosts/:id?confirm=<id>&purge=1` | 删一台机 —— id 必须原样输对。`purge=1` 连带删掉它的 `host_metrics` 历史、加主机时顺带建的观测项（记在 `data/metrics.json` 的 `monitors` 里）、空出来的分组，以及 `host-services.json` 里它的映射；回包加 `{ purged, monitorsDeleted, monitorsFailed }`。没有这台机回 404 |
+| POST | `/hosts/refresh` | 立刻把六台机拉一遍（绕过 4 分钟最小间隔）；要求 `Content-Type: application/json`，否则 415 |
 
 示例：
 

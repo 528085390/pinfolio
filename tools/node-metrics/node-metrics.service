@@ -1,0 +1,14 @@
+[Unit]
+Description=node-metrics 采集并上报本机指标
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/node-metrics.sh
+# 一次运行 0.3~1 秒、峰值内存几 MB；下面的限制只是兜底，正常永远碰不到
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=32M
+CPUQuota=20%
+TimeoutStartSec=60

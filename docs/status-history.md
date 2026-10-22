@@ -288,3 +288,61 @@ JS `index-Cya2EhMt.js` 415.91 kB；core e2e **11/11（80s）**（含 `e2e.mjs` �
 JS `index-BCcNG_vR.js` 418.21 kB）；`restart` 后 `e2e-monitor-beat-tip` **33/33 ALL PASS**、全量 e2e **15/15**；
 浅/深色截图 `tmp/shot-beat-grow-light.png` / `-dark.png`（deviceScaleFactor 3 放大看）目视通过。
 
+## 2026-10-22 补充：主机指标页（6 台服务器 CPU / 内存 / 磁盘 / 服务）
+
+㉔ **新增「主机」页**（用户问「现在能看到服务器内存 CPU 了吗」——此前 Kuma 19 项全是端口/HTTP 探活，
+拿不到任何 CPU/内存数字，之前汇报的读数都是临时 SSH 上去跑的）。方案 A + 拓扑 1，用户拍板「按你推荐的做」：
+**每台机自己 push → my-server 落盘 → 本机 pinfolio 每 5 分钟拉回来入库 → `/hosts` 页展示**。
+- 拓扑是被 pinfolio 的约束逼出来的：它只监听 `127.0.0.1:7788`、公网不可达，所以必须由服务器推到一个公网端点，
+  再由本机去拉。公网端点就用 my-server 现成的 nginx —— 它编译了 `http_dav_module`，`dav_methods PUT` 直接落盘，
+  **不新增任何进程、端口或后端服务**。
+- 为什么不选 node_exporter + Prometheus + Grafana：每台常驻 15–25 MB，本机再加 ~200 MB；oj 只有 945 MB
+  （历史上装 dnf-automatic 把它拖死过）。现在服务器侧**零常驻**：oneshot 一次 96–267 ms、峰值内存几 MB、磁盘 2 KB。
+- 采集端 `tools/node-metrics/`（5 个文件 + README）：`node-metrics.sh`（110 行，只读 `/proc/stat` 两次采样算 CPU、
+  `/proc/meminfo` 算内存与 swap、`/proc/loadavg`、`df -P -B1` 每路径一条、`systemctl list-units --state=failed` 计数、
+  `WATCH_UNITS` 逐个 `is-active`、`ps --sort=-rss` 前三个进程）、`install.sh`（写 `/etc/node-metrics.conf` 600 + 装 unit/timer +
+  立刻跑一次）、service（`MemoryMax=32M` / `CPUQuota=20%` / `TimeoutStartSec=60` 兜底）、
+  timer（`OnBootSec=2min` + `OnUnitActiveSec=5min` + `AccuracySec=30s` + **`RandomizedDelaySec=20s`**）、
+  `nginx-metrics.conf`（ingest 段 `limit_except PUT { deny all; }`，GET 段 `default_type application/json` + `no-store`）。
+- **6 台时间戳不同步是正常的**：随机延迟 20 秒 + 精度 30 秒故意错峰，免得 6 台同时 PUT。第一天误以为是数据没更新，
+  实测当时 18:50:33，my-server 推的 18:50:28、oj 18:49:32，其余 4 台还在 18:45 —— 没毛病。
+- 服务端：`server/schema/metrics.ts`（`host_metrics(host, ts, data, received_at)`，主键 `(host, ts)`）+
+  `server/metrics/{config,store,poll,routes}.ts`。**整条采集 JSON 原样存 `data` 列、不拆字段** —— 采集端以后加字段，
+  服务端一行都不用改。`data/metrics.json` 存拉取 token 与 6 台的 `label`（`note` 只写机房、不写 IP）。
+- `MIN_GAP_MS = 4 分钟`：页面每次刷新都会催一次拉取，这道闸让定时器永远能过、刷新基本白跑，
+  不会把 my-server 打穿；「立即拉取」走 `force` 绕过。库里一条样本都没有时 `GET /api/hosts` 会**等**这次拉取完，
+  否则首屏拿到空数组。
+- 前端：`web/pages/HostsPage.tsx` + `web/pages/hosts/{useHosts,HostCard}` + `web/styles/hosts.css`（第 13 片样式）、
+  侧栏「主机 N/M」徽标、命令面板 `a3h`、`TITLES.hosts = '主机'`。`pageSubtitle` 的 `s` 参数新增**可选** `host?: HostSummary`
+  —— 可选才不破老测试。卡片四格 CPU / 内存 / 负载 1m / 已运行 + 24 小时曲线（SVG，`vectorEffect="non-scaling-stroke"`）+
+  磁盘条 + 服务 chip + 底栏 OS 与 top 进程；样本 `< 2` 个时写「还没有曲线」，**不画假线**。
+- 坑：采集 JSON 里 `top` 的字段名是 **`rss_kb`** 不是 `rss`（照 `ps` 的直觉写会全变 `undefined`）；
+  经 pwsh → ssh_skill 传远程命令时**单引号会炸**（PowerShell 拆串、静默无输出），要比 6 台的时间戳直接用本机
+  `Invoke-RestMethod https://203.0.113.10/metrics/<token>/<id>.json` 更省事。
+
+验证：6 台 `node-metrics.service` 全 `status=0/SUCCESS`、timer 有 NEXT，`/var/www/metrics/` 6 个 JSON（479–579 B）；
+`/api/hosts` 返回 `hosts=6 samples=7 pollOk=6 failed=0`、6 台全 `online=true`；`pnpm typecheck` 0 错误、
+`pnpm test:unit` **263/263**、`pnpm build` 通过（CSS 43.23 kB / JS 425.61 kB）；`tools\pinboard.ps1 restart` 后
+Playwright 截图 `tmp/hosts.png`（1440×1000）目视：侧栏「主机 6/6」、六张卡 2 行 3 列、磁盘条/服务 chip/top 进程都正常。
+真机读数（2026-10-22 18:45）：my-server 36% / 56%、az 17% / 10%、oj 1.5% / 40%、os 11% / 3%、ox 14% / 43%、
+aws-node 11% / 42.5%，`failed_units` 全 0。
+
+**已完成（2026-10-22，主机页可写 + 服务 chip 跳观测台）**：用户要求「点一下部署的服务可以自动跳到观测那边，如果没有观测就不跳，并且把主机页的增加、暂停、删除功能补上」；问到跳过去要不要展开详情时答「高亮那张卡片够了」。两块一起做，**没有新增任何依赖**：
+
+① **服务 chip → 观测台**：新增仓库根 `host-services.json`（`[{host, unit, match?, monitor?}]`，`match` 在该主机分组内按**短名**不分大小写包含匹配，`monitor` 按 id 钉死）。服务端 `server/metrics/services.ts` 用 `getStatusPage()`（5 分钟缓存，Kuma 挂了就当空）把规则解析成 `unitMonitors: { unit: { id, name } }` 随 `GET /api/hosts` 下发；前端 `HostCard` 只给**有映射**的 chip 渲染成 `button.host-unit` 并加 `ArrowUpRight` 小箭头，点了走 `s.openMonitor(id)` → 切到观测页 + 滚到 `#monitor-<id>` + `.flash` 高亮 1.6 秒（复用异常通知那条路，**不自动开抽屉**）；没映射、或观测项被删/改名后自动退回纯文字 chip，`title` 说明原因。预置映射：my-server 与 az 的 nginx→「Nginx 站点」、app-api→「网关 API」、app-manager→「管理端」；oj / aws 的 xray→「Xray」；os / ox 的 sing-box→「sing-box」；aws caddy→「Caddy」。故意不映射 memwatch / glados-sub / az sing-box / aws hysteria-server（本来就没有对应观测项）。
+
+② **增加 / 暂停 / 删除**：`data/metrics.json` 仍是唯一事实源，新增 `server/metrics/hostmeta.ts`（纯函数 `parseHosts` / `normalizeHostInput` / `addHost` / `patchHost` / `removeHost` / `mergeMetricsFile` / `visibleFailures`；id 限 `[A-Za-z0-9][A-Za-z0-9._-]*` 1–32 位、label ≤40 字、note ≤60 字）。`config.ts` 加 `saveHosts()`：读-改-**原子写**（`.tmp` + `renameSync`，保留 `base` 与未知键——`base` 带拉取 token，见坑 33）+ `resetMetricsConfig()`。路由新增 `POST /api/hosts`（重名 **409**）、`PATCH /api/hosts/:id`（`paused:false` 立刻补一帧）、`DELETE /api/hosts/:id?confirm=<id>&purge=1`（手输 id 才删，`purge` 连 `deleteSamples()` 一起删 30 天历史）。**暂停 = 本机不再拉**（`pollAll` 过滤 `paused`），卡片保留、灰虚线、标「已暂停」、不算离线也不算陈旧、曲线留着；采集端 timer 照推（要彻底停得去那台机 disable，卡片与文档都写了这句）。前端：工具条「+ 添加主机」→ `AddHostDrawer`（FormDrawer 三字段 + 「加完先是还没收到上报」提示）、卡片 hover 出「暂停/恢复」「删除」两个图标按钮、`DeleteHostModal` 手输 id + 「同时删掉历史样本」默认勾选；顺带去掉 `online/hosts.length` 里硬编码的 `|| 6`。
+
+③ **顺手两处收口**：`pollFailed` 过 `visibleFailures`（删掉/暂停的不再刷红条）且要求「至少有过一帧样本」（刚加还没装采集端的机不刷红条，卡片自己写「还没收到这台机的上报」）；可点 chip 与纯文字 chip 原本长得一样，给可点的加 ↗ 箭头 + hover 变亮。
+
+验证：新增 `tests/unit/metrics-hosts.test.mts`(17) 与 `metrics-services.test.mts`(11)，**单测 293/293**；`pnpm typecheck` 0 错误、`pnpm build` 通过（CSS 45.02 kB / JS 430.91 kB）；写接口用 `tmp/verify-hosts.sh` 十步 curl 实测（重名 409 / 非法 id 400 / 暂停后不再拉 / confirm 写错 400 / purge 删除 / 收尾 `data/metrics.json` 的 `base` 61 字节未损）；浏览器 `tmp/verify-ui.mjs` 两轮：6 张卡、11 个可点 chip / 4 个纯文字、点 my-server 的 nginx chip 后 URL 变 `/monitors`、`#monitor-5` 有 `.flash` 且在视口内；添加→7 张卡且红条 0 条、暂停→灰虚线 + 「已暂停」、恢复、删除弹窗未输 id 时确认按钮 disabled、输 id 后回到 6 张卡。整包 `pnpm test` 全过；`pnpm test:e2e` **15/15 套件、187 秒全绿**（`e2e-monitor-note` 因 2026-10-22 观测项改成可读名而找不到 `my-server / app-api` 与 `oracle-proxy / xray`，已把常量改成现名 `my-server / MyApp 网关 API` / `oj / Xray 代理服务`，并把「必须存在一条没写说明的观测项」改成有就验、没有就 SKIP）。文档：architecture / api(zh) / features(zh) / AGENTS / pitfalls(33–35) / CHANGELOG 同步。
+
+**已完成（2026-10-22，一条命令接入主机 + 加主机顺带建观测项）**：用户提出「添加主机允许附带一些观测项，也要有获取主机信息的渠道啊，你这样添加一个主机，怎么拿到它的 cpu 内存这些」；两次选择后定为「采集端参数 + 观测项两个都填」、按完整设计做。**没有新增任何依赖**：
+
+① **采集端一条命令装好**：新增 `tools/node-metrics/build-install.mjs`，把 `install.sh` / `node-metrics.sh` / `.service` / `.timer` 内联成单文件 `node-metrics-install.sh`（heredoc 分隔符 `NODE_METRICS__<NAME>__EOF`，头部写源文件指纹，`--check` 逐字节比对；尾部不用 `exec`，否则 `trap` 不跑、临时目录残留）。生成物 9529 B、sha256 前 16 位 `04fa43e4157b1f51`，托管在 my-server 的 nginx `/nm/`（`alias /var/www/nm/`、`autoindex off`、`Cache-Control: no-store`、**不带 token**），公网 `curl` 下来与本地字节一致。命令由服务端 `server/metrics/onboard.ts` 的纯函数拼：`buildIngestUrl()` 把拉取地址 `…/metrics/<token>/` 换成上报地址 `…/metrics-ingest/<token>`，`buildInstallCommand()` 用 `shq()` 转义四个位置参数，`parseUnits()` / `parseDisks()` 校验服务清单与磁盘路径（16 个 / 8 个上限）。
+
+② **抽屉三段 + 顺带建观测项**：「+ 添加主机」现在是 基本信息（id / 显示名 / 备注）→ 采集端（服务清单 / 磁盘路径 / 地址）→ 观测项（端口 / HTTP 站点 / systemd 服务，默认都不勾）。保存时 `server/kuma/provision.ts`（纯函数 `groupNameFor` / `planMonitors` / `mergeServiceRules`）把勾选的模板摊成要建的观测项（命名 `<组短名> / <服务名>`，端口 1–65535、HTTP 必须 http(s)、systemd 走 SSH `systemctl is-active <unit>`），`server/kuma/kuma-cli.ts` 薄封装 kuma 仓库的 CLI（`ensureGroup` / `addMonitor` / `deleteMonitor` / `deleteGroup`），并在 kuma 侧给 `tools/kuma-monitor.cjs` 补了 `group-add` / `group-del` 两个子命令（组里还有观测项时拒绝删组）。**观测项失败不回滚主机**：`provision: {ok:false,error}` 回给前端显示，指标照样收；建到一半失败会把已建出来的删掉。建成的 id 记进 `data/metrics.json` 的 `monitors` 与 `group`，服务清单的映射走 `host-services.json` 的 `monitor:<id>`（精确钉死，改名不影响跳转）。保存后弹 `OnboardModal`「接入这台机器」：一条命令 + 复制 + 「立即检查」+ 首帧状态（`GET /api/hosts/:id/onboard`，**token 只在这一支出现**，列表与 `SNAPSHOT.md` 里都没有）；没样本的卡片写「还没收到这台机的上报」+「接入指引」按钮，随时能再打开。
+
+③ **删主机要回收**：`DELETE ?confirm=<id>&purge=1` 现在除历史样本外，还按 `monitors` 逐个 `deleteMonitor()`（失败的 id 进 `monitorsFailed`）、组空了 `deleteGroup()`、并 `removeServiceRules()` 清掉 `host-services.json` 里这台机的映射；删除弹窗的勾选文案同步改成「同时删掉历史样本（30 天曲线），以及加主机时顺带建的观测项」。
+
+验证：`pnpm typecheck` 0 错误、`pnpm test:unit` **319/319**（新增 monitors / group / removeServiceRules / onboard / provision 用例）、`pnpm build` 通过（CSS 46.74 kB / JS 437.44 kB）。接口用 node fetch 跑完整生命周期（`tmp/zz-lifecycle*.cjs`）：建主机 + 端口 + HTTP + systemd 三项 → `provision.ok=true`、Kuma 里多出 145/146/147 三项与组 13、`data/metrics.json` 记 `monitors/group`、`host-services.json` 多一条 `monitor:147`；`DELETE ?confirm=…&purge=1` → `monitorsDeleted=3`、组 13 与映射一并消失、组列表回到 1,2,3,4,5,7,8；错误分支核对 404 / 「勾了观测项就要填主机地址」/「读不到私钥」；`/api/hosts` 列表 grep `metrics-ingest` = 0（token 不外泄）。浏览器 `tmp/verify-onboard.mjs` 走完整流程（抽屉三段 → 保存 → 接入弹窗命令 224 字符含安装器地址 → 新卡「接入指引」→ 删除后回 6 卡、页面告警条 0），截图 `tmp/shots/hosts-{7,8,9}-*.png`（弹窗里的 token 截图前替换成 `<TOKEN>`）。**真机**：在 my-server 上备份 `/etc/node-metrics.conf` 后，用弹窗里那条命令原样装了一台 `zz-real`（采集预览 JSON 正常、service `status=0/SUCCESS`、timer NEXT 5min），pinboard 侧 `POST /hosts/refresh` 后该机有 `cpu 22.3` 与 `units{nginx:active}`、`onboard ready=true firstSampleAt=2026-10-22T14:24:18Z`；收尾恢复原配置并重启 timer、`rm /var/www/metrics/zz-real.json`、补一帧后 my-server `staleSec=2` 三项服务 active、`DELETE ?purge=1` 清掉 `zz-real`，Kuma 回到 **24 项 / 7 组**、无 zz 残留。坑清单补 36–39（真 token 别进仓库且 `read` 会把 32 位 hex 遮成 `<TOKEN>`、Git Bash 的 `curl -d` 发中文变 U+FFFD、改了采集端四件套必须重新打包并重传 `/nm/`、删主机必须回收观测项与映射）。文档：architecture / api(zh) / features(zh) / AGENTS / pitfalls(36–39) / CHANGELOG / tools/node-metrics/README 同步。

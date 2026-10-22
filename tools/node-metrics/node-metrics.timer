@@ -1,0 +1,13 @@
+[Unit]
+Description=每 5 分钟上报一次本机指标（node-metrics）
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+RandomizedDelaySec=20s
+Persistent=false
+Unit=node-metrics.service
+
+[Install]
+WantedBy=timers.target

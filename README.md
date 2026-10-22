@@ -57,9 +57,15 @@ Output goes to `tmp/shot-*.png` (gitignored).
 - Remote images load by default; "Hide images" swaps them for placeholders. Auto-fetch every 60 seconds while the page is open.
 - Details (proxy settings, 163 / Gmail quirks, caching, security): [`docs/features.md`](docs/features.md#mail-read-only-merged-inbox).
 
+### Hosts
+- CPU / memory / load / disk / service state for **six servers on one page**: one card per machine with four readouts, a 24-hour sparkline, disk bars and chips for the services you care about; `failed_units` and online state are visible at a glance.
+- The collector lives **on each server** (`tools/node-metrics/`, a systemd timer that runs every 5 minutes and exits — nothing resident), pushes JSON to a public machine's nginx, and this app pulls it back every 5 minutes into SQLite.
+- Anything older than 5 minutes shows "N min ago"; over 15 minutes counts as stale. "Refresh now" forces one pull.
+- Details (fields, install, rollback, why not Prometheus): [`docs/features.md`](docs/features.md#host-metrics) and [`tools/node-metrics/README.md`](tools/node-metrics/README.md).
+
 ### Global
-- **Every page has its own URL** (`/notes` `/mail` `/assets` `/monitors` `/settings`): F5 stays put, back/forward work, links open directly.
-- **Ctrl / ⌘ + K** command palette: search notes and assets, or run "new note / open mail / add asset / open monitors / export JSON".
+- **Every page has its own URL** (`/notes` `/mail` `/assets` `/monitors` `/hosts` `/settings`): F5 stays put, back/forward work, links open directly.
+- **Ctrl / ⌘ + K** command palette: search notes and assets, or run "new note / open mail / add asset / open monitors / open hosts / export JSON".
 - Theme light / dark / follow system; the settings page exports everything as JSON and can seed sample data.
 
 ## Quick start
@@ -93,7 +99,7 @@ Requirements: Node ≥ 22 (it uses the built-in `node:sqlite`; tested on 24.16) 
 ```
 pinfolio/
 ├─ start.cmd / stop.cmd        start and stop (background, hidden window)
-├─ tools/                      pinboard.ps1 (control script), screenshots/, seed-assets.mjs, chrome-path.mjs
+├─ tools/                      pinboard.ps1 (control script), screenshots/, seed-assets.mjs, chrome-path.mjs, streak-panel-trigger.cjs
 ├─ monitor-actions.json        recipes for "check now" (keyed by monitor id / name)
 ├─ monitor-links.example.json  sample monitor → admin page mapping (copy to monitor-links.json)
 ├─ server/                     Hono backend

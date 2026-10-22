@@ -1,0 +1,57 @@
+[
+  {
+    "host": "my-server",
+    "unit": "nginx",
+    "match": "Nginx"
+  },
+  {
+    "host": "my-server",
+    "unit": "app-api",
+    "match": "网关 API"
+  },
+  {
+    "host": "my-server",
+    "unit": "app-manager",
+    "match": "管理端"
+  },
+  {
+    "host": "az",
+    "unit": "nginx",
+    "match": "Nginx"
+  },
+  {
+    "host": "az",
+    "unit": "app-api",
+    "match": "网关 API"
+  },
+  {
+    "host": "az",
+    "unit": "app-manager",
+    "match": "管理端"
+  },
+  {
+    "host": "oj",
+    "unit": "xray",
+    "match": "Xray"
+  },
+  {
+    "host": "os",
+    "unit": "sing-box",
+    "match": "sing-box"
+  },
+  {
+    "host": "ox",
+    "unit": "sing-box",
+    "match": "sing-box"
+  },
+  {
+    "host": "aws",
+    "unit": "xray",
+    "match": "Xray 代理服务"
+  },
+  {
+    "host": "aws",
+    "unit": "caddy",
+    "match": "Caddy"
+  }
+]

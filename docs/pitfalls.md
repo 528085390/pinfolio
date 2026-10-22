@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（32 条）
+# pinboard 已知问题与坑（39 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -44,3 +44,16 @@
 31. **卡片/行里的悬浮弹层一律 `createPortal` 到 `document.body` + `position: fixed`，不许在卡片里写绝对定位**（2026-10-22 心跳色条悬停提示踩的，和坑 11、坑 28 同根）：`.content` 是 `overflow-y: auto` 的滚动容器，卡片里 `position: absolute` 往上弹的框会被它裁掉，而且滚不回来；`.asset-card` / `.monitor-card` 自己以后加 `overflow: hidden`（比如圆角裁图）也一样会裁。做法见 `web/components/BeatStrip.tsx`：`createPortal(<div className="beat-tip" style={{position:'fixed',left,top}}/>, document.body)`，`left` 夹在 `[TIP_EDGE, innerWidth - TIP_EDGE]`、色条离视口上沿小于 `TIP_FLIP` 就改成往下弹（`translate(-50%, 0)`），`pointer-events: none` 免得挡住点卡片，再监听 `scroll`（**capture: true**，滚动不冒泡）与 `resize` 收起（否则滚动后提示框飘在原地）。**顺手把原生 `title` 摘掉**（`title={hasDetail ? undefined : title}`），否则浏览器自带 tooltip 会跟自己画的框同时冒出来。
 
 32. **悬停会改变布局的元素，别用鼠标坐标反推它是第几个**（2026-10-22 色条放大动画踩的，和坑 31 是同一处代码）：心跳色条悬停时那一段 `flex-grow` 变大、把邻居挤开，如果还按 `clientX` 除以等宽去算「第几拍」，边界会跟着动画一起动 —— 鼠标被算到邻居身上、邻居又变大、再算回来，**抖成一片**（40 段时每段才 4~5px，一点点位移就跨段）。正确做法是让鼠标自己说：`ev.target` 落在哪个 `<i>` 上就取它的 `data-i`（划在 2px 缝隙上时**保持原状不闪**，不要退回几何算法）；提示框锚点也改成那一段自己的 `getBoundingClientRect()` 中心 —— 变宽是绕中心进行的，中心不动。**同理**：任何 hover/focus 会改自己或邻居尺寸的组件（折叠行、放大按钮、拖拽把手），索引/命中判断都必须取自事件目标，不能取自坐标反推。
+33. **`data/metrics.json` 的 `base` 里带拉取 token，任何写回都必须「读-改-原子写」，不许整份覆盖**（2026-10-22 加主机管理时定的）：`base` 形如 `https://203.0.113.10/metrics/<token>`，丢了只能去服务器上翻 `/etc/node-metrics.conf` 或 nginx 日志才能找回来。`server/metrics/config.ts` 的 `saveHosts()` 只替换 `hosts` 键（`mergeMetricsFile()` 保留 `base` 与所有未知键），先写 `<file>.tmp` 再 `renameSync` 覆盖，最后 `resetMetricsConfig()` 清缓存。**别改成「构造一个新对象整体 `JSON.stringify` 写回」**（token 当场丢），也**别改成 `writeFileSync` 原地写**（写到一半崩了就是半个 JSON，六台机全掉线）。
+
+34. **主机页的「暂停」只是本机不再拉取，不等于停掉采集**：服务器上的 `node-metrics.timer` 照旧每 5 分钟 PUT，磁盘上的 JSON 一直在更新；恢复时 `PATCH {paused:false}` 会立刻拉一次，但**中间那段曲线是空的**（只能补到最新一帧），要真停得去那台机 `systemctl disable --now node-metrics.timer`。配套两条别改回去：① `pollAll()` 必须过滤 `paused`，否则「暂停」名不副实；② `pollFailed` 必须过 `visibleFailures()`，并且**要求这台机至少有过一帧样本** —— 否则删掉一台机、或刚加一台还没装采集端的机，红条会一直挂在那儿（2026-10-22 第一轮实测发现）。
+
+35. **弹层（`position: fixed` + `backdrop-filter`）不要用 fullPage 截图验收**：2026-10-22 看 `DeleteHostModal` 的 fullPage 截图时，弹窗里透出了背后的卡片文字，一度以为 `.modal-card` 的背景被写成了半透明；实际上 element 截图是干净的，canvas 读像素 center / upper / lower 全是 `246,243,236`（`--paper` 的 `#f6f3ec`，完全不透明），计算样式 `op 1` —— **是截图 / 预览管线在合成 fixed 层时的假象**。验收弹层一律用**视口截图**（`page.screenshot()` 不带 `fullPage`），有疑问就直接读像素，别凭缩略图去改 CSS。
+
+36. **真实 token 不许出现在仓库文件里，而 `read` 工具会把 32 位十六进制串遮成 `<TOKEN>`**（2026-10-22 收尾复查踩的）：`tools/node-metrics/nginx-metrics.conf` 里那两段 `location` 一直带着真 token（第 7、17 行），`read` 出来显示的是占位符，`grep -rl '<token>'` 却能命中 —— **查密钥一律用 `grep`，别信 `read` 的显示**。这个仓库是公开的，提交即泄露。现在文件里是 `<TOKEN>` 占位；token 只允许出现在 `data/metrics.json`（`.gitignore` 第 3 行 `data/`，不进版本库）与服务器上的 `/etc/node-metrics.conf`、nginx 配置里。**加新脚本/文档时带 token 的示例一律写 `<TOKEN>`**。
+
+37. **从 Git Bash 用 `curl -d '{"label":"中文"}'` 发中文，服务端收到的是 U+FFFD**（2026-10-22 接口验收踩的）：Git Bash 会把命令行里的 UTF-8 字节按当前代码页再转一次，`data/metrics.json` 与 Kuma 库里都存成了 `EFBFBD`。验收带中文的写接口一律用 **node fetch**（或 `curl --data-binary @file`，文件用 `write` 工具写、别经 shell），改完再看一眼库里存的中文是否正常。
+
+38. **采集端四件套改了之后必须重新打包单文件安装器，否则线上装的还是旧内容**（2026-10-22 加安装器时定的）：`tools/node-metrics/build-install.mjs` 把 `install.sh` / `node-metrics.sh` / `.service` / `.timer` 内联成 `node-metrics-install.sh`（分隔符 `NODE_METRICS__<NAME>__EOF`、源文件指纹写在头部）。流程是：改四件 → `node tools/node-metrics/build-install.mjs` → `--check`（逐字节比 heredoc + 指纹）→ `bash -n` → 重传到 my-server 的 `/var/www/nm/` → `curl -fsS https://203.0.113.10/nm/node-metrics-install.sh | sha256sum` 对一遍。**生成物别手改**（下次 `--check` 就红），安装器尾部也别改成 `exec`（`trap` 不跑了，`/tmp` 里的临时目录会一直留着）。
+
+39. **删主机不能只删清单，顺带建的观测项要一起回收**（2026-10-22 加「顺带建观测项」时定的）：观测项建在 Kuma 里、地址指向这台机，主机从 `data/metrics.json` 消失后它们会一直探一个已经下线的地址（红一片）。做法：`POST /hosts` 建完把 `monitors: [id…]` 与 `group: <id>` 记进清单（`hostmeta.ts` 的 `safeMonitors` 清洗、上限 32），`DELETE ?purge=1` 时逐个 `deleteMonitor()`（失败的 id 进 `monitorsFailed` 回给前端）、组空了再 `deleteGroup()`（**组里还有观测项时 CLI 会拒绝**，所以必须放在删完之后、失败就 catch 忽略）、最后 `removeServiceRules()` 清 `host-services.json`。新建映射走 `mergeServiceRules()`（同 host+unit **覆盖** monitor id），**别追加**——追加会让 `resolveUnitMonitors` 一直命中旧 id。

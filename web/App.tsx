@@ -2,6 +2,7 @@ import { NotesPage } from './pages/NotesPage'
 import { MailPage } from './pages/MailPage'
 import { AssetsPage } from './pages/AssetsPage'
 import { MonitorsPage } from './pages/MonitorsPage'
+import { HostsPage } from './pages/HostsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
 import { AlertStack } from './components/AlertStack'
@@ -24,6 +25,7 @@ export function App() {
         stats={s.stats}
         mailSum={s.mailSum}
         mon={s.mon}
+        host={s.host}
         dark={dark}
         onToggleTheme={() => s.setTheme(dark ? 'light' : 'dark')}
       />
@@ -34,6 +36,7 @@ export function App() {
           stats={s.stats}
           mailSum={s.mailSum}
           mon={s.mon}
+          host={s.host}
           onOpenPalette={() => s.setPaletteOpen(true)}
         />
 
@@ -56,6 +59,8 @@ export function App() {
             />
           ) : s.page === 'monitors' ? (
             <MonitorsPage onSummary={s.setMon} focusId={s.focusMonitorId} onFocusDone={() => s.setFocusMonitorId(null)} />
+          ) : s.page === 'hosts' ? (
+            <HostsPage onSummary={s.setHost} onOpenMonitor={s.openMonitor} />
           ) : (
             <SettingsPage tags={s.tags} fields={s.fields} stats={s.stats} refreshMeta={s.refreshMeta} theme={s.theme} setTheme={s.setTheme} />
           )}

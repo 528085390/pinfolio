@@ -1,7 +1,7 @@
 # pinfolio（自用笔记 + 资产台账）
 
 ## 用途
-本机单人用的「pinfolio」：随手写 Markdown 便签、用 `#标签` 自动归类、置顶/搜索/归档，另有一个资产台账页登记设备/服务器/账号/域名（自定义字段、到期提醒、价格统计），便签可以钉到某条资产上。2026-10-21 又加了一页**只读邮件**：把 Gmail / QQ / 163 等多个信箱合成一个收件箱，点开即读，且**不改动服务器上的任何状态**。单进程单端口，数据只存本机 SQLite。
+本机单人用的「pinfolio」：随手写 Markdown 便签、用 `#标签` 自动归类、置顶/搜索/归档，另有一个资产台账页登记设备/服务器/账号/域名（自定义字段、到期提醒、价格统计），便签可以钉到某条资产上。2026-10-21 又加了一页**只读邮件**：把 Gmail / QQ / 163 等多个信箱合成一个收件箱，点开即读，且**不改动服务器上的任何状态**。2026-10-22 再加一页**主机**：6 台服务器每 5 分钟 push 一份 CPU / 内存 / 磁盘 / 服务状态，这里汇总展示 + 24 小时曲线。单进程单端口，数据只存本机 SQLite。
 
 ## 背景/来源
 2026-10-19 由用户提出需求（"类似便签夹的项目，网页端，写东西订起来，加标签，再给个资产列表页"）后新建。同日用户要求整体迁出杂项工作区，目录从 `D:\projects\pinboard` 先移到 `D:\pinfolio_zc\pinboard`，2026-10-19 晚又随「两个项目合并」搬到 **`D:\pinfolio`**（与观测后端 `D:\kuma` 同属工作区根 `D:\pinfolio`；旧的 `D:\pinfolio_zc`、`D:\pinfolio_az` 两个根已删除），此后**不再受 `D:\projects\AGENTS.md` 的 R1–R7 约束**，本文件是唯一工程约定。调研过 usememos/memos（时间线便签，无资产）、sysadminsmedia/homebox（资产台账，无随手记）、blinko、flatnotes，结论是没有单项目同时覆盖两边，缝合两套 Go 应用会得到两套账号/两套标签且无法互链，因此按用户选择走**单应用自研**：交互抄 Memos、数据模型抄 HomeBox，代码全部本目录自写，无第三方运行时代码拷贝。2026-10-21 用户又提出「多个邮箱合成一个收件箱」（此前在 azfree 上试过 Cypht，嫌页面太重、跨境太慢，已整体拆除），需求定稿为 `docs/mail-page-requirements.md` v1.1，随后照该文档做出只读的 `/mail` 页。
@@ -14,22 +14,23 @@
 
 | 层 | 文件 | 一句话 |
 |---|---|---|
-| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 32 条、进展记录 |
+| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 39 条、进展记录 |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
-| 数据 | `server/schema/{core,mail}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
+| 数据 | `server/schema/{core,mail,metrics}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
 | 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params,rows}.ts`、`kuma/{redact,beat,patch,http,recipe,payload}.ts`、`web/lib/paths.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
 | 路由 | `server/routes/{notes,assets,tags,fields,meta}.ts`、`server/mail/routes.ts`、`server/kuma/routes.ts` | 各页 HTTP 面；写接口都要求 `Content-Type: application/json` |
 | 观测 | `server/kuma/{client,source,payload,feed,recipe,runner,actions,links,backup}.ts` + `routes.ts` | socket.io 客户端 / 取数与两层缓存（`source.ts`）/ 列表纯拼装（`payload.ts`）/ 编排（`feed.ts`）/ 立即观测（`recipe.ts` 纯逻辑、`runner.ts` 执行、`actions.ts` 读配置）/ 跳转链接 / Kuma 库备份；PATCH 校验在 `patch.ts` |
 | 邮件 | `server/mail/{types,parse,params,rows,cache,errors,pool,client,store}.ts` | 类型 / 摘要解析（纯函数）/ 路由参数（纯函数）/ 列表行拼装与排序（纯函数）/ 四层缓存 / 错误翻译 / 连接池 / 归并列表（**只读**）/ 两张表 CRUD |
-| 入口 | `server/index.ts`（62 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
+| 入口 | `server/index.ts`（66 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
 | 快照 | `server/snapshot.ts` + `server/snapshot/{rows,markdown,write}.ts` | 取数 / 渲染（纯函数，有单测）/ 写文件与 1.5 秒防抖；`pnpm snapshot` 立即重生成，隔离实例不写 |
+| 指标 | `server/metrics/{config,hostmeta,onboard,services,store,poll,routes}.ts` + `server/kuma/{kuma-cli,provision}.ts` + `host-services.json` + `tools/node-metrics/` | 6 台采集端（bash + timer，零常驻）→ my-server nginx PUT 落盘 → 这里每 5 分钟拉回 `host_metrics`；**整条 JSON 存 `data` 列不拆字段**，`MIN_GAP_MS` 4 分钟别去掉；清单增/暂停/删走 `hostmeta.ts` 的纯函数 + `saveHosts()` 原子写回（保留 `base` 与未知键），服务 chip → 观测项的映射在 `services.ts`；「接入这台机器」的安装命令在 `onboard.ts`，加主机顺带建观测项在 `kuma/provision.ts` + `kuma-cli.ts`（走 kuma 的 `add`/`del`/`group-add`/`group-del` CLI） |
 | 前端壳 | `web/App.tsx`、`web/app/*`、`web/lib/router.ts` | 组合层 + `useShell`（页面/主题/命令面板/异常通知跳转）+ `Sidebar`/`Topbar`/`titles.ts`；页面状态从 URL 取，**别改回 `useState`** |
-| 页面 | `web/pages/*` + `web/pages/{notes,mail,monitors,assets,settings}/*` | 便签（useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件（useInbox/MailList/MailToolbar）、观测（useMonitors/Stats/Filters/Card/Table/status）、资产（useAssets/Stats/Filters/TagBar/Card/Table/meta）、设置（useSettings + 四张卡片 + fields.ts） |
+| 页面 | `web/pages/*` + `web/pages/{notes,mail,monitors,hosts,assets,settings}/*` | 便签（useNotes/useComposer/NoteCard/Composer/FilterBar）、邮件（useInbox/MailList/MailToolbar）、观测（useMonitors/Stats/Filters/Card/Table/status）、主机（useHosts/HostCard/AddHostDrawer/OnboardModal/DeleteHostModal）、资产（useAssets/Stats/Filters/TagBar/Card/Table/meta）、设置（useSettings + 四张卡片 + fields.ts） |
 | 组件 | `web/components/*` + `web/components/{monitor-drawer,asset-drawer,mail-reader,mail-account}/*` | 抽屉（`FormDrawer` 是共用壳；两个编辑抽屉各自拆成容器 + 分段/表单，纯逻辑在各自的 `form.ts`，观测抽屉的状态与接口调用在 `monitor-drawer/useMonitorDetail.ts`；命令面板的行拼装在 `command-palette/items.ts`）/ 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM，清洗规则在 `mail-reader/doc.ts`、`css.ts`）/ 邮箱账号抽屉（规则在 `mail-account/form.ts`） |
-| 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（六域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
-| 样式 | `web/styles/`（12 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
-| 测试 | `tests/`（`unit/` 262 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
-| 工具 | `tools/screenshots/`、`tools/seed-assets.mjs` | 截图脚本（须在项目根跑，产物进 `tmp/`）、批量灌数据 |
+| 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（七域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
+| 样式 | `web/styles/`（13 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
+| 测试 | `tests/`（`unit/` 319 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
+| 工具 | `tools/screenshots/`、`tools/seed-assets.mjs`、`tools/node-metrics/`、`tools/streak-panel-trigger.cjs` | 截图脚本（须在项目根跑，产物进 `tmp/`）、批量灌数据、**6 台服务器的采集端**（`build-install.mjs` 打成单文件安装器，托管在 my-server 的 `/nm/`；安装/排错/回滚见该目录 `README.md`）、**#24 立即观测的助手**（探/拉起 8765 面板再 POST `trigger-all`，配方在 `monitor-actions.json`） |
 
 ## 怎么用
 双击 `start.cmd`（后台隐藏启动；已在运行就只开浏览器），停止双击 `stop.cmd`；或手动：
@@ -56,9 +57,9 @@ pnpm typecheck        # tsc --noEmit
 
 ## 状态
 
-**当前状态（2026-10-22）**：7788 运行中，五页（便签 / 邮件 / 资产 / 观测 / 设置）全部可用；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开）。工程整理已收口——
+**当前状态（2026-10-22）**：7788 运行中，六页（便签 / 邮件 / 资产 / 观测 / 主机 / 设置）全部可用；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开）；主机页汇总 6 台服务器指标（每 5 分钟采集，24 小时曲线，`failed_units` 与关注服务状态一眼可见），服务 chip 可一键跳到观测台那张卡（滚过去 + 闪 1.6 秒），主机能在页面上加 / 暂停 / 删（`data/metrics.json` 原子写回，不用重启），加的时候还能顺手勾端口 / HTTP 站点 / systemd 服务观测项，保存后弹「接入这台机器」：一条命令装好采集端、立刻上报首帧。工程整理已收口——
 服务端按职责拆分（`server/kuma/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
-前端 api 与样式分片，`tests/` 里有 262 条单测 + 15 套 e2e（`pnpm test` / `pnpm test:e2e`）。
+前端 api 与样式分片，`tests/` 里有 319 条单测 + 15 套 e2e（`pnpm test` / `pnpm test:e2e`）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
 未做：Gmail 跨页翻页（`hasMore:true` 的下一页）待信箱多于一页时复测；kuma 的 Windows Defender 排除项随旧路径失效，
 需管理员重跑 `kuma\tools\add-defender-exclusions.ps1`。
@@ -66,7 +67,7 @@ pnpm typecheck        # tsc --noEmit
 **历史进展（2026-10-19 起，逐条记录）见 [`docs/status-history.md`](docs/status-history.md)**
 —— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
 
-已知问题与坑（都踩过，勿回退）——**完整 32 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
+已知问题与坑（都踩过，勿回退）——**完整 39 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
 1. **无鉴权、只监听 127.0.0.1**：绝不做端口映射 / 公网反代（坑 6）。
 2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。
@@ -78,6 +79,8 @@ pnpm typecheck        # tsc --noEmit
 项目已经独立在 `D:\pinfolio`，这个目录本身就能当仓库根。搬到别的机器/路径时带走：`server/`、`web/`、`tools/`、`package.json`、`pnpm-workspace.yaml`、`pnpm-lock.yaml`、`tsconfig.json`、`vite.config.ts`、`.gitignore`、`start.cmd`、`stop.cmd`、`run-pinboard.vbs`、本文件；不要带 `data/`（个人数据）、`dist/`、`logs/`、`node_modules/`、`tmp/`。
 需要改的硬编码：端口 7788（`server/index.ts` 与 `vite.config.ts` 代理）、数据目录 `data`（`server/db.ts` 的 DATA_DIR）。要给别人用需自行加登录鉴权与 HTTPS。
 邮件功能另外依赖 `imapflow` + `mailparser`（纯 JS，已在 `package.json` 里，不需要额外服务）；`tests/fakeimap/` 的假 IMAP 服务器只是测试用，搬家不用带。
+主机页的数据来自 `data/metrics.json`（拉取基址 + 6 台清单 + token，**含 token 所以没进版本库**）和 6 台机上的 `tools/node-metrics/`（`/etc/node-metrics.conf` 里的 URL 必须与它一致）；搬到别的机器时两边都要改，否则主机页只会显示「拉取失败」。`host-services.json`（服务 chip → 观测项的映射）要跟着走，缺了只是 chip 不能点，不会报错。
+「接入这台机器」的命令由 `GET /api/hosts/:id/onboard` 生成（**token 只在这一个接口出现**，`/hosts` 列表与 `SNAPSHOT.md` 里都没有）；安装器托管地址 `INSTALL_URL` 写死在 `server/metrics/onboard.ts`，换托管机要改那里并重新部署 `/nm/`。加主机时顺带建的观测项走 kuma 仓库的 CLI（`KUMA_CLI` 可覆盖路径，默认 `../kuma/tools/kuma-monitor.cjs`），所以 pinboard 与 kuma 的相对位置变了要设这个环境变量，否则观测项建不出来（主机照样能加）。
 
 ## 可清理项
 - `tmp/` —— 只剩运行期日志与截图，可整目录删。测试在 `tests/`（用法见 `tests/README.md`），截图脚本在 `tools/screenshots/`，一次性数据脚本 `tools/seed-assets.mjs`；截图不随仓库发布（页面里是本机真实数据）。

@@ -24,3 +24,6 @@ monitor-links.json
 /docs/huawei-cloud-voucher-200.md
 tmp/*.bundle
 tmp/*.mjs
+
+# 临时目录整个不进版本库（截图/探针/一次性脚本都在这）
+tmp/

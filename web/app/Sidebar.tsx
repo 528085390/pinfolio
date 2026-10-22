@@ -1,15 +1,16 @@
-import { Activity, Mail as MailIcon, Moon, Package, Pin, Settings, StickyNote, Sun } from 'lucide-react'
-import { cx, type MonitorSummary, type Stats } from '../lib/api'
+import { Activity, Mail as MailIcon, Moon, Package, Pin, Server, Settings, StickyNote, Sun } from 'lucide-react'
+import { cx, type HostSummary, type MonitorSummary, type Stats } from '../lib/api'
 import { Button } from '../components/ui'
 import type { Page } from '../lib/router'
 import type { MailSummary } from './titles'
 
-export function Sidebar({ page, setPage, stats, mailSum, mon, dark, onToggleTheme }: {
+export function Sidebar({ page, setPage, stats, mailSum, mon, host, dark, onToggleTheme }: {
   page: Page
   setPage: (p: Page) => void
   stats: Stats | null
   mailSum: MailSummary | null
   mon: MonitorSummary | null
+  host: HostSummary | null
   dark: boolean
   onToggleTheme: () => void
 }) {
@@ -43,6 +44,11 @@ export function Sidebar({ page, setPage, stats, mailSum, mon, dark, onToggleThem
           <Activity size={17} />
           <span className="nav-label">观测</span>
           <span className="nav-badge">{mon ? mon.up + '/' + mon.total : ''}</span>
+        </button>
+        <button className={cx('nav-item', page === 'hosts' && 'active')} onClick={() => setPage('hosts')} title="主机指标">
+          <Server size={17} />
+          <span className="nav-label">主机</span>
+          <span className="nav-badge">{host ? host.online + '/' + host.total : ''}</span>
         </button>
         <button className={cx('nav-item', page === 'settings' && 'active')} onClick={() => setPage('settings')} title="设置">
           <Settings size={17} />

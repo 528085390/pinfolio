@@ -100,7 +100,7 @@ Invoke-RestMethod -Method Post -Uri "$api/assets" -ContentType 'application/json
 | `currency` | 币种 | string | `CNY` | 有符号的：`CNY ¥`、`USD $`、`EUR €`、`JPY ¥`、`GBP £`、`HKD HK$`；其他按 `代码 金额` 显示 |
 | `purchasedAt` | 购买日期 | string \| null | `null` | 只取前 10 位 → 统一存 `YYYY-MM-DD` |
 | `expiresAt` | 到期 / 续费日 | string \| null | `null` | 同上；**只有这个字段参与到期提醒** |
-| `url` | 链接 | string | `''` | 填了就在卡片右下角出现「打开」按钮（新标签页打开），表格视图名称后也有 ↗。**填「管理/控制台入口」而不是产品站点本身**：域名填注册商面板、账号填控制台、服务器填面板（与现有 GLaDOS=console、azfree=面板一致） |
+| `url` | 链接 | string | `''` | 填了就在卡片右下角出现「打开」按钮（新标签页打开），表格视图名称后也有 ↗。**填「管理/控制台入口」而不是产品站点本身**：域名填注册商面板、账号填控制台、服务器填面板（与现有 GLaDOS=console、az=面板一致） |
 | `notes` | 备注 | string | `''` | 支持 Markdown；搜索会搜它 |
 | `custom` | 自定义字段 | object | `{}` | **整体替换**语义，见下 |
 | `tags` | 标签 | string[] | `[]` | **整体替换**；非数组会被静默忽略（实测传字符串不报错也不生效） |
@@ -469,7 +469,7 @@ for (const chunk of text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean)) {
 
 ## 附录 A：录入规范（跟现有 8 条对齐）
 
-1. **服务器用主机别名当 `name`**：`my-server`、`azfree`、`oracle-proxy`，不要写「阿里云那台」。
+1. **服务器用主机别名当 `name`**：`my-server`、`az`、`oj`、`aws`、`os`、`ox`（与 `C:\Users\you\.ssh\config` 的 Host 别名、Kuma 分组、主机页采集端 id 一致；2026-10-22 统一，旧名 `azfree` / `oracle-proxy` / `aws-oregon` 只保留在历史正文里）。
 2. **退役 / 失联写进名字后缀 + 改状态**：`my-server（已废弃）` + `retired`、`us-162（已失联）` + `lost`。**不删记录**，历史也是信息。
 3. **服务器类必填三个 custom**：`ip`、`login`、`secret_at`。`secret_at` 写钥匙**位置**，不写口令明文。
 4. **`notes` 用 Markdown 短列表**：跑什么服务、端口、关键路径、坑。搜索会搜到它。

@@ -2,11 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PATHS, TITLES, pageFromPath, pathForPage } from '../../web/lib/paths.js'
 
-test('pageFromPath：五个页面', () => {
+test('pageFromPath：六个页面', () => {
   assert.equal(pageFromPath('/notes'), 'notes')
   assert.equal(pageFromPath('/mail'), 'mail')
   assert.equal(pageFromPath('/assets'), 'assets')
   assert.equal(pageFromPath('/monitors'), 'monitors')
+  assert.equal(pageFromPath('/hosts'), 'hosts')
   assert.equal(pageFromPath('/settings'), 'settings')
 })
 
@@ -34,4 +35,5 @@ test('pathForPage：每个页面都有规范路径', () => {
 test('PATHS / TITLES：键集合一致', () => {
   assert.deepEqual(Object.keys(PATHS).sort(), Object.keys(TITLES).sort())
   assert.equal(TITLES.monitors, '观测台')
+  assert.equal(TITLES.hosts, '主机')
 })
