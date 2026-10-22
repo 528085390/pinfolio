@@ -1,26 +1,25 @@
 {
-  "_doc": "「立即观测」配方表。按观测项 id（优先）或 name 匹配；改完不用重启，刷新抽屉即生效。步骤类型：kuma-check / http / command，写法见 docs/adding-assets.md 与项目文档。没配配方时：非推送型默认跑一次 kuma-check，推送型按钮置灰。",
-  "recipes": [],
-  "_examples": [
+  "_doc": "「立即观测」配方表。按观测项 id（优先）或 name 匹配；改完不用重启，刷新抽屉即生效。步骤类型：kuma-check / http / command，写法见 kuma\\ADD-MONITOR.md 5.3 与 pinboard 的 docs/adding-assets.md。没配配方时：非推送型默认跑一次 kuma-check，推送型按钮置灰。",
+  "recipes": [
     {
       "id": 24,
-      "name": "每日打卡 / 每日续火花",
+      "name": "每日打卡（每日打卡）",
       "steps": [
         {
-          "type": "http",
-          "label": "在每日打卡面板点「一键出发」",
-          "hint": "需要 8765 面板开着；没开这一步会失败",
-          "url": "http://127.0.0.1:8765/api/trigger-all",
-          "method": "POST",
-          "body": {},
-          "timeout": 20
+          "type": "command",
+          "label": "启动面板并点「一键出发」",
+          "hint": "面板没开会自动后台拉起（pythonw），再 POST /api/trigger-all",
+          "argv": ["node", "tools/streak-panel-trigger.cjs"],
+          "timeout": 40
         }
       ]
-    },
+    }
+  ],
+  "_examples": [
     {
       "id": 0,
       "steps": [
-        { "type": "command", "label": "跑本地脚本", "argv": ["node", "tools/your-script.cjs"], "cwd": "..", "timeout": 30 }
+        { "type": "http", "label": "发一个 HTTP 请求", "url": "http://127.0.0.1:8765/api/trigger-all", "method": "POST", "body": {} }
       ]
     }
   ]

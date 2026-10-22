@@ -4,8 +4,9 @@ import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'
-const TARGET_NAME = 'my-server / app-api' // 已用 kuma-monitor.cjs set 3 配上说明与 showMsg=1
-const OTHER_NAME = 'oracle-proxy / xray' // 未开启 showMsg 的 SSH 项，用来验证「原样式不变」
+// 名字 2026-10-22 全部改成可读名（<组短名> / <服务名>），别写回旧名
+const TARGET_NAME = 'my-server / MyApp 网关 API' // #3，已用 kuma-monitor.cjs set 配上说明与 showMsg=1
+const OTHER_NAME = 'oj / Xray 代理服务' // #7，未开启 showMsg 的 SSH 项，用来验证「原样式不变」
 
 const fails = []
 const ok = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) fails.push(msg) }
@@ -26,7 +27,7 @@ ok(!!other, '找得到对照观测项 ' + OTHER_NAME)
 
 if (!target || !other) { console.log('\n无法继续 UI 断言'); process.exit(1) }
 
-ok((target.description || '').includes('app-api'), '目标说明已写入：' + JSON.stringify(target.description))
+ok((target.description || '').includes('MyApp'), '目标说明已写入：' + JSON.stringify(target.description))
 ok(target.showMsg === true, '目标 showMsg=true')
 ok((target.msg || '').length > 0, '目标有心跳消息：' + JSON.stringify(target.msg))
 // 数量不写死：用户会在 Kuma 里逐个打开「补充观测信息」，硬编码 1 条早就红了（2026-10-21 已有 6 条）
@@ -36,8 +37,10 @@ ok(other.showMsg === false, '对照项 showMsg=false')
 ok((other.msg || '').length > 0, '对照项也有心跳消息（否则测不出重复渲染）')
 // 大多数观测项本来就写了 description（操作备注），所以「有说明」的卡片会带下划线钩子；
 // 真正验证「没配就零变化」要看一条 description 为空的观测项。
+// 2026-10-22 之后 24 条观测项都写了说明，这条分支变成可选：有就验，没有就跳过（别为了凑测试去清空真观测项）
 const bare = all.find((m) => m.description === '')
-ok(!!bare, '存在一条没写说明的观测项：' + (bare && bare.name))
+if (bare) console.log('PASS 存在一条没写说明的观测项：' + bare.name)
+else console.log('SKIP 所有观测项都写了说明，跳过「没写说明时零变化」断言')
 
 // ---------- UI 层 ----------
 const browser = await chromium.launch({ executablePath: exe })
@@ -63,7 +66,7 @@ const oi = await idxOf(other)
 const bi = bare ? await idxOf(bare) : -1
 ok(ti >= 0, '页面上找到目标卡片（index ' + ti + '）')
 ok(oi >= 0, '页面上找到对照卡片（index ' + oi + '）')
-ok(bi >= 0, '页面上找到没写说明的卡片（index ' + bi + '）')
+if (bare) ok(bi >= 0, '页面上找到没写说明的卡片（index ' + bi + '）')
 
 if (ti >= 0) {
   const card = page.locator('.monitor-card').nth(ti)
