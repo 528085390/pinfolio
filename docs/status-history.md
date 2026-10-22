@@ -273,3 +273,18 @@ JS `index-Cya2EhMt.js` 415.91 kB；core e2e **11/11（80s）**（含 `e2e.mjs` �
 `tools\pinboard.ps1 restart` 后 `/api/monitors` 实测每项 `beats/times/msgs/pings` 都是 40 且末拍时间 = `time`；
 `e2e-monitor-beat-tip` **27/27 ALL PASS**（真实 Chrome，1440×950，浅色主题截图目视通过）。
 
+㉓ **悬停的那一段会稍微变大、把左右邻居挤开**（同日追加，用户要「小动画」）：`.monitor-beats i` 加
+`transition: flex-grow 0.12s ease, transform 0.12s ease`，`i.hot` 是 `flex-grow: 2.6` + `scaleY(1.2)`。
+**必须用 `flex-grow`**：只有它参与布局才挤得动邻居（`transform` 只画不排版，邻居不会让位）。实测 40 段时
+那一段 4.4 → 11.1px、高度 18 → 21.6px，右邻居左边界 +6.1px、左邻居右边界 −0.5px（右边段多，增长偏右是必然的，
+视觉上仍是「这一段撑开、两边让位」）。
+- **「第几拍」改成取 `ev.target` 的 `data-i`**，不再按 `clientX` 等宽反推：那一段变宽会把边界一起推走，
+  按坐标算会把自己算到邻居身上、再抖回来（见坑 32）；划在 2px 缝隙上时保持原状不闪；提示框锚点也改成
+  那一段自己的 `getBoundingClientRect()` 中心。
+- e2e 加 6 条断言（变宽、变高、左边界左移、左邻居右边界左移、右邻居左边界右移、移开恢复原样），并把「点某一段」
+  从「按悬停前算好的坐标」改成「先 park 到角落等动画回位、再取这一段自己的盒子」——上一段的放大还没退回去时
+  坐标就是偏的（首跑就是这样挂的：左邻居只挪了 0.5px，阈值定太死）。27 → **33 条断言**。
+- 验证：`pnpm typecheck` 0 错误；`pnpm test` **262/262**；`pnpm build` 通过（CSS `index-JKW27H8A.css` 38.22 kB、
+JS `index-BCcNG_vR.js` 418.21 kB）；`restart` 后 `e2e-monitor-beat-tip` **33/33 ALL PASS**、全量 e2e **15/15**；
+浅/深色截图 `tmp/shot-beat-grow-light.png` / `-dark.png`（deviceScaleFactor 3 放大看）目视通过。
+

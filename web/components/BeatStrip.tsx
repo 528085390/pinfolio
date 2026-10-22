@@ -68,14 +68,19 @@ export function BeatStrip({ cells, type, title, details }: {
     }
   }, [open])
 
-  // 挂在整条上按 x 反推是第几拍（比 40 个 onMouseEnter 稳：划过 2px 的缝隙时不会闪烁）
+  // 挂在整条上，但「第几拍」取鼠标实际落在的那一段（ev.target），不是用 clientX 按等宽反推：
+  // 悬停会让这一段变宽、把左右邻居挤开，用坐标算出来的边界跟着动，会把自己挤到邻居身上抖成一片（见坑 32）。
   function track(ev: React.MouseEvent<HTMLDivElement>) {
     if (!hasDetail || cells.length === 0) return
+    const el = ev.target as HTMLElement
+    const own = el.tagName === 'I' && el.parentElement === ev.currentTarget && el.dataset.i !== undefined
+    if (!own) return // 划在 2px 的缝隙上：保持现状，别闪
+    const i = Number(el.dataset.i)
+    if (!details![i]) return
     const r = ev.currentTarget.getBoundingClientRect()
-    if (!r.width) return
-    const i = Math.min(cells.length - 1, Math.max(0, Math.floor(((ev.clientX - r.left) / r.width) * cells.length)))
-    if (!details![i]) { setHit(null); return }
-    const x = r.left + (r.width * (i + 0.5)) / cells.length
+    // 变宽是绕这一段的中心对称进行的，所以拿它自己的中心当提示框锚点
+    const br = el.getBoundingClientRect()
+    const x = br.left + br.width / 2
     // 同一拍内来回移动不要每帧重渲染整条色条
     setHit((prev) => (prev && prev.i === i && prev.top === r.top && prev.bottom === r.bottom ? prev : { i, x, top: r.top, bottom: r.bottom }))
   }
@@ -102,7 +107,9 @@ export function BeatStrip({ cells, type, title, details }: {
     >
       {cells.length === 0
         ? <i className="s-none" />
-        : cells.map((b, i) => <i key={i} className={beatClass(b, type)} />)}
+        : cells.map((b, i) => (
+            <i key={i} data-i={i} className={cx(beatClass(b, type), hit?.i === i ? 'hot' : '')} />
+          ))}
       {d && hit
         ? createPortal(
             <div className="beat-tip" style={tipStyle}>

@@ -14,7 +14,7 @@
 
 | 层 | 文件 | 一句话 |
 |---|---|---|
-| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 31 条、进展记录 |
+| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 32 条、进展记录 |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
 | 数据 | `server/schema/{core,mail}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
 | 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params,rows}.ts`、`kuma/{redact,beat,patch,http,recipe,payload}.ts`、`web/lib/paths.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
@@ -56,7 +56,7 @@ pnpm typecheck        # tsc --noEmit
 
 ## 状态
 
-**当前状态（2026-10-22）**：7788 运行中，五页（便签 / 邮件 / 资产 / 观测 / 设置）全部可用；观测台心跳色条可逐拍悬停看时间与消息。工程整理已收口——
+**当前状态（2026-10-22）**：7788 运行中，五页（便签 / 邮件 / 资产 / 观测 / 设置）全部可用；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开）。工程整理已收口——
 服务端按职责拆分（`server/kuma/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
 前端 api 与样式分片，`tests/` 里有 262 条单测 + 15 套 e2e（`pnpm test` / `pnpm test:e2e`）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
@@ -66,7 +66,7 @@ pnpm typecheck        # tsc --noEmit
 **历史进展（2026-10-19 起，逐条记录）见 [`docs/status-history.md`](docs/status-history.md)**
 —— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
 
-已知问题与坑（都踩过，勿回退）——**完整 31 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
+已知问题与坑（都踩过，勿回退）——**完整 32 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
 1. **无鉴权、只监听 127.0.0.1**：绝不做端口映射 / 公网反代（坑 6）。
 2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。

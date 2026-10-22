@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（31 条）
+# pinboard 已知问题与坑（32 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -42,3 +42,5 @@
 30. **隔离实例（`PINBOARD_DATA` 指到别处）只隔离数据库，不隔离项目根下的生成物**：跑邮件 e2e 时用 `PORT=7799` + `PINBOARD_DATA=tests\e2e-data` 起了个空库实例，它启动时 `writeSnapshot()` 拿**空库**生成了一份 1 KB 的 `SNAPSHOT.md`，把真库那份 40 KB 的覆盖掉了（2026-10-21 踩过，`pnpm snapshot` 才补回来）。现在的护栏在 `server/snapshot/write.ts`：`const ISOLATED = DATA_DIR !== join(ROOT, 'data')`，隔离实例直接跳过写入并打一行 warn。**再加「项目根下的自动生成物」时（导出文件、缓存、报告），一律照这个判断加护栏**，别只想着数据库。
 
 31. **卡片/行里的悬浮弹层一律 `createPortal` 到 `document.body` + `position: fixed`，不许在卡片里写绝对定位**（2026-10-22 心跳色条悬停提示踩的，和坑 11、坑 28 同根）：`.content` 是 `overflow-y: auto` 的滚动容器，卡片里 `position: absolute` 往上弹的框会被它裁掉，而且滚不回来；`.asset-card` / `.monitor-card` 自己以后加 `overflow: hidden`（比如圆角裁图）也一样会裁。做法见 `web/components/BeatStrip.tsx`：`createPortal(<div className="beat-tip" style={{position:'fixed',left,top}}/>, document.body)`，`left` 夹在 `[TIP_EDGE, innerWidth - TIP_EDGE]`、色条离视口上沿小于 `TIP_FLIP` 就改成往下弹（`translate(-50%, 0)`），`pointer-events: none` 免得挡住点卡片，再监听 `scroll`（**capture: true**，滚动不冒泡）与 `resize` 收起（否则滚动后提示框飘在原地）。**顺手把原生 `title` 摘掉**（`title={hasDetail ? undefined : title}`），否则浏览器自带 tooltip 会跟自己画的框同时冒出来。
+
+32. **悬停会改变布局的元素，别用鼠标坐标反推它是第几个**（2026-10-22 色条放大动画踩的，和坑 31 是同一处代码）：心跳色条悬停时那一段 `flex-grow` 变大、把邻居挤开，如果还按 `clientX` 除以等宽去算「第几拍」，边界会跟着动画一起动 —— 鼠标被算到邻居身上、邻居又变大、再算回来，**抖成一片**（40 段时每段才 4~5px，一点点位移就跨段）。正确做法是让鼠标自己说：`ev.target` 落在哪个 `<i>` 上就取它的 `data-i`（划在 2px 缝隙上时**保持原状不闪**，不要退回几何算法）；提示框锚点也改成那一段自己的 `getBoundingClientRect()` 中心 —— 变宽是绕中心进行的，中心不动。**同理**：任何 hover/focus 会改自己或邻居尺寸的组件（折叠行、放大按钮、拖拽把手），索引/命中判断都必须取自事件目标，不能取自坐标反推。

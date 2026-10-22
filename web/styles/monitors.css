@@ -41,7 +41,12 @@
 .monitor-card .asset-foot { gap: 5px; align-items: center; }
 
 .monitor-beats { display: flex; gap: 2px; height: 18px; align-items: stretch; }
-.monitor-beats i { flex: 1 1 0; min-width: 2px; border-radius: 2px; background: var(--surface-3); }
+.monitor-beats i {
+  flex: 1 1 0; min-width: 2px; border-radius: 2px; background: var(--surface-3);
+  /* 悬停的那一段稍微变大、把左右邻居挤开：靠 flex-grow 参与布局才挤得动（transform 只画不排版） */
+  transition: flex-grow 0.12s ease, transform 0.12s ease;
+}
+.monitor-beats i.hot { flex-grow: 2.6; transform: scaleY(1.2); }
 .monitor-beats .s1 { background: var(--ok); opacity: 0.75; }
 .monitor-beats .s0 { background: var(--danger); }
 .monitor-beats .s2 { background: var(--warn); }

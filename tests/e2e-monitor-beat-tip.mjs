@@ -66,12 +66,31 @@ ok(!!box && box.width > 0 && box.height > 0, '色条有可悬停的区域')
 ok(await strip.locator('i').count() === n, '色条段数 = 心跳数（' + n + '）')
 ok(await strip.getAttribute('title') === null, '有逐拍详情后不再挂整条的原生 title（避免两个提示框打架）')
 
-const cellX = (i) => box.x + box.width * ((i + 0.5) / n)
-const midY = box.y + box.height / 2
 const tip = page.locator('.beat-tip')
+const cells = strip.locator('i')
+const boxesOf = async () => { const out = []; for (let i = 0; i < n; i++) out.push(await cells.nth(i).boundingBox()); return out }
+// 先把鼠标挪到角落、等动画回位，再按「这一段自己现在的盒子」去点：
+// 悬停会让那一段变宽、把邻居挤走，用悬停前算好的坐标去点会点到别人身上
+const park = async () => { await page.mouse.move(4, 4); await page.waitForTimeout(280) }
+const hoverCell = async (i) => { const b = await cells.nth(i).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2) }
+
+// —— 悬停的那一段要稍微变大、把左右邻居挤开 ——
+await park()
+const w0 = await boxesOf()
+await hoverCell(3)
+await page.waitForTimeout(280)
+const w1 = await boxesOf()
+ok(w1[3].width > w0[3].width * 1.5, '悬停的那一段变宽了（' + w0[3].width.toFixed(1) + ' → ' + w1[3].width.toFixed(1) + 'px）')
+ok(w1[3].height > w0[3].height + 0.5, '悬停的那一段也变高了一点（' + w0[3].height.toFixed(1) + ' → ' + w1[3].height.toFixed(1) + 'px）')
+ok(w1[3].x < w0[3].x, '这一段的左边界往左撑开（' + w0[3].x.toFixed(1) + ' → ' + w1[3].x.toFixed(1) + 'px）')
+ok(w1[2].x + w1[2].width < w0[2].x + w0[2].width, '左边的邻居被挤开了一点（右边界 ' + (w0[2].x + w0[2].width).toFixed(1) + ' → ' + (w1[2].x + w1[2].width).toFixed(1) + 'px）')
+ok(w1[4].x > w0[4].x + 0.5, '右边的邻居被挤开了（左边界 ' + w0[4].x.toFixed(1) + ' → ' + w1[4].x.toFixed(1) + 'px）')
+await park()
+const w2 = await boxesOf()
+ok(Math.abs(w2[3].width - w0[3].width) < 0.8 && Math.abs(w2[4].x - w0[4].x) < 0.8, '鼠标移开后色条恢复原样（不留下变形）')
 
 // —— 最后一拍：时间 / 状态 / 响应 / 消息 ——
-await page.mouse.move(cellX(n - 1), midY)
+await hoverCell(n - 1)
 await page.waitForTimeout(150)
 ok(await tip.count() === 1, '悬停色条弹出 1 个提示框')
 let text = (await tip.innerText()).replace(/\s+/g, ' ')
@@ -87,7 +106,8 @@ ok(await tip.evaluate((el) => getComputedStyle(el).pointerEvents) === 'none', '�
 
 // —— 往左挪几拍：内容跟着换 ——
 const i2 = Math.max(0, n - 6)
-await page.mouse.move(cellX(i2), midY)
+await park()
+await hoverCell(i2)
 await page.waitForTimeout(150)
 text = (await tip.innerText()).replace(/\s+/g, ' ')
 ok(text.includes('第 ' + (i2 + 1) + '/' + n + ' 拍'), '悬停另一拍时提示框跟着换成第 ' + (i2 + 1) + ' 拍')
@@ -103,8 +123,9 @@ ok(await tip.count() === 0, '鼠标移开后提示框消失')
 
 // —— 顶部一行也要能看全（.content 是滚动容器，坑 11）——
 const firstCard = page.locator('.monitor-card').first()
-const fbox = await firstCard.locator('.monitor-beats').boundingBox()
-await page.mouse.move(fbox.x + fbox.width * 0.5, fbox.y + fbox.height / 2)
+const fcells = firstCard.locator('.monitor-beats i')
+const fb = await fcells.nth(Math.floor((await fcells.count()) / 2)).boundingBox()
+await page.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2)
 await page.waitForTimeout(150)
 const ftb = await tip.boundingBox()
 ok(await tip.count() === 1 && !!ftb && ftb.y >= 0 && ftb.y + ftb.height <= VH, '第一行卡片（贴着页头）的提示框也在视口内')
@@ -119,9 +140,10 @@ let drawerOk = true
 try { await page.waitForSelector('.drawer .monitor-beats', { timeout: 15000 }) } catch { drawerOk = false }
 ok(drawerOk, '抽屉里有色条')
 const dstrip = page.locator('.drawer .monitor-beats').first()
-const dbox = await dstrip.boundingBox()
-const dn = await dstrip.locator('i').count()
-await page.mouse.move(dbox.x + dbox.width * 0.5, dbox.y + dbox.height / 2)
+const dcells = dstrip.locator('i')
+const dn = await dcells.count()
+const db = await dcells.nth(Math.ceil(dn / 2) - 1).boundingBox()
+await page.mouse.move(db.x + db.width / 2, db.y + db.height / 2)
 await page.waitForTimeout(200)
 ok(await tip.count() === 1, '抽屉里的色条悬停也弹提示框')
 const dtext = (await tip.innerText()).replace(/\s+/g, ' ')
