@@ -14,6 +14,12 @@ export type Monitor = {
   uptime24: number | null; beats: number[]; downCount: number; lastDown: string | null
   /** 与 beats 一一对应：该拍消息前缀的四态字符（绿/黄/红/灰），普通监视器为 null */
   beatTones?: (string | null)[]
+  /** 与 beats 一一对应：该拍的时间（ISO）；色条悬停提示用 */
+  beatTimes?: (string | null)[]
+  /** 与 beats 一一对应：该拍的心跳消息；色条悬停提示用 */
+  beatMsgs?: string[]
+  /** 与 beats 一一对应：该拍的响应毫秒；色条悬停提示用 */
+  beatPings?: (number | null)[]
   link: { url: string; label: string } | null
 }
 export type MonitorGroup = { id: number; name: string; monitors: Monitor[] }

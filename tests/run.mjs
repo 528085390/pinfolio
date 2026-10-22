@@ -29,6 +29,7 @@ const SUITES = {
   ],
   monitor: [
     ['e2e-monitor-note', 'e2e-monitor-note.mjs'],
+    ['e2e-monitor-beat-tip', 'e2e-monitor-beat-tip.mjs'],
     ['e2e-monitor-drawer', 'e2e-monitor-drawer.mjs'],
     ['e2e-alert', 'e2e-alert.mjs'],
   ],

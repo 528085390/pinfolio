@@ -25,6 +25,7 @@ export function NowSection({ detail, m }: { detail: MonitorDetail; m: MonitorFul
       <BeatStrip
         cells={(detail.beats || []).map((b) => ({ status: b.status, tone: b.tone }))}
         type={m.type}
+        details={(detail.beats || []).map((b) => ({ time: b.time, msg: b.msg, ping: b.ping }))}
         title={'最近 ' + detail.beats.length + ' 次心跳'}
       />
     </div>

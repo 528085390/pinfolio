@@ -2,7 +2,7 @@
 // 运行：pnpm test:unit
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildPayload, groupNameIn } from '../../server/kuma/payload.js'
+import { BEAT_MSG_MAX, buildPayload, groupNameIn } from '../../server/kuma/payload.js'
 
 const beat = (status: number, msg = '', time = '2026-10-19 08:35:24.131', ping = 12) => ({ status, msg, time, ping })
 
@@ -72,6 +72,36 @@ test('buildPayload：四态字符进 beatTones，普通消息为 null', () => {
     heartbeats: { heartbeatList: { '7': [beat(1, '[绿] 正常'), beat(0, '超时'), beat(2, '[黄] 慢')] } },
   }).groups[0].monitors[0]
   assert.deepEqual(m.beatTones, ['绿', null, '黄'])
+})
+
+test('buildPayload：beatTimes/beatMsgs/beatPings 与 beats 一一对应（色条悬停用）', () => {
+  const m = buildPayload({
+    ...base,
+    statusPage: { publicGroupList: [{ id: 1, name: 'g', monitorList: [{ id: 7, name: 'x' }] }] },
+    heartbeats: {
+      heartbeatList: {
+        '7': [beat(1, '  200 - OK  ', '2026-10-19 08:35:24.131', 65), { status: 0, msg: '超时', time: '2026-10-19 09:35:24.000', ping: null }],
+      },
+    },
+  }).groups[0].monitors[0]
+  assert.deepEqual(m.beatTimes, ['2026-10-19T08:35:24.131Z', '2026-10-19T09:35:24.000Z'])
+  assert.deepEqual(m.beatMsgs, ['200 - OK', '超时'])
+  assert.deepEqual(m.beatPings, [65, null])
+  assert.equal(m.beatTimes.length, m.beats.length)
+  // 最后一拍就是卡片上「检查」那一行的时间，两边不能打架
+  assert.equal(m.beatTimes[m.beatTimes.length - 1], m.time)
+})
+
+test('buildPayload：悬停消息超长截断成 BEAT_MSG_MAX + 省略号，空白消息给空串', () => {
+  const long = 'x'.repeat(BEAT_MSG_MAX + 20)
+  const m = buildPayload({
+    ...base,
+    statusPage: { publicGroupList: [{ id: 1, name: 'g', monitorList: [{ id: 7, name: 'x' }] }] },
+    heartbeats: { heartbeatList: { '7': [beat(1, long), beat(1, '   ')] } },
+  }).groups[0].monitors[0]
+  assert.equal(m.beatMsgs[0].length, BEAT_MSG_MAX + 1)
+  assert.ok(m.beatMsgs[0].endsWith('…'))
+  assert.equal(m.beatMsgs[1], '')
 })
 
 test('buildPayload：beats 只留最近 beatWindow 拍，downCount/lastDown 也按窗口算', () => {

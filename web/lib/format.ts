@@ -16,6 +16,14 @@ function pad(n: number) {
   return n < 10 ? '0' + n : String(n)
 }
 
+/** 带秒的时间戳，心跳色条悬停用：同年省年份（`10-22 09:46:15`），跨年才带 `2025-` */
+export function stamp(iso: string) {
+  const d = new Date(iso)
+  const now = new Date()
+  const date = (d.getFullYear() === now.getFullYear() ? '' : d.getFullYear() + '-') + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+  return date + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
+}
+
 export function fullTime(iso: string) {
   const d = new Date(iso)
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())

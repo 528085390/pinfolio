@@ -1,11 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { daysBetween, expiry, fullTime, money, relativeTime } from '../../web/lib/format.js'
+import { daysBetween, expiry, fullTime, money, relativeTime, stamp } from '../../web/lib/format.js'
 
 function ymd(d: Date) {
   const p = (n: number) => (n < 10 ? '0' + n : String(n))
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
 }
+
+test('stamp：同年省年份并带秒，跨年才带年份', () => {
+  const now = new Date()
+  const same = new Date(now.getFullYear(), 9, 22, 9, 46, 15)
+  assert.equal(stamp(same.toISOString()), '10-22 09:46:15')
+  const old = new Date(now.getFullYear() - 1, 0, 2, 3, 4, 5)
+  assert.equal(stamp(old.toISOString()), now.getFullYear() - 1 + '-01-02 03:04:05')
+})
 
 test('money：整数带千分位、小数两位、空值空串', () => {
   assert.equal(money(1234, 'CNY'), '¥1,234')

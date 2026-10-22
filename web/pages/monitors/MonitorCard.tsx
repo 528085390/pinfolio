@@ -60,6 +60,9 @@ export function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
       <BeatStrip
         cells={m.beats.map((b, i) => ({ status: b, tone: m.beatTones?.[i] ?? null }))}
         type={m.type}
+        details={m.beatTimes && m.beatTimes.length > 0
+          ? m.beats.map((_, i) => ({ time: m.beatTimes?.[i] ?? null, msg: m.beatMsgs?.[i] ?? '', ping: m.beatPings?.[i] ?? null }))
+          : undefined}
         title={'最近 ' + m.beats.length + ' 次心跳'}
       />
 

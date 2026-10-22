@@ -28,6 +28,12 @@ export type Monitor = {
   beats: number[]
   /** 与 beats 一一对应：该拍的四态字符，非四态监视器为 null。 */
   beatTones: (string | null)[]
+  /** 与 beats 一一对应：该拍的时间（ISO）；卡片色条悬停提示用，缺失为 null。 */
+  beatTimes: (string | null)[]
+  /** 与 beats 一一对应：该拍的心跳消息（超长截断）；悬停提示用，没有就是空串。 */
+  beatMsgs: string[]
+  /** 与 beats 一一对应：该拍的响应毫秒；悬停提示用，没有就 null。 */
+  beatPings: (number | null)[]
   downCount: number
   lastDown: string | null
   link: { url: string; label: string } | null
@@ -61,6 +67,14 @@ export type BuildInput = {
 
 export const BEAT_WINDOW = 40
 
+/** 色条悬停提示里的消息上限：Kuma 实测最长 203 字，留一倍余量，再长就截断加省略号。 */
+export const BEAT_MSG_MAX = 400
+
+function clipMsg(m?: string | null): string {
+  const s = String(m || '').trim()
+  return s.length > BEAT_MSG_MAX ? s.slice(0, BEAT_MSG_MAX) + '…' : s
+}
+
 export function buildPayload(input: BuildInput): Payload {
   const window = input.beatWindow ?? BEAT_WINDOW
   const hb: Record<string, RawBeat[]> = input.heartbeats.heartbeatList || {}
@@ -93,6 +107,9 @@ export function buildPayload(input: BuildInput): Payload {
         uptime24: typeof pct === 'number' ? pct : null,
         beats: recent.map((b) => (typeof b.status === 'number' ? b.status : -1)),
         beatTones: recent.map((b) => toneChar(b.msg)),
+        beatTimes: recent.map((b) => toIso(b.time)),
+        beatMsgs: recent.map((b) => clipMsg(b.msg)),
+        beatPings: recent.map((b) => (typeof b.ping === 'number' ? b.ping : null)),
         downCount: recent.filter((b) => b.status === 0).length,
         lastDown: toIso(downBeat?.time),
         link: pickLink(input.links, m),

@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（30 条）
+# pinboard 已知问题与坑（31 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -40,3 +40,5 @@
 29. **Gmail 直连被墙时只能靠账号级代理，别去改全局环境变量**：本机 `imap.gmail.com:993` 直连会 10 秒超时（`:443` 也不通），而 `imap.qq.com` / `imap.163.com` 正常 —— 这表现为邮件页红条「连接超时」，**不是密码错**。修法就是账号里的 `proxy` 字段：① imapflow **原生支持** `proxy: 'socks5://127.0.0.1:10808'`（`dist/cjs/proxy-connection.js`，依赖里自带 `socks`），**不要为此加新依赖或自己包一层 socket**；② `mail_accounts.proxy` 加列必须走「`PRAGMA table_info` 查一遍、缺列才 `ALTER TABLE`」的迁移，否则老库启动就崩；③ 写建表 SQL 时**每行结尾逗号别漏**——漏了会报 `Error: near "enabled": syntax error` 让整个服务起不来（本次踩过）；④ `normalizeAccountInput()` 里 `proxy === undefined` 必须表示「不改」，只有传空字符串才清成直连，否则前端表单漏传字段就会把用户配好的代理静默清掉；⑤ 代理挂了要能看懂：`friendlyError(err, proxy)` 必须把「经代理 socks5://…」写进文案（并用 `proxyLabel()` 去掉 URL 里的账号密码），否则用户只会看到一句「连接超时」又回头怀疑密码。账号抽屉里「代理（可选）」留空 = 直连，只填 `127.0.0.1:10808` 会自动补 `socks5://`。
 
 30. **隔离实例（`PINBOARD_DATA` 指到别处）只隔离数据库，不隔离项目根下的生成物**：跑邮件 e2e 时用 `PORT=7799` + `PINBOARD_DATA=tests\e2e-data` 起了个空库实例，它启动时 `writeSnapshot()` 拿**空库**生成了一份 1 KB 的 `SNAPSHOT.md`，把真库那份 40 KB 的覆盖掉了（2026-10-21 踩过，`pnpm snapshot` 才补回来）。现在的护栏在 `server/snapshot/write.ts`：`const ISOLATED = DATA_DIR !== join(ROOT, 'data')`，隔离实例直接跳过写入并打一行 warn。**再加「项目根下的自动生成物」时（导出文件、缓存、报告），一律照这个判断加护栏**，别只想着数据库。
+
+31. **卡片/行里的悬浮弹层一律 `createPortal` 到 `document.body` + `position: fixed`，不许在卡片里写绝对定位**（2026-10-22 心跳色条悬停提示踩的，和坑 11、坑 28 同根）：`.content` 是 `overflow-y: auto` 的滚动容器，卡片里 `position: absolute` 往上弹的框会被它裁掉，而且滚不回来；`.asset-card` / `.monitor-card` 自己以后加 `overflow: hidden`（比如圆角裁图）也一样会裁。做法见 `web/components/BeatStrip.tsx`：`createPortal(<div className="beat-tip" style={{position:'fixed',left,top}}/>, document.body)`，`left` 夹在 `[TIP_EDGE, innerWidth - TIP_EDGE]`、色条离视口上沿小于 `TIP_FLIP` 就改成往下弹（`translate(-50%, 0)`），`pointer-events: none` 免得挡住点卡片，再监听 `scroll`（**capture: true**，滚动不冒泡）与 `resize` 收起（否则滚动后提示框飘在原地）。**顺手把原生 `title` 摘掉**（`title={hasDetail ? undefined : title}`），否则浏览器自带 tooltip 会跟自己画的框同时冒出来。

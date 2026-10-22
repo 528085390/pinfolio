@@ -247,3 +247,29 @@ monitor e2e **3/3（63s，e2e-monitor-drawer 88 passed 0 failed）**、core e2e 
 JS `index-Cya2EhMt.js` 415.91 kB；core e2e **11/11（80s）**（含 `e2e.mjs` 的命令面板搜索、`e2e-archive` 的 Ctrl+K 不返回归档便签、
 `e2e-mail` 的「邮件」入口）。
 
+## 2026-10-22：心跳色条悬停看「这一拍」
+
+㉒ **观测台心跳色条支持逐拍悬停**（用户需求）：原来 40 段色条只有整条原生 `title`「最近 N 次心跳」，
+鼠标移上去根本看不出某一段是哪次探测。现在移到任意一段就弹出这一拍的时间（`MM-DD HH:mm:ss`）、状态、
+相对时间、响应毫秒、「第 i/N 拍」与心跳消息。
+- **数据从列表接口直出**，不新开接口、不做悬停时懒加载（用户要「瞬时」）：`server/kuma/payload.ts` 的
+  `buildPayload` 给每个观测项加 `beatTimes`（`toIso`）/ `beatMsgs`（新增 `clipMsg`：去首尾空白，
+  超 `BEAT_MSG_MAX = 400` 字截断加 `…`）/ `beatPings`，三条与 `beats` 严格等长，末拍时间 == 卡片「检查」那一行。
+- 前端 `web/components/BeatStrip.tsx` 加可选 `details`：整条按 `clientX` 反推第几拍（比 40 个 `onMouseEnter` 稳，
+  划过 2px 缝隙不闪），`createPortal` 到 `document.body` + `position: fixed` 渲染 `.beat-tip`
+  （`z-index: 70`、`pointer-events: none`），`left` 夹在视口内、色条离上沿太近就改成往下弹，
+  滚动（**capture: true**）/resize 时收起；有 `details` 时摘掉原生 `title`（免得两个提示框同时冒出来）。见坑 31。
+- 卡片传 payload 的三条数组，抽屉传详情接口的 `beats`（`NowSection.tsx`），一个组件两处复用；
+  `web/lib/format.ts` 新增 `stamp()`（同年省年份、精确到秒）。
+- 单测：`kuma-payload.test.mts` +2（三条数组等长且末拍对齐、超长消息截断/空白消息空串）、
+  `web-format.test.mts` +1（`stamp`），单测 259 → **262/262**。
+- 新增 `tests/e2e-monitor-beat-tip.mjs`（**27 条断言**，已进 `tests/run.mjs` 的 monitor 套件）：API 形状与末拍对齐、
+  悬停最后一拍与第 35 拍看时间·消息·响应·「第 i/N 拍」、提示框完整在视口内、`pointer-events: none`、移开就消失、
+  第一行卡片（贴页头）不越界、抽屉里的色条同样弹框；截图 `tmp/shot-beat-tip.png`、`tmp/shot-beat-tip-drawer.png`。
+  首跑踩到「抽屉还没渲染完就 `count()`」→ 改成 `waitForSelector('.drawer .monitor-beats')`，别用固定 sleep 赌。
+
+验证：`pnpm typecheck` 0 错误；`pnpm test` **262/262**（另 snippet 7 条）；`pnpm build` 通过
+（CSS `index-GP1ktyR3.css` 38.11 kB —— 变大是新增 `.beat-tip` 那几片；JS `index-DtlJ5SI-.js` 418.15 kB）；
+`tools\pinboard.ps1 restart` 后 `/api/monitors` 实测每项 `beats/times/msgs/pings` 都是 40 且末拍时间 = `time`；
+`e2e-monitor-beat-tip` **27/27 ALL PASS**（真实 Chrome，1440×950，浅色主题截图目视通过）。
+
