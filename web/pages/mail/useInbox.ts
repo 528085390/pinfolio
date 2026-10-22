@@ -161,6 +161,9 @@ export function useInbox() {
     api.mail.markRead({ account: m.accountId, folder: m.folder, uid: m.uid }).catch(() => {})
   }, [])
 
+  /** 手机上从正文退回列表（宽屏下没有入口，保留状态无害） */
+  const close = useCallback(() => setSel(null), [])
+
   const visible = useMemo(() => {
     const kw = q.trim().toLowerCase()
     return items.filter((m) => {
@@ -196,7 +199,7 @@ export function useInbox() {
   return {
     accounts, accountsLoaded, accountFilter, setAccountFilter, folder, setFolder, folders,
     items, total, unseen, hasMore, offset, loading, refreshing, listError, fetchedAt,
-    q, setQ, unreadOnly, setUnreadOnly, sel, open, visible,
+    q, setQ, unreadOnly, setUnreadOnly, sel, open, close, visible,
     drawer, setDrawer, refresh, fetchList, fetchAccounts,
     listRef, folderName, unseenTotal,
   }

@@ -34,9 +34,9 @@
 手动装（没有 pinboard 界面时）：
 
 ```bash
-curl -fsSL https://203.0.113.10/nm/node-metrics-install.sh -o /tmp/node-metrics-install.sh
+curl -fsSL https://metrics.example.com/nm/node-metrics-install.sh -o /tmp/node-metrics-install.sh
 sudo bash /tmp/node-metrics-install.sh \
-  https://203.0.113.10/metrics-ingest/<TOKEN> \
+  https://metrics.example.com/metrics-ingest/<TOKEN> \
   <HOST_ID> "<WATCH_UNITS>" "<DISK_PATHS>"
 ```
 
@@ -55,7 +55,7 @@ sudo bash /tmp/node-metrics-install.sh \
 systemctl status node-metrics.service --no-pager   # 期望 status=0/SUCCESS
 systemctl list-timers node-metrics.timer --no-pager # 期望有 NEXT
 /usr/local/bin/node-metrics.sh --print              # 期望一行完整 JSON
-curl -s https://203.0.113.10/metrics/<TOKEN>/<HOST_ID>.json   # 期望拿到刚推上去那份
+curl -s https://metrics.example.com/metrics/<TOKEN>/<HOST_ID>.json   # 期望拿到刚推上去那份
 ```
 
 6 台的时间戳不同步是**正常的**：`RandomizedDelaySec=20s` + `AccuracySec=30s` 故意错峰，

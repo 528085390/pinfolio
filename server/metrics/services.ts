@@ -2,7 +2,7 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // 主机上的服务（unit）→ 观测项的映射表（host-services.json，可随时改，不用重启）。
-// 形如 [{ "host": "my-server", "unit": "nginx", "match": "Nginx" }]：
+// 形如 [{ "host": "指标源", "unit": "nginx", "match": "Nginx" }]：
 //   match   该主机分组里观测项「短名」包含它（不分大小写）就算对上；
 //   monitor 直接按 Kuma 的观测项 id 钉死（改名也不怕）。
 // 对不上就当没配：前端把 chip 渲染成纯文字，点了不跳（需求：没有观测就不跳）。
@@ -13,7 +13,7 @@ export type ServiceRule = { host: string; unit: string; match?: string; monitor?
 export type MonitorRef = { id: number; name: string; group: string }
 export type UnitMonitor = { id: number; name: string }
 
-/** 「my-server (阿里云 · 北京)」→「my-server」：组名尾巴的厂商地区只是给人看的。 */
+/** 「指标源 (阿里云 · 北京)」→「指标源」：组名尾巴的厂商地区只是给人看的。 */
 export function shortGroup(name: string): string {
   const s = String(name || '')
   return s.replace(/\s*[（(][^）)]*[）)]\s*$/, '').trim() || s

@@ -8,8 +8,11 @@ const MAX_UNITS = 16
 const MAX_DISKS = 8
 /** 安装器下载到目标机的临时路径（安装器自己跑完会清掉临时目录，这份留着无妨）。 */
 export const INSTALL_PATH = '/tmp/node-metrics-install.sh'
-/** 安装器公网地址（my-server 的 nginx /nm/ 托管，不带 token）。 */
-export const INSTALL_URL = 'https://203.0.113.10/nm/node-metrics-install.sh'
+/**
+ * 安装器公网地址。默认留空，由路由按 METRICS_INSTALL_URL / PUBLIC_URL / 请求来源推导；
+ * 自托管时把安装器放到 <站点根>/nm/ 即可（见 tools/node-metrics/README.md）。
+ */
+export const INSTALL_URL = process.env.METRICS_INSTALL_URL || ''
 
 /**
  * base 是「拉取」用的地址（https://host/metrics/<token>/），

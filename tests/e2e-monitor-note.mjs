@@ -5,8 +5,9 @@ import { chromium } from 'playwright-core'
 
 const BASE = 'http://127.0.0.1:7788'
 // 名字 2026-10-22 全部改成可读名（<组短名> / <服务名>），别写回旧名
-const TARGET_NAME = 'my-server / MyApp 网关 API' // #3，已用 kuma-monitor.cjs set 配上说明与 showMsg=1
-const OTHER_NAME = 'oj / Xray 代理服务' // #7，未开启 showMsg 的 SSH 项，用来验证「原样式不变」
+// 目标/对照项默认自动挑，别写死名字（每个人 Kuma 里的观测项不一样；可用 E2E_MONITOR_NAME / E2E_OTHER_NAME 指定）
+const TARGET_NAME = process.env.E2E_MONITOR_NAME || ''
+const OTHER_NAME = process.env.E2E_OTHER_NAME || ''
 
 const fails = []
 const ok = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) fails.push(msg) }
@@ -16,18 +17,23 @@ const res = await fetch(BASE + '/api/monitors?fresh=1')
 ok(res.ok, 'GET /api/monitors -> 200（实际 ' + res.status + '）')
 const data = await res.json()
 const all = (data.groups || []).flatMap((g) => g.monitors)
-const target = all.find((m) => m.name === TARGET_NAME)
-const other = all.find((m) => m.name === OTHER_NAME)
+// 目标 = 开了 showMsg 且写了说明的那条；对照 = 没开 showMsg、有心跳消息、也有说明的那条
+const target = TARGET_NAME
+  ? all.find((m) => m.name === TARGET_NAME)
+  : all.find((m) => m.showMsg === true && (m.description || '').length > 0)
+const other = OTHER_NAME
+  ? all.find((m) => m.name === OTHER_NAME)
+  : all.find((m) => m.showMsg === false && (m.msg || '').length > 0 && (m.description || '').length > 0)
 
 ok(all.length > 0, '观测项非空（' + all.length + ' 条）')
 ok(all.every((m) => typeof m.description === 'string'), '每条都有 description:string')
 ok(all.every((m) => typeof m.showMsg === 'boolean'), '每条都有 showMsg:boolean')
-ok(!!target, '找得到目标观测项 ' + TARGET_NAME)
-ok(!!other, '找得到对照观测项 ' + OTHER_NAME)
+ok(!!target, '找得到目标观测项 ' + (target ? target.name : '(没有开启 showMsg 且写了说明的项)'))
+ok(!!other, '找得到对照观测项 ' + (other ? other.name : '(没有未开 showMsg 的项)'))
 
 if (!target || !other) { console.log('\n无法继续 UI 断言'); process.exit(1) }
 
-ok((target.description || '').includes('MyApp'), '目标说明已写入：' + JSON.stringify(target.description))
+ok((target.description || '').length > 0, '目标说明已写入：' + JSON.stringify(target.description))
 ok(target.showMsg === true, '目标 showMsg=true')
 ok((target.msg || '').length > 0, '目标有心跳消息：' + JSON.stringify(target.msg))
 // 数量不写死：用户会在 Kuma 里逐个打开「补充观测信息」，硬编码 1 条早就红了（2026-10-21 已有 6 条）

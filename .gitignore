@@ -10,6 +10,12 @@ tmp/e2e-payload-*.json
 tmp/e2e-policy-*.json
 # 自动生成，内容派生自 data/（个人资产/IP/账号），不进版本库
 SNAPSHOT.md
+# 个人/本机配置：仓库只带 *.example.json
+monitor-actions.json
+host-services.json
+# 个人数据脚本（含真实主机、路径与账号），不进版本库
+tools/seed-assets.mjs
+tools/streak-panel-trigger.cjs
 # 开发用 git worktree（不提交）
 .worktrees/
 tmp/*.txt
@@ -20,6 +26,8 @@ tmp/*.ps1
 tests/e2e-data/
 # 本机的观测项跳转映射（含自家面板地址），仓库里只带 monitor-links.example.json
 monitor-links.json
+# 观测台的快捷入口卡（含自家服务地址），仓库里只带 quick-links.example.json
+quick-links.json
 # 一次性的个人文档（云厂商代金券之类），不对外
 /docs/huawei-cloud-voucher-200.md
 tmp/*.bundle

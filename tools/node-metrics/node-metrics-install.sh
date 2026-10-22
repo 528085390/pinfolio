@@ -27,7 +27,7 @@ cat > "$SRC/install.sh" <<'NODE_METRICS__INSTALL_SH__EOF'
 # install.sh —— 在目标机上安装 node-metrics（一次性）。需要 root。
 #
 # 用法：sudo ./install.sh <METRICS_URL> <HOST_ID> [WATCH_UNITS] [DISK_PATHS]
-#   METRICS_URL  = https://203.0.113.10/metrics-ingest/<TOKEN>   （不要带结尾斜杠）
+#   METRICS_URL  = https://metrics.example.com/metrics-ingest/<TOKEN>   （不要带结尾斜杠）
 #   HOST_ID      = os / ox / oj / az / aws / my-server    （决定文件名）
 #   WATCH_UNITS  = "xray caddy"  空格分隔，可空
 #   DISK_PATHS   = "/ /mnt/data" 空格分隔，默认 "/"

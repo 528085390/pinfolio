@@ -11,8 +11,8 @@ import {
 
 test('buildIngestUrl：/metrics/<token>/ → /metrics-ingest/<token>', () => {
   assert.equal(
-    buildIngestUrl('https://203.0.113.10/metrics/c4d600a573d3/'),
-    'https://203.0.113.10/metrics-ingest/c4d600a573d3',
+    buildIngestUrl('https://metrics.example.com/metrics/0123456789ab/'),
+    'https://metrics.example.com/metrics-ingest/0123456789ab',
   )
 })
 
@@ -66,16 +66,16 @@ test('shq：单引号包起来，内部单引号转义', () => {
 
 test('buildInstallCommand：下载 + sudo 安装，参数顺序与引号固定', () => {
   const cmd = buildInstallCommand({
-    installUrl: 'https://203.0.113.10/nm/node-metrics-install.sh',
-    ingestUrl: 'https://203.0.113.10/metrics-ingest/tok',
+    installUrl: 'https://metrics.example.com/nm/node-metrics-install.sh',
+    ingestUrl: 'https://metrics.example.com/metrics-ingest/tok',
     hostId: 'os',
     units: ['sing-box'],
     disks: ['/', '/mnt/data'],
   })
   assert.equal(
     cmd,
-    "curl -fsSL 'https://203.0.113.10/nm/node-metrics-install.sh' -o /tmp/node-metrics-install.sh" +
-    " && sudo bash /tmp/node-metrics-install.sh 'https://203.0.113.10/metrics-ingest/tok' 'os' 'sing-box' '/ /mnt/data'",
+    "curl -fsSL 'https://metrics.example.com/nm/node-metrics-install.sh' -o /tmp/node-metrics-install.sh" +
+    " && sudo bash /tmp/node-metrics-install.sh 'https://metrics.example.com/metrics-ingest/tok' 'os' 'sing-box' '/ /mnt/data'",
   )
 })
 

@@ -16,7 +16,7 @@ export function FieldsCard({ s, fields }: { s: SettingsState; fields: FieldDef[]
         <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>还没有自定义字段。</div>
       ) : (
         <div className="table-wrap" style={{ marginBottom: 14 }}>
-          <table className="data">
+          <table className="data data-fields">
             <thead><tr><th>显示名</th><th>key</th><th>类型</th><th>选项</th><th style={{ width: 44 }} /></tr></thead>
             <tbody>
               {fields.map((f) => (

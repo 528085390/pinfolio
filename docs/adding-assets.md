@@ -20,7 +20,7 @@
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:7788/api/health
-# ok=True, db=D:\pinfolio\data\pinboard.db
+# ok=True
 ```
 
 没跑就启动（任选其一）：
@@ -469,7 +469,7 @@ for (const chunk of text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean)) {
 
 ## 附录 A：录入规范（跟现有 8 条对齐）
 
-1. **服务器用主机别名当 `name`**：`my-server`、`az`、`oj`、`aws`、`os`、`ox`（与 `C:\Users\you\.ssh\config` 的 Host 别名、Kuma 分组、主机页采集端 id 一致；2026-10-22 统一，旧名 `azfree` / `oracle-proxy` / `aws-oregon` 只保留在历史正文里）。
+1. **服务器用主机别名当 `name`**：`my-server`、`az`、`oj`、`aws`、`os`、`ox`（与 `~/.ssh/config` 的 Host 别名、Kuma 分组、主机页采集端 id 一致；2026-10-22 统一，旧名 `azfree` / `oracle-proxy` / `aws-oregon` 只保留在历史正文里）。
 2. **退役 / 失联写进名字后缀 + 改状态**：`my-server（已废弃）` + `retired`、`us-162（已失联）` + `lost`。**不删记录**，历史也是信息。
 3. **服务器类必填三个 custom**：`ip`、`login`、`secret_at`。`secret_at` 写钥匙**位置**，不写口令明文。
 4. **`notes` 用 Markdown 短列表**：跑什么服务、端口、关键路径、坑。搜索会搜到它。

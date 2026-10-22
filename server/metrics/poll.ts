@@ -1,13 +1,13 @@
 import { metricsConfig } from './config.js'
 import { pruneOld, saveSample } from './store.js'
 
-// 拉取：my-server 上是 6 个静态 JSON（nginx dav 写、nginx 只读），本机每 5 分钟全拉一遍。
+// 拉取：指标源上是每台机一个静态 JSON（nginx dav 写、nginx 只读），本机每 5 分钟全拉一遍。
 // 拉取失败不清空已有数据 —— 页面靠 staleSec 自己判断新旧，比删数据好。
 export type PollResult = { at: number; ok: number; failed: { id: string; error: string }[] }
 
 const POLL_MS = 5 * 60 * 1000
 // 页面每次刷新都会顺带催一次拉取，但真正的数据 5 分钟才更新一次，
-// 所以这里卡 4 分钟：定时器（5 分钟）永远能过，页面刷新基本白跑一趟，不额外打 my-server。
+// 所以这里卡 4 分钟：定时器（5 分钟）永远能过，页面刷新基本白跑一趟，不额外打指标源。
 const MIN_GAP_MS = 4 * 60 * 1000
 const FETCH_TIMEOUT_MS = 8000
 
@@ -27,7 +27,7 @@ export async function pollAll(force = false): Promise<PollResult> {
   }
   if (!force && Date.now() - last.at < MIN_GAP_MS) return last
 
-  // 暂停的主机保留卡片和历史，只是不再拉取（采集端还在往 my-server 推，恢复后补到最新一帧）
+  // 暂停的主机保留卡片和历史，只是不再拉取（采集端还在往指标源推，恢复后补到最新一帧）
   const active = cfg.hosts.filter((h) => !h.paused)
 
   inflight = (async () => {

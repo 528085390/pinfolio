@@ -1,6 +1,6 @@
 /* 外壳：侧栏 / 顶栏 / 内容区 —— 原 styles.css 第 72-122 行 */
 /* ---------- shell ---------- */
-.app { display: flex; height: 100vh; overflow: hidden; }
+.app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 
 .sidebar {
   width: 228px; flex: none; display: flex; flex-direction: column;

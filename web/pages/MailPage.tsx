@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Inbox, Mail } from 'lucide-react'
+import { ChevronLeft, Inbox, Mail } from 'lucide-react'
 import { Button, Empty } from '../components/ui'
 import { MailReader } from '../components/MailReader'
 import { MailAccountDrawer } from '../components/MailAccountDrawer'
@@ -66,7 +66,7 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
 
       {M.listError ? <div className="alert mail-alert">{M.listError}</div> : null}
 
-      <div className="mail-body">
+      <div className={M.sel ? 'mail-body is-reading' : 'mail-body'}>
         <MailList
           listRef={M.listRef}
           visible={M.visible}
@@ -85,6 +85,9 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
         />
 
         <section className="mail-reader-pane">
+          <button className="mail-back" onClick={M.close}>
+            <ChevronLeft size={16} /> 返回列表
+          </button>
           {M.sel ? (
             <MailReader key={M.sel.accountId + ':' + M.sel.folder + ':' + M.sel.uid} accountId={M.sel.accountId} folder={M.sel.folder} uid={M.sel.uid} folderLabel={M.folderName} />
           ) : (

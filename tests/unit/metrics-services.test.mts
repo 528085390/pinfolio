@@ -47,7 +47,7 @@ const rules = () => [
 test('resolveUnitMonitors：按主机分组 + 短名包含匹配，输出 unit → {id,name}', () => {
   assert.deepEqual(resolveUnitMonitors(rules(), 'my-server', monitors()), {
     nginx: { id: 5, name: 'my-server / Nginx 站点' },
-    app-api: { id: 6, name: 'my-server / MyApp 网关 API' },
+    'app-api': { id: 6, name: 'my-server / MyApp 网关 API' },
   })
 })
 

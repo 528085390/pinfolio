@@ -171,10 +171,10 @@ socket.on("checkNow", async (monitorID, callback) => {
     "steps": [
       { "type": "http", "method": "POST", "url": "http://127.0.0.1:8765/api/trigger-all",
         "timeoutMs": 8000, "label": "触发一键出发",
-        "hint": "每日打卡面板没启动？去 D:\\ai_project\\streak-panel 双击「启动项目.bat」" },
+        "hint": "面板没启动？去项目目录双击「启动项目.bat」" },
       { "type": "command", "label": "刷新 Kuma 心跳",
         "argv": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                 "D:/ai_project/streak-panel/observability/streak-beat.ps1", "-Force"],
+                 "D:/path/to/panel/observability/streak-beat.ps1", "-Force"],
         "timeoutMs": 30000 }
     ]
   }

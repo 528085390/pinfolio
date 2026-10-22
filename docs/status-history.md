@@ -318,7 +318,7 @@ JS `index-BCcNG_vR.js` 418.21 kB）；`restart` 后 `e2e-monitor-beat-tip` **33/
   磁盘条 + 服务 chip + 底栏 OS 与 top 进程；样本 `< 2` 个时写「还没有曲线」，**不画假线**。
 - 坑：采集 JSON 里 `top` 的字段名是 **`rss_kb`** 不是 `rss`（照 `ps` 的直觉写会全变 `undefined`）；
   经 pwsh → ssh_skill 传远程命令时**单引号会炸**（PowerShell 拆串、静默无输出），要比 6 台的时间戳直接用本机
-  `Invoke-RestMethod https://203.0.113.10/metrics/<token>/<id>.json` 更省事。
+  `Invoke-RestMethod https://metrics.example.com/metrics/<token>/<id>.json` 更省事。
 
 验证：6 台 `node-metrics.service` 全 `status=0/SUCCESS`、timer 有 NEXT，`/var/www/metrics/` 6 个 JSON（479–579 B）；
 `/api/hosts` 返回 `hosts=6 samples=7 pollOk=6 failed=0`、6 台全 `online=true`；`pnpm typecheck` 0 错误、
@@ -346,3 +346,13 @@ aws-node 11% / 42.5%，`failed_units` 全 0。
 ③ **删主机要回收**：`DELETE ?confirm=<id>&purge=1` 现在除历史样本外，还按 `monitors` 逐个 `deleteMonitor()`（失败的 id 进 `monitorsFailed`）、组空了 `deleteGroup()`、并 `removeServiceRules()` 清掉 `host-services.json` 里这台机的映射；删除弹窗的勾选文案同步改成「同时删掉历史样本（30 天曲线），以及加主机时顺带建的观测项」。
 
 验证：`pnpm typecheck` 0 错误、`pnpm test:unit` **319/319**（新增 monitors / group / removeServiceRules / onboard / provision 用例）、`pnpm build` 通过（CSS 46.74 kB / JS 437.44 kB）。接口用 node fetch 跑完整生命周期（`tmp/zz-lifecycle*.cjs`）：建主机 + 端口 + HTTP + systemd 三项 → `provision.ok=true`、Kuma 里多出 145/146/147 三项与组 13、`data/metrics.json` 记 `monitors/group`、`host-services.json` 多一条 `monitor:147`；`DELETE ?confirm=…&purge=1` → `monitorsDeleted=3`、组 13 与映射一并消失、组列表回到 1,2,3,4,5,7,8；错误分支核对 404 / 「勾了观测项就要填主机地址」/「读不到私钥」；`/api/hosts` 列表 grep `metrics-ingest` = 0（token 不外泄）。浏览器 `tmp/verify-onboard.mjs` 走完整流程（抽屉三段 → 保存 → 接入弹窗命令 224 字符含安装器地址 → 新卡「接入指引」→ 删除后回 6 卡、页面告警条 0），截图 `tmp/shots/hosts-{7,8,9}-*.png`（弹窗里的 token 截图前替换成 `<TOKEN>`）。**真机**：在 my-server 上备份 `/etc/node-metrics.conf` 后，用弹窗里那条命令原样装了一台 `zz-real`（采集预览 JSON 正常、service `status=0/SUCCESS`、timer NEXT 5min），pinboard 侧 `POST /hosts/refresh` 后该机有 `cpu 22.3` 与 `units{nginx:active}`、`onboard ready=true firstSampleAt=2026-10-22T14:24:18Z`；收尾恢复原配置并重启 timer、`rm /var/www/metrics/zz-real.json`、补一帧后 my-server `staleSec=2` 三项服务 active、`DELETE ?purge=1` 清掉 `zz-real`，Kuma 回到 **24 项 / 7 组**、无 zz 残留。坑清单补 36–39（真 token 别进仓库且 `read` 会把 32 位 hex 遮成 `<TOKEN>`、Git Bash 的 `curl -d` 发中文变 U+FFFD、改了采集端四件套必须重新打包并重传 `/nm/`、删主机必须回收观测项与映射）。文档：architecture / api(zh) / features(zh) / AGENTS / pitfalls(36–39) / CHANGELOG / tools/node-metrics/README 同步。
+
+**已完成（2026-10-22，观测台「快捷入口」卡）**：用户说「加到pinfolio，观测里作为一个卡片，但是不观测，点击可以跳转就行」—— 想把刚部署的 Immich（`http://203.0.113.11:2283`）放进观测页。**故意没有建 Kuma 观测项**：那会多出一个永远「已暂停 / 无数据」、色条空白的假监控，还多一份要维护的探测；改成原生的「快捷入口」卡。
+
+① **数据**：仓库根新增 `quick-links.json`（`[{ name, url, note?, label?, icon? }]`，规矩同 `monitor-links.json` —— 真文件 gitignore，仓库只带 `quick-links.example.json`）；服务端新增纯函数模块 `server/kuma/quick.ts`（`parseQuick()` / `loadQuick()` / `isHttpUrl()` / `hostOf()`：只认 http(s)、`name` 留空退回 host、同一 URL 只留第一条、name ≤40 / note ≤60），`loadQuick()` **每次请求热读**（改完刷新页面即生效）。`feed.ts` 的 `collect()` 把它一起交给 `buildPayload`，`Payload` 多一个 `quick` 字段（`BuildInput.quick?` 可选，老调用点与 17 条 payload 单测一行没改）。`summary` / `groups` / 分组筛选 / 搜索**一律不含**这些卡。
+
+② **前端**：新增 `web/pages/monitors/QuickLinks.tsx` —— 整张卡就是 `<a target="_blank" rel="noreferrer noopener">`，没有 onClick、不开抽屉；图标 `image`→相机 / `globe`→地球 / 其余→链环。`MonitorsPage` 在筛选条下面渲染「快捷入口 · 不参与观测」一行（`.quick-head` 带一条分隔线，复用 `.monitor-grid` 的列宽对齐观测卡），卡高只留一行头部（`.quick-card { min-height: 0 }`，实测 61 px）。`web/lib/api/monitors.ts` 加 `QuickLink` 类型与 `quick?: QuickLink[]`（老服务端不返回按空数组处理），`web/lib/api.ts` 门面再导出。
+
+③ **当前内容**：一条 Immich 图库，`note` = `os · 东京 · 照片`、`icon` = `image`。
+
+验证：新增 `tests/unit/kuma-quick.test.mts`（8 例：非数组 / 坏条目跳过 / 默认值 / name 退回 host / 同 URL 去重 / 截断与去空白 / `isHttpUrl` / `hostOf`）；`pnpm test:unit` **327/327**、`pnpm typecheck` 0 错误、`pnpm build` 通过（CSS 47.56 kB / JS 438.62 kB）；`tools\pinboard.ps1 restart` 后 `GET /api/monitors` 的 `quick` 一条、`groups` 仍 7 组 25 项；Playwright（`tmp/quick-check.mjs`）在 `/monitors` 实测：`.quick-card` 1 张、文本「Immich 图库 / os · 东京 · 照片」、`href` 正确，点一下**只弹新标签页**（popup = `http://203.0.113.11:2283/`）、抽屉 `.drawer` 数量 0、控制台 0 报错；截图 `tmp/quick-links.png`（1680×1050）目视：卡在筛选条下方第一行、与观测卡同列宽、不抢风头。文档：architecture / api(zh) / features(zh) / AGENTS / CHANGELOG 同步。

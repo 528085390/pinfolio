@@ -207,7 +207,9 @@ hostsRoute.get('/:id/onboard', (c) => {
   }
   const units = host.units ?? []
   const disks = host.disks && host.disks.length ? host.disks : ['/']
-  const command = buildInstallCommand({ installUrl: INSTALL_URL, ingestUrl, hostId: host.id, units, disks })
+  const origin = process.env.PUBLIC_URL || new URL(c.req.url).origin
+  const installUrl = INSTALL_URL || origin + '/nm/node-metrics-install.sh'
+  const command = buildInstallCommand({ installUrl, ingestUrl, hostId: host.id, units, disks })
   const latest = latestSamples().get(host.id)
   const now = Math.floor(Date.now() / 1000)
   return c.json({
@@ -216,7 +218,7 @@ hostsRoute.get('/:id/onboard', (c) => {
     address: host.address ?? null,
     units,
     disks,
-    installUrl: INSTALL_URL,
+    installUrl,
     ingestUrl,
     command,
     ready: Boolean(latest),
@@ -232,7 +234,7 @@ hostsRoute.patch('/:id', async (c) => {
   // 纯函数只回一句中文错误，这里按前缀分状态码（没有这台机 = 404，参数不对 = 400）
   if (!r.ok) return c.json({ error: r.error }, r.error.startsWith('没有这台主机') ? 404 : 400)
   saveHosts(r.hosts)
-  // 恢复暂停后立刻补一帧：采集端一直在推，最新数据就在 my-server 上
+  // 恢复暂停后立刻补一帧：采集端一直在推，最新数据就在 指标源 上
   if (body?.paused === false) await pollAll(true).catch(() => {})
   return c.json(await buildPayload())
 })

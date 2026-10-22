@@ -3,21 +3,14 @@ import { join } from 'node:path'
 import { DATA_DIR } from '../db.js'
 import { mergeMetricsFile, parseHosts, type HostMeta } from './hostmeta.js'
 
-// 指标源：6 台机各自把 JSON PUT 到 my-server 的 nginx（见 tools/node-metrics/），
+// 指标源：各台机把自己的 JSON PUT 到一台带 nginx 的服务器（见 tools/node-metrics/），
 // 本机再从那个只读目录把文件拉回来。token 与 base 都写在 data/metrics.json（不入库、不进 git）。
 // 这个文件是主机清单的唯一真相：页面上的增 / 暂停 / 删最终都写回它（saveHosts）。
 export type { HostMeta } from './hostmeta.js'
 export type MetricsConfig = { base: string; hosts: HostMeta[] }
 
-// 没配 data/metrics.json 时的兜底清单（只有名字，没有地址 —— 地址必须显式配置）
-const DEFAULT_HOSTS: HostMeta[] = [
-  { id: 'my-server', label: 'my-server', note: '阿里云 · 北京' },
-  { id: 'az', label: 'az', note: 'Azure · 美中' },
-  { id: 'oj', label: 'oj', note: 'Oracle · 东京' },
-  { id: 'os', label: 'os', note: 'Oracle · 东京' },
-  { id: 'ox', label: 'ox', note: 'Oracle · 东京' },
-  { id: 'aws', label: 'aws', note: 'AWS · 俄勒冈' },
-]
+// 没配 data/metrics.json 时的兜底：空清单（地址必须显式配置，不能替使用者假设有哪几台机）
+const DEFAULT_HOSTS: HostMeta[] = []
 
 let cached: MetricsConfig | null = null
 

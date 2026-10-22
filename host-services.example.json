@@ -1,0 +1,12 @@
+[
+  {
+    "host": "my-host",
+    "unit": "nginx",
+    "match": "Nginx"
+  },
+  {
+    "host": "my-host",
+    "unit": "docker",
+    "match": "Docker"
+  }
+]

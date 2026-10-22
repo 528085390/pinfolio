@@ -31,3 +31,32 @@ button:focus-visible, a:focus-visible { outline-offset: 3px; }
   .topbar { padding: 0 16px; }
 }
 
+/* ---------- 手机（≤560px）：侧栏收成底部标签栏 ---------- */
+@media (max-width: 560px) {
+  .sidebar {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+    width: auto; height: auto; flex-direction: row; align-items: center; gap: 0;
+    padding: 0 4px calc(4px + env(safe-area-inset-bottom));
+    border-right: 0; border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 97%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 -8px 22px -18px rgba(40, 24, 8, 0.5);
+    z-index: 30;
+  }
+  .brand, .sidebar-foot, .sidebar .grow { display: none; }
+  .nav { flex-direction: row; flex: 1; gap: 2px; }
+  .nav-item {
+    flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px;
+    min-height: 52px; justify-content: center; padding: 6px 2px 5px;
+    font-size: 10.5px; border-radius: 11px;
+  }
+  .nav-item svg { width: 19px; height: 19px; }
+  .nav-label { display: block; line-height: 1.2; }
+  .nav-badge { display: none; }
+  .topbar { height: 52px; padding: 0 14px; }
+  .topbar-sub { max-width: 58vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-actions .kbd { display: none; }
+  .page { padding: 14px 14px calc(80px + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(68px + env(safe-area-inset-bottom)); }
+}
+

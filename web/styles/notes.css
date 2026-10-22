@@ -12,6 +12,7 @@
 .composer-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .composer-hint { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
 .composer-hint code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; font-size: 11px; }
+@media (max-width: 560px) { .composer-hint { display: none; } }
 
 .filters { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .chip {

@@ -22,7 +22,7 @@ Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out, no aut
 | PATCH/DELETE | `/tags/:id` | Rename or recolour / delete |
 | GET/POST | `/fields` | Custom field list / create |
 | PATCH/DELETE | `/fields/:id` | Update / delete |
-| GET | `/monitors` | Monitor data: `{ kuma, updatedAt, summary, groups }`, merging Kuma's status page and heartbeats; `?fresh=1` forces a re-read of the monitor list (list cached 5 minutes, heartbeats 5 seconds). Every monitor also carries `beatTimes` / `beatMsgs` / `beatPings`, aligned 1:1 with `beats` (same window), for the beat-strip hover tooltip |
+| GET | `/monitors` | Monitor data: `{ kuma, updatedAt, summary, groups, quick }`, merging Kuma's status page and heartbeats; `quick` holds the link-only cards from `quick-links.json` (`{ name, url, note, label, icon }[]` — never counted in `summary` or filters); `?fresh=1` forces a re-read of the monitor list (list cached 5 minutes, heartbeats 5 seconds). Every monitor also carries `beatTimes` / `beatMsgs` / `beatPings`, aligned 1:1 with `beats` (same window), for the beat-strip hover tooltip |
 | GET | `/monitors/:id` | One monitor: `{ monitor, latest, beats, action, link }` (secrets redacted — no SSH keys, passwords or tokens) |
 | PATCH | `/monitors/:id` | Rename / description / interval / timeout and retries (`name` `description` `interval` `timeout` `maxretries` `retryInterval` `showMsg`), written back to Kuma; duplicate names, names referenced by a policy, and timeout ≥ interval are rejected |
 | POST | `/monitors/:id/pause`, `/monitors/:id/resume` | Pause / resume probing (Kuma stops, history kept) |

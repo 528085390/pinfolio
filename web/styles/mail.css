@@ -170,12 +170,49 @@
 .mail-msg-ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .mail-msg-err { background: var(--danger-soft); color: var(--danger); }
 
+/* 手机上的「返回列表」，宽屏不出现 */
+.mail-back {
+  display: none; align-items: center; gap: 2px; flex: none;
+  height: 34px; padding: 0 10px 0 4px; border: 0; background: transparent;
+  color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.mail-back:active { color: var(--ink); }
+
 @media (max-width: 980px) {
   .mail-page { height: auto; }
   .mail-body { grid-template-columns: minmax(0, 1fr); }
   .mail-list { max-height: 46vh; }
   .mail-reader-pane { min-height: 320px; }
   .mail-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 手机（≤560px）：列表与正文二选一，点开邮件换成正文 ---------- */
+@media (max-width: 560px) {
+  /* 工具条：账号 chips 独占一行（横向滑），文件夹 / 刷新 / 邮箱 第二行 */
+  .mail-toolbar { gap: 8px 6px; }
+  .mail-chips { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .mail-chips::-webkit-scrollbar { display: none; }
+  .mail-chips .chip { flex: none; }
+  .mail-tools { margin-left: 0; width: 100%; gap: 6px; }
+  .mail-folder { flex: 1 1 auto; min-width: 0; }
+  .mail-folder .select { max-width: none; width: 100%; }
+  .mail-updated { display: none; }
+  .mail-tools .btn { flex: none; }
+  .mail-page { height: 100%; padding: 10px 12px calc(72px + env(safe-area-inset-bottom)); gap: 8px; }
+  .mail-body { display: block; }
+  .mail-list-pane { height: 100%; }
+  .mail-list { max-height: none; }
+  .mail-reader-pane { display: none; height: 100%; min-height: 0; }
+  .mail-body.is-reading .mail-list-pane { display: none; }
+  .mail-body.is-reading .mail-reader-pane { display: flex; }
+  /* 读信时把工具条与搜索框收起来，正文拿回整屏高度 */
+  .mail-page:has(.mail-body.is-reading) .mail-toolbar,
+  .mail-page:has(.mail-body.is-reading) .mail-search { display: none; }
+  .mail-page:has(.mail-body.is-reading) { padding-top: 8px; }
+  .mail-back { display: inline-flex; }
+  .mail-reader-head { padding: 10px 14px; }
+  .mail-reader-body { padding: 12px 14px 28px; }
+  .mail-viewbar { padding: 6px 14px; }
 }
 
 

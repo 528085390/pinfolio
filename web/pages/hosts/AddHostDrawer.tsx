@@ -147,7 +147,7 @@ export function AddHostDrawer({ open, onClose, onAdded }: {
         {wantSsh ? (
           <div className="host-check-body is-col">
             <input className="input input-sm" value={sshUser} placeholder="SSH 用户名，例如 ubuntu" onChange={(e) => setSshUser(e.target.value)} />
-            <input className="input input-sm" value={keyPath} placeholder="私钥路径，例如 C:\Users\you\.ssh\id_ed25519" onChange={(e) => setKeyPath(e.target.value)} />
+            <input className="input input-sm" value={keyPath} placeholder="私钥路径，例如 ~/.ssh/id_ed25519" onChange={(e) => setKeyPath(e.target.value)} />
             <span className="host-check-hint">私钥只在本机读，随观测项存进 Kuma（与现有 6 台一致）</span>
           </div>
         ) : null}

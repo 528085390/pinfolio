@@ -24,6 +24,15 @@
 
   **按 `id` 匹配（优先）**：观测项可以在抽屉里改名，名字不是稳定键，所以规则以 `id` 为准，`name` 只当注释与兜底。
   换文件位置设 `MONITOR_LINKS` 环境变量。
+- **快捷入口卡**：筛选条下面、观测卡片上面有一排「快捷入口」，**只跳转、不参与观测**——没有状态、心跳与统计，整张卡点一下就在新标签页打开那个服务。配置在根目录 `quick-links.json`（每次请求热读，改完刷新页面即生效，不用重启），仓库里只带 `quick-links.example.json`，**复制成 `quick-links.json` 再改**（真文件已 gitignore）：
+
+  ```json
+  [
+    { "name": "Immich 图库", "url": "http://your-host:2283", "note": "照片备份", "label": "点击打开", "icon": "image" }
+  ]
+  ```
+
+  `url` 只认 `http(s)://`（写成 `javascript:` / 相对路径会被丢掉），`name` 留空退回 host，同一 URL 只留第一条，`icon` 认 `image`（相机）/ `globe`（地球），其余用默认链环图标；`note` 是副标题，`label` 是悬停提示。
 - **点卡片（或表格行）打开右侧观测项详情抽屉**，和资产详情同一套交互：
   - **基本信息**：名称、介绍、检查频率（带 30 秒 / 1 分钟 / 5 分钟 / 10 分钟 / 30 分钟快捷键）；展开「高级设置」还能改超时、重试次数、重试间隔、是否常显消息。这些都**写回 Kuma**（Kuma 是唯一事实源，CLI 与 `SNAPSHOT.md` 看到的是同一份），保存后列表立即刷新。
   - **暂停 / 恢复观测**：暂停后卡片和表格行都变淡并标「已暂停」，Kuma 不再探测（历史心跳保留）；恢复即重新开始。
@@ -53,7 +62,7 @@
 
 「主机」页展示 6 台服务器的资源与状态。**数据不是实时探测，而是每台机自己每 5 分钟推一份快照**，所以「N 分钟前」是数据的新鲜度，不是页面在算。
 
-- **链路**：服务器上的 `node-metrics.timer`（oneshot，跑 0.1–0.3 秒就退）→ `PUT https://203.0.113.10/metrics-ingest/<token>/<host>.json` → my-server 的 nginx 用 `dav_methods PUT` 直接落 `/var/www/metrics/`（**不新增进程 / 端口 / 后端**）→ 本机 pinfolio 每 5 分钟拉 6 个 JSON → SQLite 的 `host_metrics`。
+- **链路**：服务器上的 `node-metrics.timer`（oneshot，跑 0.1–0.3 秒就退）→ `PUT https://metrics.example.com/metrics-ingest/<token>/<host>.json` → my-server 的 nginx 用 `dav_methods PUT` 直接落 `/var/www/metrics/`（**不新增进程 / 端口 / 后端**）→ 本机 pinfolio 每 5 分钟拉 6 个 JSON → SQLite 的 `host_metrics`。
 - **采集字段**：CPU（`/proc/stat` 两次采样、1 秒窗口的 `Δtotal / Δidle`）、内存与 swap、load 三个值、uptime、每个挂载点的总量 / 已用 / 百分比、`failed_units` 计数、`WATCH_UNITS` 里每个服务的 `is-active`、内存占用前三的进程（只取 `comm`，不含参数）。
 - **在线 / 陈旧**：最近一次样本在 5 分钟内 → 正常显示「N 分钟前」；超过 900 秒（3 个采集周期）算**陈旧**，卡片变灰、副标题写「N 台陈旧」。页面开着时 60 秒轮询一次（只读本机库，不打服务器）。
 - **曲线**：24 小时的 CPU（橙）与内存（灰）两条线，`[ts, cpuPct, memPct]` 一天最多 288 个点。样本不足 2 个时写「还没有曲线」——**不画假线**。
@@ -62,5 +71,5 @@
 - **点服务 chip 跳观测台**：卡片「服务」区里，凡是 `host-services.json` 配到了观测项的 chip 都可点（右边带一个 ↗ 小箭头），点了切到观测页、滚到那张卡并高亮 1.6 秒（不开详情抽屉）。没配到映射的仍是纯文字 chip，`title` 会说明没有对应观测项。映射表在仓库根 `host-services.json`：`host` + `unit` 定位采集端的服务名，`match` 在**该主机分组内**的观测项短名里做不区分大小写的包含匹配（也可用 `monitor` 直接钉 id）。观测项被删/改名后 chip 自动退回纯文字，不用改代码。
 - **添加 / 暂停 / 删除**：工具条的「+ 添加主机」分三段 —— 基本信息（`id` 限字母数字 `.` `_` `-`、1–32 位、不能重名；显示名留空就用 id；`note` 只写机房）、采集端（服务清单 `WATCH_UNITS`、磁盘路径、地址）、观测项（端口 / HTTP 站点 / systemd 服务，默认都不勾）。保存后**直接弹出「接入这台机器」**：一条 `curl … && sudo bash …` 命令（复制即用）+ 「立即检查」，装完 timer 立刻上报第一帧，状态从「还在等第一帧」变「已收到首帧」。勾了观测项时会在观测台顺带建同名分组与观测项（命名 `<组短名> / <服务名>`，并把 id 记进 `data/metrics.json` 的 `monitors`），**建失败不影响主机**——错误会显示在页面上，主机照样收指标。卡片右上角 hover 出两个按钮：**暂停采集**（`paused`，卡片虚线变灰、副标题算「N 台暂停」、既不算离线也不算陈旧，历史曲线保留；要彻底停掉服务器上的上报得去那台机 `systemctl disable --now node-metrics.timer`，恢复后只能补到最新一帧）/ **删除**（弹窗里手输 id 才可点，默认同时删掉这台机 30 天历史样本、加主机时顺带建的观测项与空出来的分组）。
 - **为什么不直接上 node_exporter + Prometheus + Grafana**：每台要常驻 15–25 MB，本机再加约 200 MB；oj 只有 945 MB（历史上装 dnf-automatic 把它拖死过）。现在服务器侧**零常驻**，磁盘 2 KB。
-- **加一台机**：① 主机页点「+ 添加主机」填 id / 服务清单 / 磁盘 / 地址，要监控端口或站点就顺手勾上；② 保存后复制弹窗里那条命令，到目标机 `sudo` 跑一遍（下载单文件安装器 → 写 `/etc/node-metrics.conf` → 装 timer → 立刻上报一帧）；③ 弹窗里点「立即检查」或等 5 分钟，卡片从「还没收到上报」变成正常指标。没有界面时也能手装：`curl -fsSL https://203.0.113.10/nm/node-metrics-install.sh | sudo bash -s -- <URL> <HOST_ID> "<WATCH_UNITS>" "<DISK_PATHS>"`。
-- **排错**：`systemctl status node-metrics.service`（应 `status=0/SUCCESS`）→ `node-metrics.sh --print`（只打印不上报）→ `curl https://203.0.113.10/metrics/<token>/<id>.json`（看落盘那份）→ 本机 `GET /api/hosts` 看 `pollOk` / `pollFailed`。
+- **加一台机**：① 主机页点「+ 添加主机」填 id / 服务清单 / 磁盘 / 地址，要监控端口或站点就顺手勾上；② 保存后复制弹窗里那条命令，到目标机 `sudo` 跑一遍（下载单文件安装器 → 写 `/etc/node-metrics.conf` → 装 timer → 立刻上报一帧）；③ 弹窗里点「立即检查」或等 5 分钟，卡片从「还没收到上报」变成正常指标。没有界面时也能手装：`curl -fsSL https://metrics.example.com/nm/node-metrics-install.sh | sudo bash -s -- <URL> <HOST_ID> "<WATCH_UNITS>" "<DISK_PATHS>"`。
+- **排错**：`systemctl status node-metrics.service`（应 `status=0/SUCCESS`）→ `node-metrics.sh --print`（只打印不上报）→ `curl https://metrics.example.com/metrics/<token>/<id>.json`（看落盘那份）→ 本机 `GET /api/hosts` 看 `pollOk` / `pollFailed`。

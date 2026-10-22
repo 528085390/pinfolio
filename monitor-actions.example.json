@@ -1,0 +1,27 @@
+{
+  "_doc": "「立即观测」配方表。按观测项 id（优先）或 name 匹配；改完不用重启，刷新抽屉即生效。步骤类型：kuma-check / http / command，写法见 docs/adding-assets.md。把本文件复制成 monitor-actions.json 再改（该文件不进版本库）。注意：command 步骤会在本机执行命令。",
+  "recipes": [],
+  "_examples": [
+    {
+      "id": 0,
+      "steps": [
+        {
+          "type": "http",
+          "label": "发一个 HTTP 请求",
+          "url": "http://127.0.0.1:8080/health",
+          "method": "POST",
+          "body": {}
+        }
+      ]
+    },
+    {
+      "id": 0,
+      "steps": [
+        {
+          "type": "kuma-check",
+          "label": "让 Kuma 立刻探一次"
+        }
+      ]
+    }
+  ]
+}

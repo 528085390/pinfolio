@@ -6,7 +6,7 @@ import { daysLeft } from '../dates.js'
 // 不属于某个具体资源的杂项接口：健康检查、启动引导、全局搜索、统计、导出、示例数据。
 export const metaRoute = new Hono()
 
-metaRoute.get('/health', (c) => c.json({ ok: true, db: DB_PATH }))
+metaRoute.get('/health', (c) => c.json({ ok: true }))
 
 metaRoute.get('/bootstrap', (c) => {
   const tags = all<any>([
