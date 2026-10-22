@@ -1,5 +1,6 @@
 import { pickLink, type LinkRule } from './links.js'
 import { toIso, toneChar, type RawBeat } from './beat.js'
+import type { QuickLink } from './quick.js'
 
 // 观测台列表的**纯拼装层**：把「状态页 + 心跳 + socket 观测项 + 跳转表」拼成前端要的 Payload。
 // 这里不碰网络、不碰缓存，输入全是普通对象，所以能直接单测（tests/unit/kuma-payload.test.mts）。
@@ -46,6 +47,8 @@ export type Payload = {
   updatedAt: string
   summary: { total: number; up: number; down: number; pending: number; uptime24: number | null }
   groups: Group[]
+  /** 快捷入口卡（quick-links.json）：只是外链，不进 summary、不进分组筛选。 */
+  quick: QuickLink[]
 }
 
 export type StatusPageData = { config?: { title?: string }; publicGroupList?: RawGroup[] }
@@ -63,6 +66,8 @@ export type BuildInput = {
   beatWindow?: number
   /** 便于固定输出（测试用），默认当前时间。 */
   now?: string
+  /** 快捷入口卡；不给就当没有（老的调用点与单测不用改）。 */
+  quick?: QuickLink[]
 }
 
 export const BEAT_WINDOW = 40
@@ -130,6 +135,7 @@ export function buildPayload(input: BuildInput): Payload {
       uptime24: rated.length ? rated.reduce((s, m) => s + (m.uptime24 as number), 0) / rated.length : null,
     },
     groups,
+    quick: input.quick ?? [],
   }
 }
 

@@ -1,5 +1,6 @@
 import { listMonitors } from './client.js'
 import { loadLinks } from './links.js'
+import { loadQuick } from './quick.js'
 import { mapBeat, toIso, toneChar, type RawBeat } from './beat.js'
 import { buildPayload, groupNameIn, BEAT_WINDOW, type Payload } from './payload.js'
 import { getHeartbeats, getStatusPage, invalidateSource, lastStatusPage, KUMA_BASE, KUMA_SLUG, STATUS_TTL } from './source.js'
@@ -15,6 +16,7 @@ export type { RawBeat }
 export { KUMA_BASE, KUMA_SLUG, STATUS_TTL }
 export { getStatusPage }
 export type { Group, HeartbeatData, Monitor, Payload, RawMonitor, StatusPageData } from './payload.js'
+export type { QuickLink } from './quick.js'
 
 async function collect(force = false): Promise<Payload> {
   // 状态页接口**不返回 active**，而列表要显示「已暂停」，所以额外拉一次 socket 的观测项列表。
@@ -29,6 +31,7 @@ async function collect(force = false): Promise<Payload> {
     heartbeats,
     beans,
     links: loadLinks(),
+    quick: loadQuick(),
     base: KUMA_BASE,
     slug: KUMA_SLUG,
     beatWindow: BEAT_WINDOW,

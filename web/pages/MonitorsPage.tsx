@@ -7,6 +7,7 @@ import { MonitorStats } from './monitors/MonitorStats'
 import { MonitorFilters } from './monitors/MonitorFilters'
 import { MonitorCard } from './monitors/MonitorCard'
 import { MonitorTable } from './monitors/MonitorTable'
+import { QuickLinks } from './monitors/QuickLinks'
 
 export function MonitorsPage({
   onSummary,
@@ -44,6 +45,8 @@ export function MonitorsPage({
       />
 
       {M.error && M.data ? <div className="alert" style={{ marginTop: 14 }}>{M.error}</div> : null}
+
+      <QuickLinks links={M.data?.quick ?? []} />
 
       {M.loading && !M.data ? (
         <div className="empty"><Spinner /></div>

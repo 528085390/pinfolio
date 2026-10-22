@@ -30,7 +30,7 @@ export type {
   HostInput, HostPatch, HostServiceInput, HostOnboard, UnitMonitor, ProvisionResult,
 } from './api/hosts'
 export type {
-  Monitor, MonitorGroup, MonitorSummary, MonitorsPayload, MonitorBeat,
+  Monitor, MonitorGroup, MonitorSummary, MonitorsPayload, MonitorBeat, QuickLink,
   MonitorAction, MonitorActionStep, MonitorActionStepResult, MonitorDetail,
 } from './api/monitors'
 export type {

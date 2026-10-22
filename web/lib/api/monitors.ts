@@ -23,12 +23,16 @@ export type Monitor = {
   link: { url: string; label: string } | null
 }
 export type MonitorGroup = { id: number; name: string; monitors: Monitor[] }
+/** 观测台的快捷入口卡：只是外链，不参与观测（根目录 quick-links.json） */
+export type QuickLink = { name: string; url: string; note: string; label: string; icon: string }
 export type MonitorSummary = { total: number; up: number; down: number; pending: number; uptime24: number | null }
 export type MonitorsPayload = {
   kuma: { base: string; slug: string; title: string }
   updatedAt: string
   summary: MonitorSummary
   groups: MonitorGroup[]
+  /** 快捷入口卡；老服务端不返回时前端按空数组处理 */
+  quick?: QuickLink[]
   stale?: boolean
   error?: string
 }

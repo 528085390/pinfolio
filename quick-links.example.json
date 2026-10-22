@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Immich 图库",
+    "url": "http://your-host:2283",
+    "note": "照片备份",
+    "label": "Immich — 点击打开",
+    "icon": "image"
+  }
+]
