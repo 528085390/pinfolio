@@ -1,4 +1,4 @@
-import { Activity, Mail as MailIcon, Moon, Package, Pin, Server, Settings, StickyNote, Sun } from 'lucide-react'
+import { Activity, LogOut, Mail as MailIcon, Moon, Package, Pin, Server, Settings, StickyNote, Sun } from 'lucide-react'
 import { cx, type HostSummary, type MonitorSummary, type Stats } from '../lib/api'
 import { Button } from '../components/ui'
 import type { Page } from '../lib/router'
@@ -63,6 +63,18 @@ export function Sidebar({ page, setPage, stats, mailSum, mon, host, dark, onTogg
         <div className="side-actions">
           <Button variant="ghost" size="sm" icon title="切换深浅色" onClick={onToggleTheme}>
             {dark ? <Sun size={15} /> : <Moon size={15} />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon
+            title="退出登录"
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' })
+              location.reload()
+            }}
+          >
+            <LogOut size={15} />
           </Button>
         </div>
       </div>

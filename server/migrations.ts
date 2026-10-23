@@ -45,8 +45,37 @@ function v1(db: DatabaseSync) {
   for (const [name, color] of PRESET_TAGS) insert.run(name, color)
 }
 
+// v2：鉴权（见 docs/superpowers/specs/2026-10-23-pinfolio-oss/02-auth.md）
+const AUTH_SCHEMA = `
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  id           TEXT PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  expires_at   TEXT NOT NULL,
+  ua           TEXT NOT NULL DEFAULT '',
+  ip           TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT
+);
+`
+
+function v2(db: DatabaseSync) {
+  db.exec(AUTH_SCHEMA)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: v1 },
+  { version: 2, up: v2 },
 ]
 
 export function migrate(db: DatabaseSync, migrations: Migration[] = MIGRATIONS): number {

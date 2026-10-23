@@ -1,6 +1,10 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { DATA_DIR } from './db.js'
+import { DATA_DIR, db } from './db.js'
+import { authMiddleware } from './auth/middleware.js'
+import { authRoute } from './auth/routes.js'
+import { bootstrapPassword } from './auth/bootstrap.js'
+import { createApiToken, deleteSetting } from './auth/store.js'
 import { notesRoute } from './routes/notes.js'
 import { assetsRoute } from './routes/assets.js'
 import { tagsRoute } from './routes/tags.js'
@@ -16,6 +20,9 @@ import { mountStatic } from './static.js'
 const app = new Hono()
 const api = new Hono()
 
+// 除白名单外，/api/* 一律要登录（见 server/auth/middleware.ts）
+api.use('*', authMiddleware)
+
 // 任何写操作（POST/PUT/PATCH/DELETE）成功后，防抖重生成根目录的 SNAPSHOT.md
 api.use('*', async (c, next) => {
   await next()
@@ -23,6 +30,7 @@ api.use('*', async (c, next) => {
   if (m !== 'GET' && m !== 'HEAD' && m !== 'OPTIONS' && c.res.status < 400) scheduleSnapshot()
 })
 
+api.route('/auth', authRoute)
 api.route('/', metaRoute)
 api.route('/notes', notesRoute)
 api.route('/assets', assetsRoute)
@@ -45,10 +53,29 @@ app.onError((err, c) => {
   return c.json({ error: String(err && err.message ? err.message : err) }, 500)
 })
 
+// --reset-password：删掉密码后退出，下次访问回到 /setup
+if (process.argv.includes('--reset-password')) {
+  deleteSetting(db, 'password_hash')
+  console.log('  已清除登录密码，重启后访问 /setup 重新设置')
+  process.exit(0)
+}
+
+// --new-token <名字>：给脚本 / e2e 发一个 API token，明文只打印这一次
+if (process.argv.includes('--new-token')) {
+  const i = process.argv.indexOf('--new-token')
+  const t = createApiToken(db, process.argv[i + 1] || 'cli')
+  console.log(t.token)
+  process.exit(0)
+}
+
+bootstrapPassword(db)
+
 const port = Number(process.env.PORT || 7788)
-serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (info) => {
+// 默认只听本机；容器 / 局域网访问要显式设 HOST=0.0.0.0
+const hostname = process.env.HOST || '127.0.0.1'
+serve({ fetch: app.fetch, port, hostname }, (info) => {
   console.log('')
-  console.log('  pinfolio 已启动  ->  http://127.0.0.1:' + info.port)
+  console.log('  pinfolio 已启动  ->  http://' + hostname + ':' + info.port)
   console.log('  数据目录      ->  ' + DATA_DIR)
   console.log('')
   // 启动时先生成一次快照（失败只打日志，不影响服务）

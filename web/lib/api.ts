@@ -6,6 +6,7 @@ import { assetsApi } from './api/assets'
 import { monitorsApi } from './api/monitors'
 import { hostsApi } from './api/hosts'
 import { mailApi } from './api/mail'
+import { authApi } from './api/auth'
 import { cx } from './cx'
 
 export const api = {
@@ -15,6 +16,7 @@ export const api = {
   monitors: monitorsApi,
   hosts: hostsApi,
   mail: mailApi,
+  auth: authApi,
   tags: tagsApi,
   fields: fieldsApi,
 }
@@ -23,6 +25,7 @@ export { cx }
 export { request } from './api/http'
 
 export type { Tag, FieldDef, Stats } from './api/types'
+export type { SessionInfo, ApiToken } from './api/auth'
 export type { Note } from './api/notes'
 export type { Asset } from './api/assets'
 export type {
