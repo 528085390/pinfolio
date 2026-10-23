@@ -77,7 +77,7 @@ pnpm typecheck        # tsc --noEmit
 
 
 ## 迁移建议
-项目已经独立在 `D:\pinfolio`，这个目录本身就能当仓库根。搬到别的机器/路径时带走：`server/`、`web/`、`tools/`、`package.json`、`pnpm-workspace.yaml`、`pnpm-lock.yaml`、`tsconfig.json`、`vite.config.ts`、`.gitignore`、`start.cmd`、`stop.cmd`、`run-pinboard.vbs`、本文件；不要带 `data/`（个人数据）、`dist/`、`logs/`、`node_modules/`、`tmp/`。
+这个目录本身就能当仓库根。搬到别的机器/路径时带走：`server/`、`web/`、`tools/`、`package.json`、`pnpm-workspace.yaml`、`pnpm-lock.yaml`、`tsconfig.json`、`vite.config.ts`、`.gitignore`、`start.cmd`、`stop.cmd`、`run-pinboard.vbs`、本文件；不要带 `data/`（个人数据）、`dist/`、`logs/`、`node_modules/`、`tmp/`。
 需要改的硬编码：端口 7788（`server/index.ts` 与 `vite.config.ts` 代理）。端口/监听地址/数据目录都能用环境变量覆盖（`PORT` / `HOST` / `PINBOARD_DATA`）。登录鉴权已内置（首启 `/setup` 设密码，或 `PINBOARD_PASSWORD` 初始化）；HTTPS 交给前面的反代。
 邮件功能另外依赖 `imapflow` + `mailparser`（纯 JS，已在 `package.json` 里，不需要额外服务）；`tests/fakeimap/` 的假 IMAP 服务器只是测试用，搬家不用带。
 主机页的数据来自 `data/metrics.json`（拉取基址 + 6 台清单 + token，**含 token 所以没进版本库**）和 6 台机上的 `tools/node-metrics/`（`/etc/node-metrics.conf` 里的 URL 必须与它一致）；搬到别的机器时两边都要改，否则主机页只会显示「拉取失败」。`host-services.json`（服务 chip → 观测项的映射）要跟着走，缺了只是 chip 不能点，不会报错。
