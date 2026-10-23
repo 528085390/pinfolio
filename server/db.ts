@@ -2,9 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { CORE_SCHEMA } from './schema/core.js'
-import { MAIL_SCHEMA } from './schema/mail.js'
-import { METRICS_SCHEMA } from './schema/metrics.js'
+import { migrate } from './migrations.js'
 import { extractTags, PRESET_TAGS, TAG_COLORS, tagColor } from './tags.js'
 
 // 纯函数挪到 tags.ts 是为了能单测（本文件一 import 就打开 SQLite、跑迁移）；
@@ -20,9 +18,10 @@ export const DB_PATH = join(DATA_DIR, 'pinboard.db')
 export const db = new DatabaseSync(DB_PATH)
 db.exec('PRAGMA journal_mode = WAL')
 db.exec('PRAGMA foreign_keys = ON')
+db.exec('PRAGMA busy_timeout = 5000')
 
-const SCHEMA = CORE_SCHEMA + "\n" + MAIL_SCHEMA + "\n" + METRICS_SCHEMA
-db.exec(SCHEMA)
+// 表结构演进走有序迁移（server/migrations.ts）：每步一个事务，只追加、不改旧步。
+migrate(db)
 
 export const nowIso = () => new Date().toISOString()
 
@@ -64,23 +63,4 @@ export function toBool(v: any) {
   return v === true || v === 1 || v === '1' ? 1 : 0
 }
 
-// ---- 迁移：给老库补 notes.done 列 ----
-const noteCols = all<{ name: string }>('PRAGMA table_info(notes)').map((r) => r.name)
-if (!noteCols.includes('done')) {
-  db.exec('ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0')
-}
-
-// ---- 迁移：给老库补 mail_accounts.proxy 列（2026-10-21：国内直连 imap.gmail.com 被墙，需要 SOCKS5 代理）----
-const mailCols = all<{ name: string }>('PRAGMA table_info(mail_accounts)').map((r) => r.name)
-if (!mailCols.includes('proxy')) {
-  db.exec("ALTER TABLE mail_accounts ADD COLUMN proxy TEXT NOT NULL DEFAULT ''")
-}
-
-// ---- 预设标签：只写一次（用 PRAGMA user_version 做标记，删掉不会再被塞回来）----
-const userVersion = get<{ user_version: number }>('PRAGMA user_version')!.user_version
-if (userVersion < 1) {
-  for (const [name, color] of PRESET_TAGS) {
-    run('INSERT INTO tags (name, color) VALUES (?, ?) ON CONFLICT(name) DO NOTHING', name, color)
-  }
-  db.exec('PRAGMA user_version = 1')
-}
+// 老库补列与预设标签都在 migrations.ts 的 v1 里（本文件只负责开库）。
