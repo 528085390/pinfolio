@@ -27,12 +27,20 @@ export const TITLES: Record<Page, string> = {
  * 路径 → 页面。根路径 /、未知路径、带不带尾斜杠都归到便签页，
  * 保证任何深链都不会白屏（server 的 SPA fallback 已经把非文件路径都回成 index.html）。
  */
-export function pageFromPath(pathname: string): Page {
-  const p = pathname.replace(/\/+$/, '').toLowerCase()
+/** 部署在子路径时（base = '/pinfolio/'），先剥掉前缀再匹配。 */
+function stripBase(pathname: string, base: string): string {
+  const b = base.replace(/\/+$/, '')
+  if (!b) return pathname
+  if (pathname === b) return '/'
+  return pathname.startsWith(b + '/') ? pathname.slice(b.length) : pathname
+}
+
+export function pageFromPath(pathname: string, base = ''): Page {
+  const p = stripBase(pathname, base).replace(/\/+$/, '').toLowerCase()
   if (p === '/mail' || p === '/assets' || p === '/monitors' || p === '/hosts' || p === '/settings') return p.slice(1) as Page
   return 'notes'
 }
 
-export function pathForPage(page: Page): string {
-  return PATHS[page]
+export function pathForPage(page: Page, base = ''): string {
+  return base.replace(/\/+$/, '') + PATHS[page]
 }

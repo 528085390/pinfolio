@@ -32,6 +32,18 @@ test('pathForPage：每个页面都有规范路径', () => {
   assert.equal(pathForPage('notes'), '/notes')
 })
 
+test('子路径部署：base 前缀可剥可加', () => {
+  assert.equal(pageFromPath('/pinfolio/mail', '/pinfolio/'), 'mail')
+  assert.equal(pageFromPath('/pinfolio', '/pinfolio/'), 'notes')
+  assert.equal(pageFromPath('/pinfolio/', '/pinfolio/'), 'notes')
+  assert.equal(pageFromPath('/pinfolio/mail/', '/pinfolio/'), 'mail')
+  // 前缀没命中就按原路径判断，别把 /mailx 当成 base 之外的怪路径
+  assert.equal(pageFromPath('/mail', '/pinfolio/'), 'mail')
+  assert.equal(pathForPage('mail', '/pinfolio/'), '/pinfolio/mail')
+  assert.equal(pathForPage('notes', '/pinfolio'), '/pinfolio/notes')
+  assert.equal(pathForPage('notes', '/'), '/notes')
+})
+
 test('PATHS / TITLES：键集合一致', () => {
   assert.deepEqual(Object.keys(PATHS).sort(), Object.keys(TITLES).sort())
   assert.equal(TITLES.monitors, '观测台')

@@ -1,5 +1,6 @@
 import { Activity, LogOut, Mail as MailIcon, Moon, Package, Pin, Server, Settings, StickyNote, Sun } from 'lucide-react'
 import { cx, type HostSummary, type MonitorSummary, type Stats } from '../lib/api'
+import { API_BASE } from '../lib/api/http'
 import { Button } from '../components/ui'
 import type { Page } from '../lib/router'
 import type { MailSummary } from './titles'
@@ -70,7 +71,7 @@ export function Sidebar({ page, setPage, stats, mailSum, mon, host, dark, onTogg
             icon
             title="退出登录"
             onClick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' })
+              await fetch(API_BASE + '/auth/logout', { method: 'POST' })
               location.reload()
             }}
           >

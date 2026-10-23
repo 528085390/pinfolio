@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Pin } from 'lucide-react'
+import { API_BASE } from '../lib/api/http'
 
 // 登录 / 首次设置密码。两条路径共用一张表单，差别只在标题与校验。
 export function AuthPage({ mode, onDone }: { mode: 'login' | 'setup'; onDone: () => void }) {
@@ -17,7 +18,7 @@ export function AuthPage({ mode, onDone }: { mode: 'login' | 'setup'; onDone: ()
     if (!pw) { setErr('请输入密码'); return }
     setBusy(true)
     try {
-      const res = await fetch('/api/auth/' + (setup ? 'setup' : 'login'), {
+      const res = await fetch(API_BASE + '/auth/' + (setup ? 'setup' : 'login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pw }),

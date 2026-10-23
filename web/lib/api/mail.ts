@@ -1,4 +1,4 @@
-import { request } from './http'
+import { API_BASE, request } from './http'
 
 export type MailSecurity = 'ssl' | 'starttls' | 'none'
 export type MailAccount = {
@@ -68,7 +68,7 @@ export const mailApi = {
   message: (p: { account: number; folder: string; uid: number }) =>
     request<MailMessage>('/mail/message?account=' + p.account + '&folder=' + encodeURIComponent(p.folder) + '&uid=' + p.uid),
   attachmentUrl: (p: { account: number; folder: string; uid: number; index: number }) =>
-    '/api/mail/attachment?account=' + p.account + '&folder=' + encodeURIComponent(p.folder) + '&uid=' + p.uid + '&index=' + p.index,
+    API_BASE + '/mail/attachment?account=' + p.account + '&folder=' + encodeURIComponent(p.folder) + '&uid=' + p.uid + '&index=' + p.index,
   markRead: (p: { account: number; folder: string; uid: number }) =>
     request<{ ok: boolean; marked: number }>('/mail/local-read', { method: 'POST', body: JSON.stringify(p) }),
   clearLocalRead: (account: 'all' | number = 'all') =>
