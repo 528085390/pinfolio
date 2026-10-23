@@ -18,6 +18,7 @@ const MIME: Record<string, string> = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 }
 
 /** 托管 dist/web：命中文件就给文件，没扩展名的路径回 index.html（前端路由接管）。 */
@@ -30,9 +31,11 @@ export function mountStatic(app: Hono) {
     if (!file.startsWith(WEB_DIR)) return c.text('forbidden', 403)
     try {
       const buf = await readFile(file)
+      // 带哈希的 assets 可以长缓存；壳、manifest、图标都是固定文件名，改了要能立刻生效。
+      const cacheable = !(p === '/index.html' || p.endsWith('.webmanifest') || p.startsWith('/icons/') || p === '/apple-touch-icon.png')
       return c.body(buf, 200, {
         'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
-        'Cache-Control': p === '/index.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+        'Cache-Control': cacheable ? 'public, max-age=31536000, immutable' : 'no-cache',
       })
     } catch {
       if (extname(p)) return c.text('not found', 404)
