@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 const B = 'http://127.0.0.1:7788'
 const api = async (p, o) => { const r = await fetch(B + p, { headers: { 'Content-Type': 'application/json' }, ...o }); return r.json() }
@@ -24,6 +25,7 @@ async function apiNotes(archived) {
 }
 
 try {
+  await login(page)
   await page.goto(B + '/', { waitUntil: 'networkidle' })
 
   // ---- 1. 默认列表：只有「归档」，没有「删除」 ----

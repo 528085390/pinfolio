@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 const B = 'http://127.0.0.1:7788'
 const browser = await chromium.launch({ executablePath: exe })
@@ -28,6 +29,7 @@ async function nav(label) {
 
 try {
   // ---- 1. 根路径归一到 /notes，且仍停在便签 ----
+  await login(page)
   await page.goto(B + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(300)
   ok('/ 归一成 /notes', path() === '/notes', path())
@@ -56,6 +58,7 @@ try {
   ok('刷新后侧栏高亮观测', (await activeNav()) === '观测', await activeNav())
 
   // ---- 5. 直接打开 /monitors（深链）----
+  await login(page)
   await page.goto(B + '/monitors', { waitUntil: 'networkidle' })
   await page.waitForTimeout(600)
   ok('深链 /monitors 直接进观测页', await onMonitors())
@@ -74,6 +77,7 @@ try {
   ok('后退后渲染观测页', await onMonitors())
 
   // ---- 8. 未知路径归一到便签 ----
+  await login(page)
   await page.goto(B + '/whatever-xyz', { waitUntil: 'networkidle' })
   await page.waitForTimeout(400)
   ok('未知路径归一成 /notes', path() === '/notes', path())

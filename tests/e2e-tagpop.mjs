@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 // 便签 composer「标签」弹层：不能被滚动容器裁掉一半（2026-10-21 用户报「标签被遮住一半」）
 import { chromium } from 'playwright-core'
 
@@ -55,6 +56,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { 
   const page = await ctx.newPage()
   page.on('console', (mm) => { if (mm.type() === 'error') errors.push('console: ' + mm.text()) })
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
+  await login(page)
   await page.goto(BASE + '/notes', { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
 
@@ -115,6 +117,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { 
   const page = await ctx.newPage()
   page.on('console', (mm) => { if (mm.type() === 'error') errors.push('console: ' + mm.text()) })
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
+  await login(page)
   await page.goto(BASE + '/notes', { waitUntil: 'networkidle' })
   await page.waitForTimeout(400)
   // 用真实键盘输入（fill 不会触发 React 的 onChange，textarea 不会自动长高）

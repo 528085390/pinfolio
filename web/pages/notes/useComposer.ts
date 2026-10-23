@@ -18,6 +18,8 @@ export function useComposer({ reload, refreshMeta, onError }: Options) {
   const [saving, setSaving] = useState(false)
   const [tagMenu, setTagMenu] = useState(false)
   const [tagPopPlacement, setTagPopPlacement] = useState<{ dir: 'up' | 'down'; maxHeight: number }>({ dir: 'up', maxHeight: 260 })
+  // 弹层打开的时刻，用来忽略「打开瞬间的滚动」（见下面 onScroll）
+  const openedAt = useRef(0)
   const [newTagOpen, setNewTagOpen] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState('#b45309')
@@ -74,6 +76,7 @@ export function useComposer({ reload, refreshMeta, onError }: Options) {
       setTagPopPlacement({ dir, maxHeight: Math.max(96, Math.min(320, Math.round(space))) })
     }
     setTagMenu(true)
+    openedAt.current = Date.now()
   }
 
   // 弹层开着时：点弹层外任意地方 / Esc / 页面滚动 都收起（2026-10-21 用户要求「点标签栏以外就缩回去」）
@@ -88,9 +91,12 @@ export function useComposer({ reload, refreshMeta, onError }: Options) {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') setTagMenu(false)
     }
-    // scroll 不冒泡但会捕获：.content 滚动要收起，弹层自己列表的滚动不能收起
+    // scroll 不冒泡但会捕获：.content 滚动要收起，弹层自己列表的滚动不能收起。
+    // 刚打开的头 250ms 忽略滚动：点按钮时浏览器/Playwright 会把按钮滚进视口，
+    // 那个 scroll 事件可能晚于本 effect 到达，不放过它就会「刚打开就自己关掉」。
     function onScroll(e: Event) {
       if (inside(e.target)) return
+      if (Date.now() - openedAt.current < 250) return
       setTagMenu(false)
     }
     document.addEventListener('pointerdown', onPointerDown, true)

@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 const B = 'http://127.0.0.1:7788'
 const api = async (p, o) => { const r = await fetch(B + p, { headers: { 'Content-Type': 'application/json' }, ...o }); return r.json() }
@@ -11,6 +12,7 @@ const results = []
 const ok = (name, cond) => results.push((cond ? 'PASS ' : 'FAIL ') + name)
 const marker = 'E2E完成-' + Date.now()
 try {
+  await login(page)
   await page.goto(B + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
   await page.fill('.composer textarea', marker + ' #测试')

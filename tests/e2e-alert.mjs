@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 // 观测异常通知端到端验收：右上角弹窗 / 恢复自动关闭 / 点 × 关 / 点击跳对应卡片
 // 用 page.route 伪造 /api/monitors，不真弄坏 Kuma；用 page.clock 快进 30 秒轮询。
 // 运行：
@@ -73,6 +74,7 @@ const advance = async (rounds = 1) => {
 }
 const alertCount = () => page.locator('.alert-item').count()
 
+await login(page)
 await page.goto(BASE + '/notes', { waitUntil: 'domcontentloaded' })
 await loaded()
 

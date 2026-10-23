@@ -56,11 +56,13 @@ export async function authMiddleware(c: Context, next: Next) {
     return c.json({ error: 'unauthorized' }, 401)
   }
 
-  // CSRF：写接口只收 JSON（跨站表单发不出这个 Content-Type）
+  // CSRF：带 body 的写接口只收 JSON（跨站表单发不出这个 Content-Type）。
+  // 没 body 的写（DELETE / 空 POST）表单本来就伪造不了，别拿 415 卡住它们。
   if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const hasBody = Number(c.req.header('content-length') ?? 0) > 0 || Boolean(c.req.header('transfer-encoding'))
     const ct = (c.req.header('content-type') ?? '').toLowerCase()
     const exempt = NO_BODY_OK.some(([m, p]) => m === method && p === path)
-    if (!exempt && !ct.includes('application/json')) return c.json({ error: 'unsupported media type' }, 415)
+    if (hasBody && !exempt && !ct.includes('application/json')) return c.json({ error: 'unsupported media type' }, 415)
   }
 
   const token = parseCookies(c.req.header('cookie') ?? '')[COOKIE_NAME]

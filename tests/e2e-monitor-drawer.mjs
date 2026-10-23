@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
@@ -50,6 +51,7 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + 
 page.on('dialog', (d) => d.accept())
 
 try {
+  await login(page)
   await page.goto(B + '/monitors', { waitUntil: 'networkidle' })
   await page.waitForTimeout(800)
   ok('观测页渲染出卡片', (await page.locator('.monitor-card').count()) > 0, String(await page.locator('.monitor-card').count()))
@@ -240,6 +242,7 @@ try {
     const backupsBefore = countBackups()
     const newestBefore = newestBackup()
     try {
+      await login(p2)
       await p2.goto(B + '/monitors', { waitUntil: 'networkidle' })
       await p2.waitForTimeout(700)
       const card = p2.locator('.monitor-card', { hasText: nameC }).first()
@@ -290,6 +293,7 @@ try {
   p3.on('pageerror', (e) => errs3.push('pageerror: ' + e.message))
   p3.on('console', (m) => { if (m.type() === 'error') errs3.push('console: ' + m.text()) })
   try {
+    await login(p3)
     await p3.goto(B + '/monitors', { waitUntil: 'networkidle' })
     await p3.waitForTimeout(700)
     const card = p3.locator('.monitor-card', { hasText: ORIG_NAME }).first()
@@ -426,6 +430,7 @@ try {
   p4.on('pageerror', (e) => errs4.push('pageerror: ' + e.message))
   p4.on('console', (m) => { if (m.type() === 'error') errs4.push('console: ' + m.text()) })
   try {
+    await login(p4)
     await p4.goto(B + '/monitors', { waitUntil: 'networkidle' })
     await p4.waitForTimeout(700)
     await p4.locator('.monitor-card', { hasText: ORIG_NAME }).first().locator('.asset-icon').click()

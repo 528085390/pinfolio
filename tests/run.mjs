@@ -9,7 +9,10 @@
 // 说明见 tests/README.md。
 import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash, randomBytes } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { DatabaseSync } from 'node:sqlite'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -70,8 +73,32 @@ try {
   process.exit(2)
 }
 
+// 鉴权：fetch 型脚本靠 API token（写进 api_tokens，名字固定 e2e，重跑先删旧的），
+// 浏览器脚本靠 PINBOARD_PASSWORD 走登录页（见 tests/login.mjs）。
+function makeToken() {
+  if (process.env.PINBOARD_TOKEN) return process.env.PINBOARD_TOKEN
+  const file = join(process.env.PINBOARD_DATA || join(ROOT, 'data'), 'pinboard.db')
+  if (!existsSync(file)) {
+    console.error('[run] 找不到数据库 ' + file + '；设 PINBOARD_TOKEN 可跳过自动发 token')
+    process.exit(2)
+  }
+  const db = new DatabaseSync(file)
+  try {
+    db.prepare("DELETE FROM api_tokens WHERE name = 'e2e'").run()
+    const token = 'pb_' + randomBytes(32).toString('base64url')
+    db.prepare('INSERT INTO api_tokens (id, name, token_hash, created_at) VALUES (?, ?, ?, ?)')
+      .run(randomBytes(8).toString('hex'), 'e2e', createHash('sha256').update(token).digest('hex'), new Date().toISOString())
+    return token
+  } finally {
+    db.close()
+  }
+}
+
+const token = makeToken()
+const shim = pathToFileURL(join(ROOT, 'tests', 'auth-shim.mjs')).href
+
 // e2e-alert 默认打 7799；跟着当前目标实例走，避免默认值把测试引到不存在的端口。
-const env = { ...process.env, ALERT_E2E_BASE: process.env.ALERT_E2E_BASE || base }
+const env = { ...process.env, ALERT_E2E_BASE: process.env.ALERT_E2E_BASE || base, PINBOARD_TOKEN: token }
 
 const failed = []
 let passed = 0
@@ -82,7 +109,7 @@ for (const group of groups) {
     process.stdout.write('\n[run] ▶ ' + group + '/' + name + '\n')
     const started = Date.now()
     const code = await new Promise((resolve) => {
-      const child = spawn(process.execPath, [join(ROOT, 'tests', file)], {
+      const child = spawn(process.execPath, ['--import', shim, join(ROOT, 'tests', file)], {
         cwd: ROOT,
         env,
         stdio: 'inherit',

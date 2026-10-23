@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 // 便签 composer「标签」弹层：点标签栏以外 / Esc / 页面滚动 都要自动收起（2026-10-21 用户要求）
 import { chromium } from 'playwright-core'
 
@@ -16,6 +17,7 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, l
 const page = await ctx.newPage()
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
+await login(page)
 await page.goto(BASE + '/notes', { waitUntil: 'networkidle' })
 await page.waitForTimeout(400)
 

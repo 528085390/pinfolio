@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 const browser = await chromium.launch({ executablePath: exe })
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1.5, locale: 'zh-CN' })
@@ -9,6 +10,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 const fails = []
 const ok = (cond, msg) => { console.log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) fails.push(msg) }
 
+await login(page)
 await page.goto('http://127.0.0.1:7788/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(500)
 await page.click('button[title="资产台账"]')

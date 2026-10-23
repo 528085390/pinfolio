@@ -8,7 +8,9 @@ export const API_BASE = BASE.replace(/\/$/, '') + '/api'
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {}
-  if (init?.body) headers['Content-Type'] = 'application/json'
+  // 写方法一律带 JSON 头（DELETE 没有 body 也带，省得撞上服务端的 CSRF 校验）
+  const method = (init?.method ?? 'GET').toUpperCase()
+  if (init?.body || (method !== 'GET' && method !== 'HEAD')) headers['Content-Type'] = 'application/json'
   const res = await fetch(API_BASE + path, { ...init, headers: { ...headers, ...(init?.headers as any) } })
   if (!res.ok) {
     // 会话过期 / 被踢下线：通知外壳切回登录页

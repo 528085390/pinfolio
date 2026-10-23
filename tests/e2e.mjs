@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 
 import { chromium } from 'playwright-core'
 const browser = await chromium.launch({ executablePath: exe })
@@ -10,6 +11,7 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 page.on('dialog', (d) => d.accept())
 
 const ok = (name, cond) => console.log((cond ? 'PASS ' : 'FAIL ') + name)
+await login(page)
 await page.goto('http://127.0.0.1:7788/', { waitUntil: 'networkidle' })
 
 // 1. create note with tag

@@ -17,6 +17,21 @@ e2e 用 `playwright-core` 驱动本机 Chrome/Chromium，路径由 `tools/chrome
 先看环境变量 `CHROME_PATH`，没有就找 Playwright 自带的 chromium，再退到系统 Chrome。
 换机器时设 `CHROME_PATH` 即可，别改脚本。
 
+### 鉴权（2026-10-23 起）
+
+服务现在默认要登录，e2e 得带凭据，否则每个用例都会卡在登录页或 401：
+
+```powershell
+$env:PINBOARD_PASSWORD = '你的登录密码'   # 浏览器脚本走登录页（tests/login.mjs）
+pnpm test:e2e
+```
+
+- **浏览器脚本**：每个脚本在 `page.goto` 之前 `await login(page)`；换了 `ctx`/`page` 的新块也要补一次。
+- **fetch 脚本**：`tests/run.mjs` 会自动往 `api_tokens` 写一条名为 `e2e` 的 token（重跑先删旧的），
+  再通过 `--import tests/auth-shim.mjs` 给 `fetch` 自动加 `Authorization`。单独跑某个脚本时，
+  自己设 `PINBOARD_TOKEN`（`node --import tsx server/index.ts --new-token e2e` 打印一次）。
+- 实例没设密码（首次启动还没 `/setup`）时，`login()` 会直接放过，不用设这两个变量。
+
 ## 单测（`tests/unit/`，2026-10-21 新增）
 
 `pnpm test:unit` 用 Node 自带的 `node:test` 跑 `tests/unit/*.test.mts`（经 tsx 转译，零新依赖，秒级）。

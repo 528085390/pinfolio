@@ -1,4 +1,5 @@
 import { CHROME as exe } from '../tools/chrome-path.mjs';
+import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 import { createRequire } from 'node:module'
 import { startFakeImap, makeRaw } from './fakeimap/server.mjs'
@@ -60,6 +61,7 @@ const waitFirst = async (subject) => {
 
 try {
   // ---------- 1. 空态 + 侧栏位置 ----------
+  await login(page)
   await page.goto(B + '/mail', { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
   ok('深链 /mail 停在邮件页', new URL(page.url()).pathname === '/mail', page.url())
@@ -257,6 +259,7 @@ try {
       if (u.includes('/api/mail/messages?') && u.includes('fresh=1')) autoFresh++
     })
     // ?poll=1500：把 60 秒的轮询间隔缩短，只为测试；不传就是默认 60 秒
+    await login(p2)
     await p2.goto(B + '/mail?poll=1500', { waitUntil: 'domcontentloaded' })
     await p2.waitForSelector('.mail-row', { timeout: 20000 })
     const stamp0 = await p2.evaluate(() => document.querySelector('.mail-updated')?.textContent?.trim() || '')
