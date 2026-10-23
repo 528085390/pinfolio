@@ -2,6 +2,7 @@ import type { FieldDef, Stats, Tag } from '../lib/api'
 import { AppearanceCard } from './settings/AppearanceCard'
 import { DataCard } from './settings/DataCard'
 import { SecurityCard } from './settings/SecurityCard'
+import { TunnelCard } from './settings/TunnelCard'
 import { FieldsCard } from './settings/FieldsCard'
 import { TagsCard } from './settings/TagsCard'
 import { useSettings } from './settings/useSettings'
@@ -26,6 +27,7 @@ export function SettingsPage({ tags, fields, stats, refreshMeta, theme, setTheme
       <TagsCard s={s} tags={tags} />
       <DataCard s={s} empty={empty} />
       <SecurityCard />
+      <TunnelCard />
     </div>
   )
 }

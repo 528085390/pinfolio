@@ -1,12 +1,14 @@
 import { Hono } from 'hono'
-import { DB_PATH, all, get, nowIso, run, setAssetTags, syncNoteTags } from '../db.js'
+import { DB_PATH, all, db, get, nowIso, run, setAssetTags, syncNoteTags } from '../db.js'
 import { hydrateAssets, hydrateNotes, type AssetRow, type NoteRow } from '../hydrate.js'
 import { daysLeft } from '../dates.js'
+import { instanceId } from '../tunnel.js'
 
 // 不属于某个具体资源的杂项接口：健康检查、启动引导、全局搜索、统计、导出、示例数据。
 export const metaRoute = new Hono()
 
-metaRoute.get('/health', (c) => c.json({ ok: true }))
+// id = 本机实例 id，公网映射探活靠它确认「这条路通到的是我」
+metaRoute.get('/health', (c) => c.json({ ok: true, id: instanceId(db) }))
 
 metaRoute.get('/bootstrap', (c) => {
   const tags = all<any>([

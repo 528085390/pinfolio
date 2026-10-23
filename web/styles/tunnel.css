@@ -1,0 +1,27 @@
+/* 设置页「公网访问」卡片 */
+.tunnel-row { display: flex; gap: 8px; margin-top: 10px; }
+.tunnel-row .input { flex: 1 1 auto; min-width: 0; }
+.tunnel-row .btn { flex: none; }
+
+.tunnel-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; }
+.tunnel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.tunnel-dot.on { background: var(--ok, #2e9e5b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok, #2e9e5b) 18%, transparent); }
+.tunnel-dot.off { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+.tunnel-state { font-weight: 600; }
+.tunnel-meta { color: var(--muted); }
+.tunnel-err { margin-top: 8px; font-size: 12px; color: var(--danger); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.tunnel-msg { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+.tunnel-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+.tunnel-help { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.tunnel-help summary { cursor: pointer; font-size: 12.5px; color: var(--ink-2); }
+.tunnel-pre {
+  margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2);
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55; overflow-x: auto; white-space: pre;
+}
+
+@media (max-width: 560px) {
+  .tunnel-row { flex-wrap: wrap; }
+  .tunnel-row .btn { width: 100%; }
+}

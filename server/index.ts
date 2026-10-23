@@ -13,6 +13,8 @@ import { metaRoute } from './routes/meta.js'
 import { monitorsRoute } from './kuma/routes.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
 import { hostsRoute } from './metrics/routes.js'
+import { tunnelRoute } from './routes/tunnel.js'
+import { startTunnelProbe } from './tunnel.js'
 import { startMetricsPoller } from './metrics/poll.js'
 import { scheduleSnapshot, writeSnapshot } from './snapshot.js'
 import { mountStatic } from './static.js'
@@ -39,6 +41,7 @@ api.route('/fields', fieldsRoute)
 api.route('/monitors', monitorsRoute)
 api.route('/mail', mailRoute)
 api.route('/hosts', hostsRoute)
+api.route('/tunnel', tunnelRoute)
 app.route('/api', api)
 
 mountStatic(app)
@@ -82,6 +85,8 @@ serve({ fetch: app.fetch, port, hostname }, (info) => {
   void writeSnapshot()
   // 主机指标：开机拉一次，之后每 5 分钟拉一次（见 server/metrics/poll.ts）
   startMetricsPoller()
+  // 公网映射探活：配了地址就每 60s 自检一次（见 server/tunnel.ts）
+  startTunnelProbe()
 })
 
 // 退出时断开 IMAP 连接（IMAP 是长连接，进程被 Ctrl+C / SIGTERM 时礼貌收尾）
