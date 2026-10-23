@@ -1,9 +1,9 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 // 便签 composer「标签」弹层：点标签栏以外 / Esc / 页面滚动 都要自动收起（2026-10-21 用户要求）
 import { chromium } from 'playwright-core'
 
-const BASE = 'http://127.0.0.1:7788'
 let pass = 0
 const fails = []
 function ok(name, cond, detail) {

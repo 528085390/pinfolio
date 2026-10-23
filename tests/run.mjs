@@ -1,20 +1,30 @@
 #!/usr/bin/env node
 // pinboard e2e 串行 runner。
 //
-//   node tests/run.mjs                  # core + monitor（需要 pinboard 在 7788、Kuma 在 3001）
-//   node tests/run.mjs --only=core      # 只跑便签/资产/路由
-//   node tests/run.mjs --only=mail      # 邮件套件，必须先设 MAIL_E2E_BASE 指向隔离实例
-//   node tests/run.mjs --only=all       # 全部（mail 仍需隔离实例）
+//   node tests/run.mjs                 # core + monitor：自己起一个隔离实例，跑完删
+//   node tests/run.mjs --only=core     # 只跑便签/资产/路由
+//   node tests/run.mjs --only=mail     # 邮件套件，另需 MAIL_E2E_BASE 指向隔离实例
+//   node tests/run.mjs --only=all
+//   node tests/run.mjs --keep          # 保留临时数据目录，排查用
+//   E2E_BASE=http://127.0.0.1:7791 node tests/run.mjs   # 打已有实例，不再自己起
 //
-// 说明见 tests/README.md。
+// **规矩：测试数据不许和真实数据放一起。** 默认模式把 data/ 快照到临时目录、
+// 清掉密码/会话/token 再起一个私有实例（PINBOARD_DATA 指向临时目录），
+// 跑完连目录一起删——真实库一个字节都不碰。说明见 tests/README.md。
 import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { DatabaseSync } from 'node:sqlite'
+import {
+  closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { createServer } from 'node:net'
+import { DatabaseSync, backup } from 'node:sqlite'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const KEEP = process.argv.includes('--keep')
+const TEST_PASSWORD = 'e2e-password'
 
 const SUITES = {
   core: [
@@ -61,28 +71,112 @@ if (groups.includes('mail') && !process.env.MAIL_E2E_BASE) {
   process.exit(2)
 }
 
-const base = (process.env.MAIL_E2E_BASE || process.env.E2E_BASE || 'http://127.0.0.1:7788').replace(/\/+$/, '')
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const srv = createServer()
+    srv.on('error', reject)
+    srv.listen(0, '127.0.0.1', () => {
+      const port = srv.address().port
+      srv.close(() => resolve(port))
+    })
+  })
+}
 
-try {
-  const r = await fetch(base + '/api/health', { signal: AbortSignal.timeout(5000) })
-  const j = await r.json().catch(() => null)
-  if (!r.ok || !j?.ok) throw new Error('HTTP ' + r.status)
-} catch (e) {
-  console.error('[run] 连不上 ' + base + '/api/health：' + e.message)
-  console.error('[run] 先启动 pinboard（pnpm start），邮件套件按 tests/README.md 起隔离实例。')
-  process.exit(2)
+function tailLog(file) {
+  try {
+    const lines = readFileSync(file, 'utf8').trimEnd().split('\n')
+    return lines.slice(-15).join('\n')
+  } catch {
+    return '(没有日志)'
+  }
+}
+
+async function waitHealth(base, child, logPath, timeoutMs = 90000) {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    if (child.exitCode !== null) throw new Error('实例退出（exit ' + child.exitCode + '）：\n' + tailLog(logPath))
+    try {
+      const r = await fetch(base + '/api/health', { signal: AbortSignal.timeout(2000) })
+      if (r.ok) return
+    } catch {
+      // 还没起来
+    }
+    await new Promise((r) => setTimeout(r, 300))
+  }
+  throw new Error('等不到 ' + base + '/api/health：\n' + tailLog(logPath))
+}
+
+// 起一个私有实例：真实库只读快照到临时目录，配置小文件照搬，身份（密码/会话/token/公网地址）清空。
+async function startIsolated() {
+  const dataDir = join(tmpdir(), 'pinfolio-e2e-' + Date.now())
+  mkdirSync(dataDir, { recursive: true })
+
+  const liveDir = join(ROOT, 'data')
+  if (existsSync(liveDir)) {
+    for (const f of readdirSync(liveDir)) {
+      if (f.startsWith('pinboard.db')) continue
+      const s = join(liveDir, f)
+      if (statSync(s).isFile()) copyFileSync(s, join(dataDir, f))
+    }
+  }
+
+  const tempDb = join(dataDir, 'pinboard.db')
+  const liveDb = join(liveDir, 'pinboard.db')
+  if (existsSync(liveDb)) {
+    const src = new DatabaseSync(liveDb)
+    try {
+      await backup(src, tempDb) // WAL 下热拷会丢数据，必须走 backup()
+    } finally {
+      src.close()
+    }
+  }
+  if (existsSync(tempDb)) {
+    const db = new DatabaseSync(tempDb)
+    try {
+      // 不带真实密码、会话、token；也不带公网地址（免得隔离实例去探真实域名）
+      db.exec("DELETE FROM settings WHERE key = 'password_hash' OR key LIKE 'tunnel.%'")
+      db.exec('DELETE FROM sessions')
+      db.exec('DELETE FROM api_tokens')
+    } finally {
+      db.close()
+    }
+  }
+
+  const port = await freePort()
+  const logPath = join(dataDir, 'server.log')
+  const fd = openSync(logPath, 'a')
+  const child = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PINBOARD_DATA: dataDir,
+      PORT: String(port),
+      HOST: '127.0.0.1',
+      PINBOARD_PASSWORD: TEST_PASSWORD,
+      PINBOARD_TOKEN: '',
+      TRUST_PROXY: '',
+      E2E_BASE: '',
+      MAIL_E2E_BASE: '',
+    },
+    stdio: ['ignore', fd, fd],
+    windowsHide: true,
+  })
+  closeSync(fd)
+
+  const base = 'http://127.0.0.1:' + port
+  await waitHealth(base, child, logPath)
+  return { base, dataDir, child, logPath }
 }
 
 // 鉴权：fetch 型脚本靠 API token（写进 api_tokens，名字固定 e2e，重跑先删旧的），
 // 浏览器脚本靠 PINBOARD_PASSWORD 走登录页（见 tests/login.mjs）。
-function makeToken() {
+function makeToken(dbFile) {
   if (process.env.PINBOARD_TOKEN) return process.env.PINBOARD_TOKEN
-  const file = join(process.env.PINBOARD_DATA || join(ROOT, 'data'), 'pinboard.db')
-  if (!existsSync(file)) {
-    console.error('[run] 找不到数据库 ' + file + '；设 PINBOARD_TOKEN 可跳过自动发 token')
+  if (!existsSync(dbFile)) {
+    console.error('[run] 找不到数据库 ' + dbFile + '；设 PINBOARD_TOKEN 可跳过自动发 token')
     process.exit(2)
   }
-  const db = new DatabaseSync(file)
+  const db = new DatabaseSync(dbFile)
   try {
     db.prepare("DELETE FROM api_tokens WHERE name = 'e2e'").run()
     const token = 'pb_' + randomBytes(32).toString('base64url')
@@ -94,34 +188,89 @@ function makeToken() {
   }
 }
 
-const token = makeToken()
+let instance = null
+async function stopInstance() {
+  if (!instance) return
+  const { child, dataDir } = instance
+  instance = null
+  if (child.exitCode === null) {
+    child.kill()
+    await new Promise((resolve) => {
+      const t = setTimeout(resolve, 5000)
+      child.once('exit', () => { clearTimeout(t); resolve() })
+    })
+  }
+  if (KEEP) {
+    console.log('[run] --keep：保留临时数据目录 ' + dataDir)
+    return
+  }
+  try {
+    rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 })
+  } catch (e) {
+    console.warn('[run] 临时目录没删干净：' + dataDir + '（' + e.message + '）')
+  }
+}
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { await stopInstance(); process.exit(130) })
+
+const external = (process.env.E2E_BASE || '').replace(/\/+$/, '')
+let base
+if (external) {
+  if (/:7788\b/.test(external)) {
+    console.warn('[run] ⚠ E2E_BASE 指向 7788（通常是真实实例）：测试会往那个库里写便签/资产，确认它不是你自己的库。')
+  }
+  try {
+    const r = await fetch(external + '/api/health', { signal: AbortSignal.timeout(5000) })
+    if (!r.ok) throw new Error('HTTP ' + r.status)
+  } catch (e) {
+    console.error('[run] 连不上 ' + external + '/api/health：' + e.message)
+    process.exit(2)
+  }
+  base = external
+  console.log('[run] 用已有实例 ' + base + '（不再自己起隔离实例）')
+} else {
+  instance = await startIsolated()
+  base = instance.base
+  console.log('[run] 隔离实例 ' + base + '（数据 ' + instance.dataDir + '，跑完删除）')
+}
+
+const token = makeToken(join(instance ? instance.dataDir : (process.env.PINBOARD_DATA || join(ROOT, 'data')), 'pinboard.db'))
 const shim = pathToFileURL(join(ROOT, 'tests', 'auth-shim.mjs')).href
 
 // e2e-alert 默认打 7799；跟着当前目标实例走，避免默认值把测试引到不存在的端口。
-const env = { ...process.env, ALERT_E2E_BASE: process.env.ALERT_E2E_BASE || base, PINBOARD_TOKEN: token }
+const env = {
+  ...process.env,
+  E2E_BASE: base,
+  ALERT_E2E_BASE: process.env.ALERT_E2E_BASE || base,
+  PINBOARD_TOKEN: token,
+  PINBOARD_PASSWORD: instance ? TEST_PASSWORD : (process.env.PINBOARD_PASSWORD || ''),
+}
 
 const failed = []
 let passed = 0
 const startedAll = Date.now()
 
-for (const group of groups) {
-  for (const [name, file] of SUITES[group]) {
-    process.stdout.write('\n[run] ▶ ' + group + '/' + name + '\n')
-    const started = Date.now()
-    const code = await new Promise((resolve) => {
-      const child = spawn(process.execPath, ['--import', shim, join(ROOT, 'tests', file)], {
-        cwd: ROOT,
-        env,
-        stdio: 'inherit',
-        windowsHide: true,
+try {
+  for (const group of groups) {
+    for (const [name, file] of SUITES[group]) {
+      process.stdout.write('\n[run] ▶ ' + group + '/' + name + '\n')
+      const started = Date.now()
+      const code = await new Promise((resolve) => {
+        const child = spawn(process.execPath, ['--import', shim, join(ROOT, 'tests', file)], {
+          cwd: ROOT,
+          env,
+          stdio: 'inherit',
+          windowsHide: true,
+        })
+        child.on('error', (e) => { console.error('[run] 启动失败：' + e.message); resolve(1) })
+        child.on('exit', (c, signal) => resolve(c ?? (signal ? 1 : 0)))
       })
-      child.on('error', (e) => { console.error('[run] 启动失败：' + e.message); resolve(1) })
-      child.on('exit', (c, signal) => resolve(c ?? (signal ? 1 : 0)))
-    })
-    const ms = Date.now() - started
-    if (code === 0) { passed += 1; console.log('[run] ✔ ' + name + ' (' + ms + 'ms)') }
-    else { failed.push(name); console.log('[run] ✘ ' + name + ' (exit ' + code + ', ' + ms + 'ms)') }
+      const ms = Date.now() - started
+      if (code === 0) { passed += 1; console.log('[run] ✔ ' + name + ' (' + ms + 'ms)') }
+      else { failed.push(name); console.log('[run] ✘ ' + name + ' (exit ' + code + ', ' + ms + 'ms)') }
+    }
   }
+} finally {
+  await stopInstance()
 }
 
 const total = passed + failed.length

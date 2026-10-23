@@ -1,4 +1,5 @@
-const B = 'http://127.0.0.1:7788'
+import { BASE } from './env.mjs'
+const B = BASE
 const j = async (p, o) => { const r = await fetch(B + p, { headers: { 'Content-Type': 'application/json' }, ...o }); const t = await r.text(); if (!r.ok) throw new Error(p + ' ' + r.status + ' ' + t); return t ? JSON.parse(t) : null }
 const tags = await j('/api/tags')
 console.log('tags:', tags.map(t => t.name + '(' + t.notes + ')').join(' '))

@@ -1,10 +1,10 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 // 观测台心跳色条「悬停看这一拍」的端到端验收：时间 / 状态 / 响应 / 消息 + 提示框不被裁
 // 运行（在项目根目录）：node tests\e2e-monitor-beat-tip.mjs
 import { chromium } from 'playwright-core'
 
-const BASE = 'http://127.0.0.1:7788'
 const VW = 1440
 const VH = 950
 

@@ -1,9 +1,9 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 // 便签 composer「标签」弹层：不能被滚动容器裁掉一半（2026-10-21 用户报「标签被遮住一半」）
 import { chromium } from 'playwright-core'
 
-const BASE = 'http://127.0.0.1:7788'
 let pass = 0
 const fails = []
 function ok(name, cond, detail) {

@@ -1,5 +1,6 @@
+import { BASE } from './env.mjs'
 
-const base = 'http://127.0.0.1:7788/api'
+const base = BASE + '/api'
 const j = async (p, init) => {
   const r = await fetch(base + p, init ? { ...init, headers: { 'Content-Type': 'application/json' } } : undefined)
   const t = await r.text()

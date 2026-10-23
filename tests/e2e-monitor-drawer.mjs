@@ -1,10 +1,11 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-const B = 'http://127.0.0.1:7788'
+const B = BASE
 const results = []
 const ok = (name, cond, extra) => results.push((cond ? 'PASS ' : 'FAIL ') + name + (cond || !extra ? '' : '  → ' + extra))
 
@@ -131,7 +132,7 @@ const findByName = (pl, name) => (pl?.groups || []).flatMap((g) => g.monitors).f
 function payloadFile(name, tag, active = false) {
   const p = path.join(TMPDIR, 'e2e-payload-' + tag + '-' + Date.now() + '.json')
   writeFileSync(p, JSON.stringify({
-    type: 'http', name, url: 'http://127.0.0.1:7788/api/stats', interval: 60, retryInterval: 60,
+    type: 'http', name, url: BASE + '/api/stats', interval: 60, retryInterval: 60,
     maxretries: 0, timeout: 20, active, upsideDown: false, accepted_statuscodes: ['200-299'], ignoreTls: false,
   }, null, 2))
   return p

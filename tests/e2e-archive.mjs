@@ -1,7 +1,8 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
-const B = 'http://127.0.0.1:7788'
+const B = BASE
 const api = async (p, o) => { const r = await fetch(B + p, { headers: { 'Content-Type': 'application/json' }, ...o }); return r.json() }
 const browser = await chromium.launch({ executablePath: exe })
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 950 }, deviceScaleFactor: 1.5, locale: 'zh-CN' })).newPage()

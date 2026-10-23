@@ -1,3 +1,4 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
@@ -11,7 +12,7 @@ const { ImapFlow } = requireFake('imapflow')
 // 默认打 7788（正常实例），但可以指到隔离实例上跑：
 //   $env:PINBOARD_DATA='...\tmp\e2e-data'; $env:PORT='7789'; pnpm start
 //   $env:MAIL_E2E_BASE='http://127.0.0.1:7789'; node tests/e2e-mail.mjs
-const B = process.env.MAIL_E2E_BASE || 'http://127.0.0.1:7788'
+const B = process.env.MAIL_E2E_BASE || BASE
 
 const fake = await startFakeImap(120)
 const PORT = fake.port

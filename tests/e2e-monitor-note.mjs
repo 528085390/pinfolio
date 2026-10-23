@@ -1,10 +1,10 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 // 观测项「补充观测信息」端到端验收：A 固定说明（悬停）+ B 本次结果（卡片常显）
 // 运行（在项目根目录）：node tests\e2e-monitor-note.mjs
 import { chromium } from 'playwright-core'
 
-const BASE = 'http://127.0.0.1:7788'
 // 名字 2026-10-22 全部改成可读名（<组短名> / <服务名>），别写回旧名
 // 目标/对照项默认自动挑，别写死名字（每个人 Kuma 里的观测项不一样；可用 E2E_MONITOR_NAME / E2E_OTHER_NAME 指定）
 const TARGET_NAME = process.env.E2E_MONITOR_NAME || ''

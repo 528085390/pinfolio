@@ -4,7 +4,7 @@
 本机单人用的「pinfolio」：随手写 Markdown 便签、用 `#标签` 自动归类、置顶/搜索/归档，另有一个资产台账页登记设备/服务器/账号/域名（自定义字段、到期提醒、价格统计），便签可以钉到某条资产上。2026-10-21 又加了一页**只读邮件**：把 Gmail / QQ / 163 等多个信箱合成一个收件箱，点开即读，且**不改动服务器上的任何状态**。2026-10-22 再加一页**主机**：6 台服务器每 5 分钟 push 一份 CPU / 内存 / 磁盘 / 服务状态，这里汇总展示 + 24 小时曲线。单进程单端口，数据只存本机 SQLite。
 
 ## 背景/来源
-2026-10-19 由用户提出需求（"类似便签夹的项目，网页端，写东西订起来，加标签，再给个资产列表页"）后新建。项目位于 **`D:\pinfolio`**，与观测后端 `D:\kuma` 同属工作区根 `D:\pinfolio`，本文件是唯一工程约定。调研过 usememos/memos（时间线便签，无资产）、sysadminsmedia/homebox（资产台账，无随手记）、blinko、flatnotes，结论是没有单项目同时覆盖两边，缝合两套 Go 应用会得到两套账号/两套标签且无法互链，因此按用户选择走**单应用自研**：交互抄 Memos、数据模型抄 HomeBox，代码全部本目录自写，无第三方运行时代码拷贝。2026-10-21 用户又提出「多个邮箱合成一个收件箱」（此前在 azfree 上试过 Cypht，嫌页面太重、跨境太慢，已整体拆除），需求定稿为 `docs/mail-page-requirements.md` v1.1，随后照该文档做出只读的 `/mail` 页。
+2026-10-19 由用户提出需求（"类似便签夹的项目，网页端，写东西订起来，加标签，再给个资产列表页"）后新建。项目就在本目录（`server/` + `web/` 单进程单端口），观测后端是上层工作区里另一个进程（`kuma/`，只留 JSON API），两边代码/数据库/端口都不合并；本文件是唯一工程约定。调研过 usememos/memos（时间线便签，无资产）、sysadminsmedia/homebox（资产台账，无随手记）、blinko、flatnotes，结论是没有单项目同时覆盖两边，缝合两套 Go 应用会得到两套账号/两套标签且无法互链，因此按用户选择走**单应用自研**：交互抄 Memos、数据模型抄 HomeBox，代码全部本目录自写，无第三方运行时代码拷贝。2026-10-21 用户又提出「多个邮箱合成一个收件箱」（此前在 azfree 上试过 Cypht，嫌页面太重、跨境太慢，已整体拆除），需求定稿为 `docs/mail-page-requirements.md` v1.1，随后照该文档做出只读的 `/mail` 页。
 
 ## 内容清单
 
@@ -38,7 +38,7 @@
 环境：Node ≥ 22（用到内置 `node:sqlite`，本机 Node v24.16.0）、pnpm。无需 Docker、无需数据库服务、无需编译原生模块。
 
 ```powershell
-cd D:\pinfolio
+cd <项目目录>
 pnpm install          # 首次；pnpm 12 需 pnpm-workspace.yaml 的 allowBuilds 才放行 esbuild
 pnpm start            # 生产模式：tsx server/index.ts，访问 http://127.0.0.1:7788
 pnpm dev              # 开发模式：API 7788 + Vite 5273（/api 代理到 7788）
@@ -47,7 +47,8 @@ pnpm typecheck        # tsc --noEmit
 ```
 
 要点：
-- **只监听 127.0.0.1，没有登录/鉴权**，不要暴露到公网。
+- **默认只监听 127.0.0.1，且必须登录**（`HOST` 可覆盖，容器里设 `0.0.0.0`）。要远程访问就走反代 + HTTPS，别把 7788 裸奔到公网。
+- 密码忘了：`powershell -File tools\pinboard.ps1 stop` → `node --import tsx server/index.ts --reset-password` → `start`；给脚本发 API token：`node --import tsx server/index.ts --new-token <名字>`（明文只打印一次）。
 - 数据目录 `data/`（可用环境变量 `PINBOARD_DATA` 覆盖），库文件 `data/pinboard.db`（WAL 模式，同目录还有 -wal/-shm）。
 - 备份 = 停服务后复制 `data/`，或在设置页「导出 JSON」。
 - 改服务端代码必须重启 `pnpm start`（tsx 非 watch）；改前端需 `pnpm build` 后刷新。
@@ -68,7 +69,7 @@ pnpm typecheck        # tsc --noEmit
 —— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
 
 已知问题与坑（都踩过，勿回退）——**完整 39 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
-1. **无鉴权、只监听 127.0.0.1**：绝不做端口映射 / 公网反代（坑 6）。
+1. **默认只监听 127.0.0.1 + 必须登录**：要远程访问就前置反代并开 HTTPS（`TRUST_PROXY=1` 才读 `X-Forwarded-*`），不要直接映射 7788（坑 6）。
 2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。
 4. **Kuma 的 `editMonitor` 是全量覆盖、`toJSON()` 少 `showMsg`/`manual_status`**：PATCH 必须取整 bean、只改要改的几个字段、从状态页补 `showMsg` 再回传，否则静默清空（坑 21）。
@@ -77,7 +78,7 @@ pnpm typecheck        # tsc --noEmit
 
 ## 迁移建议
 项目已经独立在 `D:\pinfolio`，这个目录本身就能当仓库根。搬到别的机器/路径时带走：`server/`、`web/`、`tools/`、`package.json`、`pnpm-workspace.yaml`、`pnpm-lock.yaml`、`tsconfig.json`、`vite.config.ts`、`.gitignore`、`start.cmd`、`stop.cmd`、`run-pinboard.vbs`、本文件；不要带 `data/`（个人数据）、`dist/`、`logs/`、`node_modules/`、`tmp/`。
-需要改的硬编码：端口 7788（`server/index.ts` 与 `vite.config.ts` 代理）、数据目录 `data`（`server/db.ts` 的 DATA_DIR）。要给别人用需自行加登录鉴权与 HTTPS。
+需要改的硬编码：端口 7788（`server/index.ts` 与 `vite.config.ts` 代理）。端口/监听地址/数据目录都能用环境变量覆盖（`PORT` / `HOST` / `PINBOARD_DATA`）。登录鉴权已内置（首启 `/setup` 设密码，或 `PINBOARD_PASSWORD` 初始化）；HTTPS 交给前面的反代。
 邮件功能另外依赖 `imapflow` + `mailparser`（纯 JS，已在 `package.json` 里，不需要额外服务）；`tests/fakeimap/` 的假 IMAP 服务器只是测试用，搬家不用带。
 主机页的数据来自 `data/metrics.json`（拉取基址 + 6 台清单 + token，**含 token 所以没进版本库**）和 6 台机上的 `tools/node-metrics/`（`/etc/node-metrics.conf` 里的 URL 必须与它一致）；搬到别的机器时两边都要改，否则主机页只会显示「拉取失败」。`host-services.json`（服务 chip → 观测项的映射）要跟着走，缺了只是 chip 不能点，不会报错。
 「接入这台机器」的命令由 `GET /api/hosts/:id/onboard` 生成（**token 只在这一个接口出现**，`/hosts` 列表与 `SNAPSHOT.md` 里都没有）；安装器托管地址优先读 `METRICS_INSTALL_URL`，其次 `PUBLIC_URL`，都没有就按请求来源推 `<origin>/nm/node-metrics-install.sh`；换托管机改环境变量即可。加主机时顺带建的观测项走 kuma 仓库的 CLI（`KUMA_CLI` 可覆盖路径，默认 `../kuma/tools/kuma-monitor.cjs`），所以 pinboard 与 kuma 的相对位置变了要设这个环境变量，否则观测项建不出来（主机照样能加）。
@@ -92,4 +93,12 @@ pnpm typecheck        # tsc --noEmit
 
 - 便签与资产是**两个纯粹独立的页面**，不需要产生任何关联：**不要再新增任何便签↔资产联动功能，也别主动提议**。
 - `notes.asset_id` 与资产抽屉里的「关联便签」是既有的可选能力，**保留不动、不扩展**（当前 0 条便签使用）。
+
+## 硬规矩：测试数据不进真实库（用户 2026-10-23 明确）
+
+- **任何测试、一次性脚本、手工验证，都不许往 `data/pinboard.db` 里写便签 / 资产 / 标签 / 会话。** 真实库只装用户自己的数据。
+- `pnpm test:e2e`（`tests/run.mjs`）默认自己起隔离实例：用 `node:sqlite` 的 `backup()` 把真实库快照到 `%TEMP%\pinfolio-e2e-<时间戳>`，删掉 `password_hash` / `tunnel.*` / `sessions` / `api_tokens`，再起一个 `PINBOARD_DATA` 指向临时目录的私有实例，跑完连目录一起删。**真实库一个字节都不碰。**
+- 单个 e2e 脚本必须设 `E2E_BASE`（`tests/env.mjs` 没有就直接退出）；`E2E_BASE` 指到 7788 时 runner 会警告。
+- 测试需要的数据写在隔离库里（现建现删），**不要**在真实库留「测试便签」「E2E资产」这类残留。
+- 清理污染记录要先跟用户的真实数据清单比对（条数 / 标题 / id），别直接 `DELETE FROM notes`。
 

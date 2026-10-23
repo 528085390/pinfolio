@@ -1,7 +1,7 @@
+import { BASE } from './env.mjs'
 // e2e 公共登录：02 鉴权之后，浏览器脚本得先过登录页，否则每个用例都卡在找不到元素。
 // 密码从 PINBOARD_PASSWORD 读（别写进仓库）；同一 context 已登录时直接返回。
-export const E2E_BASE = (process.env.MAIL_E2E_BASE || process.env.E2E_BASE || 'http://127.0.0.1:7788')
-  .replace(/\/+$/, '')
+export const E2E_BASE = (process.env.MAIL_E2E_BASE || BASE).replace(/\/+$/, '')
 
 export async function login(page, base = E2E_BASE) {
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' })

@@ -84,11 +84,26 @@ node tests/run.mjs --only=mail
 
 | 套件 | 需要什么 |
 |---|---|
-| `core`（smoke / e2e / done / filter / archive / tagbar / router / tagpop） | pinboard 在 `http://127.0.0.1:7788` 运行；测试会自己建/删临时便签与标签 |
-| `monitor`（monitor-note / monitor-drawer / alert） | 同上；`monitor-drawer` 还需要 Kuma 在 `http://127.0.0.1:3001`，会临时建观测项并在结束时清理 |
-| `mail`（e2e-mail / mail-api-smoke） | 隔离实例 + `tests/fakeimap` 的依赖（见下） |
+| `core`（smoke / e2e / done / filter / archive / tagbar / router / tagpop） | 什么都不用准备：`run.mjs` 自己起隔离实例 |
+| `monitor`（monitor-note / monitor-drawer / alert） | 同上；`monitor-drawer` 还需要 Kuma 在 `http://127.0.0.1:3001`（它会临时建观测项并在结束时清理） |
+| `mail`（e2e-mail / mail-api-smoke） | 另需 `MAIL_E2E_BASE` 指向一个隔离实例 + `tests/fakeimap` 的依赖（见下） |
 
-`core` 与 `monitor` 里的地址是硬编码的 `127.0.0.1:7788`；只有 `mail` 与 `alert` 认环境变量。
+## 规矩：测试数据不许和真实数据放一起
+
+`run.mjs` **默认自己起一个隔离实例**，真实库只读快照、跑完连临时目录一起删：
+
+1. 用 `node:sqlite` 的 `backup()` 把 `data/pinboard.db` 快照到 `%TEMP%\pinfolio-e2e-<时间戳>`（WAL 下直接拷文件会丢数据）；
+2. 在快照里删掉 `settings.password_hash`、`tunnel.*`、`sessions`、`api_tokens`，换成测试身份（密码固定 `e2e-password`，token 每次现生成）；
+3. 选一个空闲端口起私有实例（`PINBOARD_DATA` 指向临时目录，不写 `SNAPSHOT.md`）；
+4. 跑完杀进程、删目录。**真实库一个字节都不碰。**
+
+所以 `pnpm test:e2e` 不需要先启动服务，也不需要 `PINBOARD_PASSWORD`。
+
+要打一个已经起好的实例（排查用）：`E2E_BASE=http://127.0.0.1:7791 node tests/run.mjs`。
+**`E2E_BASE` 指到 7788 时脚本会警告**——那是真实实例，测试便签/资产会写进去。
+
+单个脚本（`node tests/e2e-tagpop.mjs`）**必须**自己设 `E2E_BASE`，否则 `tests/env.mjs` 直接退出：
+宁可跑不起来，也不许把测试数据写进真库。
 
 ## 邮件套件（隔离实例）
 

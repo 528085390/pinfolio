@@ -1,3 +1,4 @@
+import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 
@@ -12,7 +13,7 @@ page.on('dialog', (d) => d.accept())
 
 const ok = (name, cond) => console.log((cond ? 'PASS ' : 'FAIL ') + name)
 await login(page)
-await page.goto('http://127.0.0.1:7788/', { waitUntil: 'networkidle' })
+await page.goto(BASE + '/', { waitUntil: 'networkidle' })
 
 // 1. create note with tag
 const marker = 'E2E便签-' + Date.now()
@@ -93,19 +94,19 @@ ok('命令面板搜索到便签', await page.locator('.palette-item').count() > 
 await page.keyboard.press('Escape')
 
 // 11. cleanup notes created by this run（此前会留脏数据在真实库里）
-const allNotes = await (await fetch('http://127.0.0.1:7788/api/notes?archived=all')).json()
+const allNotes = await (await fetch(BASE + '/api/notes?archived=all')).json()
 let cleaned = 0
 for (const n of allNotes) {
   if (n.content.includes(marker) || n.content.includes('挂在 ' + aname)) {
-    await fetch('http://127.0.0.1:7788/api/notes/' + n.id, { method: 'DELETE' })
+    await fetch(BASE + '/api/notes/' + n.id, { method: 'DELETE' })
     cleaned++
   }
 }
 // 顺手清掉测试标签（0 条便签时才删），否则下次跑「新标签」会撞 409
-const allTags = await (await fetch('http://127.0.0.1:7788/api/tags')).json()
+const allTags = await (await fetch(BASE + '/api/tags')).json()
 for (const t of allTags) {
   if ((t.name === 'e2e标签' || t.name === 'e2e临时标签') && t.notes === 0) {
-    await fetch('http://127.0.0.1:7788/api/tags/' + t.id, { method: 'DELETE' })
+    await fetch(BASE + '/api/tags/' + t.id, { method: 'DELETE' })
   }
 }
 console.log('cleaned notes:', cleaned)
