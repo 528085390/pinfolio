@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { BASE } from './base'
 import { PATHS, TITLES, pageFromPath, pathForPage, type Page } from './paths'
 
 // 页面 ↔ URL 的映射在 paths.ts（纯函数，可单测）；这里只管 React 状态与地址栏同步。
 export type { Page }
 export { pageFromPath, pathForPage } from './paths'
-
-/** 子路径部署时的前缀（Vite 的 BASE_URL，形如 '/pinfolio/' 或 '/'）。 */
-const BASE = import.meta.env.BASE_URL || '/'
 
 function applyTitle(page: Page) {
   document.title = TITLES[page] + ' · pinfolio'

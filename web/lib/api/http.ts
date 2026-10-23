@@ -1,8 +1,10 @@
+import { BASE } from '../base'
+
 /** 所有 API 请求的出口：统一拼 /api 前缀、自动带 JSON 头、把后端的 error 文案抛成 Error。 */
 export const UNAUTHORIZED_EVENT = 'pb:unauthorized'
 
-/** 部署在子路径时（PINBOARD_BASE=/pinfolio/），API 也带同一前缀，由反代剥掉。 */
-export const API_BASE = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') + '/api'
+/** 部署在子路径时（PINBOARD_BASE=/pinfolio/ 或注入的 __PB_BASE__），API 也带同一前缀，由反代剥掉。 */
+export const API_BASE = BASE.replace(/\/$/, '') + '/api'
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {}
