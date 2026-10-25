@@ -1,0 +1,49 @@
+name: pinfolio
+
+# 默认只把 7788 绑在宿主机回环上，TLS 交给前面的 Caddy（profile: tls）。
+# 想直接暴露到局域网再改 ports；不要裸奔到公网。
+
+services:
+  pinfolio:
+    image: ghcr.io/528085390/pinfolio:${PINBOARD_TAG:-latest}
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "7788"
+      PINBOARD_DATA: /data
+      TRUST_PROXY: "1"
+      TZ: ${TZ:-Asia/Shanghai}
+      # 首启即设密码，跳过 /setup（也可以第一次打开网页自己设）
+      # PINBOARD_PASSWORD: change-me-please
+      # 静态加密主密钥（32 字节 base64）。不设就在 /data/secret.key 里自动生成，
+      # 那个文件丢了邮箱密码 / Kuma 口令就解不开了 —— 备份要连它一起备。
+      # PINBOARD_SECRET: "base64:..."
+      # 关掉每天 03:00 的自动备份
+      # BACKUP: "0"
+    volumes:
+      - pinfolio-data:/data
+    ports:
+      - "127.0.0.1:7788:7788"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - pinfolio
+    environment:
+      PINBOARD_DOMAIN: ${PINBOARD_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  pinfolio-data:
+  caddy-data:
+  caddy-config:

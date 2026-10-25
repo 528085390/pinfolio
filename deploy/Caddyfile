@@ -1,0 +1,6 @@
+# Caddy 自动申请证书；域名由 .env / 环境变量 PINBOARD_DOMAIN 决定。
+# 用法：PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d
+{$PINBOARD_DOMAIN:localhost} {
+	encode zstd gzip
+	reverse_proxy pinfolio:7788
+}

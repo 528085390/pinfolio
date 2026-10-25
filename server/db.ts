@@ -21,7 +21,7 @@ db.exec('PRAGMA foreign_keys = ON')
 db.exec('PRAGMA busy_timeout = 5000')
 
 // 表结构演进走有序迁移（server/migrations.ts）：每步一个事务，只追加、不改旧步。
-migrate(db)
+migrate(db, undefined, { dataDir: DATA_DIR })
 
 export const nowIso = () => new Date().toISOString()
 

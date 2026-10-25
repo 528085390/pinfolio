@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { snapshotBeforeMigrate } from './backup/premigrate.js'
 import { CORE_SCHEMA } from './schema/core.js'
 import { MAIL_SCHEMA } from './schema/mail.js'
 import { METRICS_SCHEMA } from './schema/metrics.js'
@@ -78,11 +79,26 @@ export const MIGRATIONS: Migration[] = [
   { version: 2, up: v2 },
 ]
 
-export function migrate(db: DatabaseSync, migrations: Migration[] = MIGRATIONS): number {
+export type MigrateOptions = {
+  /** 给了就拍迁移前快照（data/backups/pre-migrate-v<旧版本>-<时间戳>.db，保留 5 份） */
+  dataDir?: string
+  keep?: number
+}
+
+export function migrate(db: DatabaseSync, migrations: Migration[] = MIGRATIONS, opts: MigrateOptions = {}): number {
   const from = currentVersion(db)
   const pending = migrations.filter((m) => m.version > from).sort((a, b) => a.version - b.version)
   if (pending.length === 0) return from
   for (const hook of preMigrateHooks) hook()
+  if (opts.dataDir) {
+    try {
+      const file = snapshotBeforeMigrate(db, opts.dataDir, from, opts.keep ?? 5)
+      if (file) console.log('  迁移前已备份  ->  ' + file)
+    } catch (err) {
+      // 拍不了快照就不升级：宁可不升，也不要留下没有退路的半迁移库
+      throw new Error('迁移前备份失败，已中止升级：' + (err instanceof Error ? err.message : String(err)))
+    }
+  }
   for (const m of pending) {
     db.exec('BEGIN')
     try {
