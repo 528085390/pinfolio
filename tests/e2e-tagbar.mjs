@@ -42,20 +42,24 @@ const maxAssets = Math.max(...apiTags.map((t) => t.assets || 0))
 const topNames = apiTags.filter((t) => (t.assets || 0) === maxAssets).map((t) => t.name)
 ok(topNames.includes(parsed[0].name) && parsed[0].n === maxAssets, 'top tag = ' + parsed[0].name + ' ' + parsed[0].n + '（并列最大: ' + topNames.join('/') + '）')
 
-// 4. 点 #代理 只显示共享该标签的三条资产
-await page.locator('.tag-bar .chip', { hasText: '代理' }).first().click()
+// 4. 点排第一的那个标签，只显示共享该标签的资产
+// 标签名不能写死（CI 上是全新库，只有预设标签 + 示例资产，没有作者本机的 #代理）：
+// 取 API 里资产数最多的那个标签，和上面 parsed[0] 是同一个。
+const topTag = parsed[0].name
+const topChip = page.locator('.tag-bar .chip').nth(1)
+await topChip.click()
 await page.waitForTimeout(700)
 const names = (await page.locator('.asset-name').allInnerTexts()).sort()
-console.log('filtered:', JSON.stringify(names))
+console.log('filtered by #' + topTag + ':', JSON.stringify(names))
 // 条数与名字都从 API 取：资产会随用户增删/改名变动（2026-10-21 三台 Oracle 拆成 oj/os/ox 后旧的硬编码就红了）
-const proxyAssets = await (await page.request.get(BASE + '/api/assets?tag=' + encodeURIComponent('代理'))).json()
+const proxyAssets = await (await page.request.get(BASE + '/api/assets?tag=' + encodeURIComponent(topTag))).json()
 const proxyNames = proxyAssets.map((a) => a.name).sort()
-ok(names.length === proxyNames.length, '代理 filter -> ' + proxyNames.length + ' assets (got ' + names.length + ')')
-ok(JSON.stringify(names) === JSON.stringify(proxyNames), '代理 列表与 API 一致: ' + proxyNames.join(' / '))
-await page.screenshot({ path: 'tmp/shot-tagbar-代理.png', fullPage: true })
+ok(names.length === proxyNames.length, '#' + topTag + ' filter -> ' + proxyNames.length + ' assets (got ' + names.length + ')')
+ok(JSON.stringify(names) === JSON.stringify(proxyNames), '#' + topTag + ' 列表与 API 一致: ' + proxyNames.join(' / '))
+await page.screenshot({ path: 'tmp/shot-tagbar-top.png', fullPage: true })
 
 // 5. 再点一次取消筛选
-await page.locator('.tag-bar .chip', { hasText: '代理' }).first().click()
+await topChip.click()
 await page.waitForTimeout(700)
 const apiAssets = await (await page.request.get(BASE + '/api/assets')).json()
 ok(await page.locator('.asset-card').count() === apiAssets.length, 'unfiltered -> ' + apiAssets.length + ' cards')

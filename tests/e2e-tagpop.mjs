@@ -5,6 +5,8 @@ import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
 
 let pass = 0
+// 标签总数：进循环后从 /api/tags 取（写死会随数据变动而红，CI 上是全新库）
+let totalTags = 0
 const fails = []
 function ok(name, cond, detail) {
   if (cond) { pass++; console.log('  ✓ ' + name) } else { fails.push(name + (detail ? ' — ' + detail : '')); console.log('  ✗ ' + name + (detail ? ' — ' + detail : '')) }
@@ -48,7 +50,8 @@ function assertAll(m, tagLabel) {
   ok(`[${tagLabel}] 「新建标签…」在弹层可见区`, m.newBtn.top >= m.pop.top - 0.5 && m.newBtn.bottom <= m.pop.bottom + 0.5, `newBtn=${JSON.stringify(m.newBtn)} pop=${JSON.stringify(m.pop)}`)
   ok(`[${tagLabel}] 第一个 chip 完整可见（不是半行）`, m.first.top >= Math.max(m.list.top, m.pop.top) - 0.5 && m.first.bottom <= Math.min(m.list.bottom, m.pop.bottom) + 0.5, `first=${JSON.stringify(m.first)} list=${JSON.stringify(m.list)} pop.top=${m.pop.top}`)
   ok(`[${tagLabel}] 弹层没被便签卡片盖住`, m.midInsidePop === true, '命中：' + m.midText)
-  ok(`[${tagLabel}] 27 个标签都在 DOM 里`, m.chipCount >= 20, 'chipCount=' + m.chipCount)
+  // 标签总数从 API 取：CI 上是全新库（只有预设标签），写死 27 必红
+  ok(`[${tagLabel}] ${totalTags} 个标签都在 DOM 里`, m.chipCount === totalTags, 'chipCount=' + m.chipCount + ' / api=' + totalTags)
 }
 
 for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1280, height: 420 }]) {
@@ -59,6 +62,10 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { 
   await login(page)
   await page.goto(BASE + '/notes', { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
+
+  // 标签总数从 API 取（page.request 带着登录 cookie）：CI 上是全新库，只有预设标签
+  const apiTags = await (await page.request.get(BASE + '/api/tags')).json()
+  totalTags = Array.isArray(apiTags) ? apiTags.length : 0
 
   const label = vp.width + 'x' + vp.height
   const m = await measure(page)
