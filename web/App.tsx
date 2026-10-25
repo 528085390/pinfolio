@@ -3,6 +3,7 @@ import { MailPage } from './pages/MailPage'
 import { AssetsPage } from './pages/AssetsPage'
 import { MonitorsPage } from './pages/MonitorsPage'
 import { HostsPage } from './pages/HostsPage'
+import { BackupPage } from './pages/BackupPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
 import { AlertStack } from './components/AlertStack'
@@ -61,8 +62,10 @@ export function App() {
             <MonitorsPage onSummary={s.setMon} focusId={s.focusMonitorId} onFocusDone={() => s.setFocusMonitorId(null)} />
           ) : s.page === 'hosts' ? (
             <HostsPage onSummary={s.setHost} onOpenMonitor={s.openMonitor} />
-          ) : (
+          ) : s.page === 'settings' ? (
             <SettingsPage tags={s.tags} fields={s.fields} stats={s.stats} refreshMeta={s.refreshMeta} theme={s.theme} setTheme={s.setTheme} />
+          ) : (
+            <BackupPage />
           )}
         </div>
       </div>

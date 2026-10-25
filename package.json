@@ -25,6 +25,8 @@
     "lucide-react": "^0.468.0",
     "mailparser": "^3.9.47",
     "marked": "^15.0.0",
+    "mysql2": "^3.24.6",
+    "pg": "^8.23.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "socket.io-client": "~4.8.4"
@@ -32,6 +34,7 @@
   "devDependencies": {
     "@types/mailparser": "^3.9.0",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",

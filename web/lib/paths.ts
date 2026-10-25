@@ -2,7 +2,7 @@
  * 页面与 URL 的对应关系。纯函数，放在这里是为了能单测 —— router.ts 里带着 React hooks。
  */
 
-export type Page = 'notes' | 'mail' | 'assets' | 'monitors' | 'hosts' | 'settings'
+export type Page = 'notes' | 'mail' | 'assets' | 'monitors' | 'hosts' | 'backup' | 'settings'
 
 /** 每个页面在地址栏里的规范路径。改这里等于改 URL 约定。 */
 export const PATHS: Record<Page, string> = {
@@ -11,6 +11,7 @@ export const PATHS: Record<Page, string> = {
   assets: '/assets',
   monitors: '/monitors',
   hosts: '/hosts',
+  backup: '/backup',
   settings: '/settings',
 }
 
@@ -20,6 +21,7 @@ export const TITLES: Record<Page, string> = {
   assets: '资产台账',
   monitors: '观测台',
   hosts: '主机',
+  backup: '备份',
   settings: '设置',
 }
 
@@ -37,7 +39,7 @@ function stripBase(pathname: string, base: string): string {
 
 export function pageFromPath(pathname: string, base = ''): Page {
   const p = stripBase(pathname, base).replace(/\/+$/, '').toLowerCase()
-  if (p === '/mail' || p === '/assets' || p === '/monitors' || p === '/hosts' || p === '/settings') return p.slice(1) as Page
+  if (p === '/mail' || p === '/assets' || p === '/monitors' || p === '/hosts' || p === '/backup' || p === '/settings') return p.slice(1) as Page
   return 'notes'
 }
 

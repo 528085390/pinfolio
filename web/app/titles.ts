@@ -9,7 +9,8 @@ export function pageTitle(page: Page): string {
     : page === 'mail' ? '邮件'
       : page === 'assets' ? '资产台账'
         : page === 'monitors' ? '观测台'
-          : page === 'hosts' ? '主机' : '设置'
+          : page === 'hosts' ? '主机'
+            : page === 'backup' ? '备份' : '设置'
 }
 
 /** 顶栏副标题：拿不到汇总数据时给一句静态说明（别显示 0） */
@@ -40,5 +41,6 @@ export function pageSubtitle(
       + (s.host.paused ? ' · ' + s.host.paused + ' 台暂停' : '')
       + (s.host.stale ? ' · ' + s.host.stale + ' 台陈旧' : '')
   }
-  return '字段、标签、备份'
+  if (page === 'backup') return '本机文件 + 远程数据库 · 每天 03:00'
+  return '字段、标签、账号与安全'
 }

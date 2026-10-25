@@ -14,6 +14,9 @@ import { monitorsRoute } from './kuma/routes.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
 import { hostsRoute } from './metrics/routes.js'
 import { tunnelRoute } from './routes/tunnel.js'
+import { backupRoute } from './routes/backup.js'
+import { runBackup } from './backup/run.js'
+import { startBackupScheduler } from './backup/schedule.js'
 import { startTunnelProbe } from './tunnel.js'
 import { startMetricsPoller } from './metrics/poll.js'
 import { scheduleSnapshot, writeSnapshot } from './snapshot.js'
@@ -44,6 +47,7 @@ api.route('/monitors', monitorsRoute)
 api.route('/mail', mailRoute)
 api.route('/hosts', hostsRoute)
 api.route('/tunnel', tunnelRoute)
+api.route('/backup', backupRoute)
 app.route('/api', api)
 
 mountStatic(app)
@@ -73,6 +77,17 @@ if (process.argv.includes('--new-token')) {
   process.exit(0)
 }
 
+// --backup：立刻跑一次备份（两个目的地按配置来），适合放进 cron / 任务计划
+if (process.argv.includes('--backup')) {
+  const only = process.argv.includes('--local') ? 'local' : process.argv.includes('--remote') ? 'remote' : undefined
+  const report = await runBackup(db, { only })
+  for (const [dest, r] of Object.entries(report)) {
+    console.log('  ' + (dest === 'local' ? '本机文件' : '远端数据库') + '  ->  ' + (r.ok ? '成功：' + (r.detail || '') : '失败：' + (r.error || '')))
+  }
+  if (!Object.keys(report).length) console.log('  没有可用的备份目的地（本机已关且未配置远端库）')
+  process.exit(0)
+}
+
 bootstrapPassword(db)
 
 // 静态加密（spec 03）：加载主密钥，把还躺在明文里的凭据就地加密。幂等，每次启动都跑。
@@ -96,6 +111,8 @@ serve({ fetch: app.fetch, port, hostname }, (info) => {
   startMetricsPoller()
   // 公网映射探活：配了地址就每 60s 自检一次（见 server/tunnel.ts）
   startTunnelProbe()
+  // 每天 03:00 自动备份（见 server/backup/schedule.ts）
+  startBackupScheduler(db)
 })
 
 // 退出时断开 IMAP 连接（IMAP 是长连接，进程被 Ctrl+C / SIGTERM 时礼貌收尾）

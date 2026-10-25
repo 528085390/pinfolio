@@ -8,6 +8,7 @@ import { hostsApi } from './api/hosts'
 import { mailApi } from './api/mail'
 import { authApi } from './api/auth'
 import { tunnelApi } from './api/tunnel'
+import { backupApi } from './api/backup'
 import { cx } from './cx'
 
 export const api = {
@@ -19,6 +20,7 @@ export const api = {
   mail: mailApi,
   auth: authApi,
   tunnel: tunnelApi,
+  backup: backupApi,
   tags: tagsApi,
   fields: fieldsApi,
 }
@@ -29,6 +31,7 @@ export { request } from './api/http'
 export type { Tag, FieldDef, Stats } from './api/types'
 export type { SessionInfo, ApiToken } from './api/auth'
 export type { TunnelStatus } from './api/tunnel'
+export type { BackupStatus, BackupState, LocalFile, RemoteRow, RemoteConfigView, RemoteInput, Manifest } from './api/backup'
 export type { Note } from './api/notes'
 export type { Asset } from './api/assets'
 export type {

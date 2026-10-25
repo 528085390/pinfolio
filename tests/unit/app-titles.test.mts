@@ -56,5 +56,5 @@ test('pageSubtitle：主机页在线数，陈旧台数按需出现', () => {
 })
 
 test('pageSubtitle：设置页固定一句', () => {
-  assert.equal(pageSubtitle('settings', { stats: stats(), mailSum: null, mon: null }), '字段、标签、备份')
+  assert.equal(pageSubtitle('settings', { stats: stats(), mailSum: null, mon: null }), '字段、标签、账号与安全')
 })
