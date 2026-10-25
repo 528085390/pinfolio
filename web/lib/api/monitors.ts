@@ -59,7 +59,12 @@ export type MonitorDetail = {
   link: { url: string; label: string } | null
 }
 
+/** 连的是哪个 Kuma（fork 多 policy_json）以及到底配没配（没配就显示引导卡，不报错） */
+export type KumaFlavor = 'fork' | 'upstream'
+export type KumaMeta = { configured: boolean; flavor: KumaFlavor; url: string; error?: string }
+
 export const monitorsApi = {
+  meta: () => request<KumaMeta>('/monitors/meta'),
   get: (fresh?: boolean) => request<MonitorsPayload>('/monitors' + (fresh ? '?fresh=1' : '')),
   detail: (id: number) => request<MonitorDetail>('/monitors/' + id),
   update: (

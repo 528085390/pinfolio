@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api, type MonitorSummary, type MonitorsPayload } from '../../lib/api'
+import { api, type KumaMeta, type MonitorSummary, type MonitorsPayload } from '../../lib/api'
 
 /**
  * 观测页的数据与视图状态：拉取（带 force）、30 秒轮询、分组/状态/关键词筛选、
@@ -32,6 +32,14 @@ export function useMonitors({
   const [tick, setTick] = useState(0)
   // 打开的观测项详情（null = 抽屉关着）
   const [openId, setOpenId] = useState<number | null>(null)
+  // 连的是哪个 Kuma、到底配没配（拉不到就当「配了、fork」，保持老行为）
+  const [meta, setMeta] = useState<KumaMeta | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    api.monitors.meta().then((m) => { if (alive) setMeta(m) }).catch(() => { if (alive) setMeta(null) })
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setQ(searchInput.trim()), 200)
@@ -118,7 +126,7 @@ export function useMonitors({
   }, [])
 
   return {
-    data, loading, error, summary,
+    data, loading, error, summary, meta,
     group, setGroup, status, setStatus,
     searchInput, setSearchInput, q,
     view, setView, auto, setAuto,

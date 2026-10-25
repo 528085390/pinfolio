@@ -184,3 +184,56 @@
 .monitor-drawer-result-ms { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
 .monitor-drawer-result-detail { grid-column: 2 / -1; font-size: 11.5px; line-height: 1.6; color: var(--ink-2); word-break: break-word; }
 
+
+/* ---- 未接上 Kuma 时的引导卡（观测页专用，其余六页不受影响） ---- */
+.kuma-guide {
+  max-width: 760px; margin: 8px auto 0; padding: 20px 22px 18px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow-sm);
+}
+.kuma-guide-head { display: flex; gap: 12px; align-items: flex-start; }
+.kuma-guide-icon {
+  width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center;
+  border-radius: 10px; background: var(--accent-soft); color: var(--accent-strong);
+}
+.kuma-guide-title { font-family: var(--font-display); font-size: 16px; line-height: 1.3; color: var(--ink); }
+.kuma-guide-sub { margin-top: 4px; font-size: 12.5px; line-height: 1.65; color: var(--ink-2); }
+.kuma-guide-sub strong { color: var(--ink); font-weight: 600; }
+.kuma-guide-steps {
+  margin: 16px 0 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 14px;
+  counter-reset: kuma-step;
+}
+.kuma-guide-steps > li { counter-increment: kuma-step; padding-left: 26px; position: relative; }
+.kuma-guide-steps > li::before {
+  content: counter(kuma-step); position: absolute; left: 0; top: 0;
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 10.5px; font-family: var(--font-mono);
+  background: var(--surface-3); color: var(--ink-2);
+}
+.kuma-guide-step-title {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13px; font-weight: 600; color: var(--ink);
+}
+.kuma-guide-step-title svg { color: var(--muted); }
+.kuma-guide-code {
+  margin: 7px 0 0; padding: 9px 11px; overflow-x: auto;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6;
+  color: var(--ink-2); background: var(--surface-3);
+  border: 1px solid var(--line); border-radius: 8px;
+  white-space: pre;
+}
+.kuma-guide-hint { margin-top: 7px; font-size: 12px; line-height: 1.65; color: var(--muted); }
+.kuma-guide-hint code {
+  font-family: var(--font-mono); font-size: 11px; padding: 1px 4px;
+  border-radius: 4px; background: var(--surface-3); color: var(--ink-2);
+}
+.kuma-guide-foot {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 11.5px; line-height: 1.6; color: var(--muted);
+}
+@media (max-width: 560px) {
+  .kuma-guide { margin-top: 4px; padding: 16px 15px 14px; }
+  .kuma-guide-title { font-size: 15px; }
+  .kuma-guide-code { font-size: 10.5px; padding: 8px 9px; }
+}

@@ -8,6 +8,7 @@ import { BEAT_WINDOW, collectCached, getStatusPage, groupOf, invalidate, lastPay
 import { backupDb, refreshSnapshot } from './backup.js'
 import { isJsonContentType, kumaErrorStatus } from './http.js'
 import { buildMonitorPatch } from './patch.js'
+import { kumaMeta } from './meta.js'
 
 // 观测台的 HTTP 面：列表 / 详情 / 改名 / 暂停 / 删除 / 立即观测。
 // 数据抓取和缓存在 feed.ts，Kuma 的 socket 通道在 client.ts，配方执行在 actions.ts。
@@ -22,6 +23,18 @@ monitorsRoute.get('/', async (c) => {
     const stale = lastPayload()
     if (stale) return c.json({ ...stale, stale: true, error: '读不到 Kuma：' + String(e?.message || e) })
     return c.json({ error: '读不到 Kuma 状态页：' + String(e?.message || e) }, 502)
+  }
+})
+
+/* ---------------- 连的是哪个 Kuma / 到底配没配（界面靠它决定渲染什么） ---------------- */
+
+// 必须排在 '/:id' 之前：Hono 按注册顺序匹配，否则 'meta' 会被当成 id 走详情分支。
+monitorsRoute.get('/meta', async (c) => {
+  try {
+    return c.json(await kumaMeta())
+  } catch (e: any) {
+    // 探测失败不该让整个观测页崩：按「配了但连不上」回，页面照旧走原来的错误分支
+    return c.json({ configured: true, flavor: 'upstream', url: '', error: String(e?.message || e) })
   }
 })
 

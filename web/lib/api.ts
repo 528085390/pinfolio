@@ -40,7 +40,7 @@ export type {
 } from './api/hosts'
 export type {
   Monitor, MonitorGroup, MonitorSummary, MonitorsPayload, MonitorBeat, QuickLink,
-  MonitorAction, MonitorActionStep, MonitorActionStepResult, MonitorDetail,
+  MonitorAction, MonitorActionStep, MonitorActionStepResult, MonitorDetail, KumaMeta, KumaFlavor,
 } from './api/monitors'
 export type {
   MailSecurity, MailAccount, MailAddr, MailRow, MailAccountError, MailListResult,

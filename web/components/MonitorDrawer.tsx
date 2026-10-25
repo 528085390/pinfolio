@@ -8,8 +8,10 @@ import { DangerSection } from './monitor-drawer/DangerSection'
 import { useMonitorDetail } from './monitor-drawer/useMonitorDetail'
 
 /** 观测项详情抽屉：改名字 / 介绍 / 频率，暂停恢复，删除，立即观测。外壳走 FormDrawer，内部分五段。 */
-export function MonitorDrawer({ id, onClose, onChanged }: {
+export function MonitorDrawer({ id, flavor = 'fork', onClose, onChanged }: {
   id: number | null
+  /** 连的是哪个 Kuma：上游原版没有「立即观测」背后的那些扩展，就不渲染那一段 */
+  flavor?: 'fork' | 'upstream'
   onClose: () => void
   onChanged?: () => void
 }) {
@@ -42,16 +44,18 @@ export function MonitorDrawer({ id, onClose, onChanged }: {
 
           <BasicSection form={form} setForm={setForm} m={m} />
           <AdvancedSection form={form} setForm={setForm} />
-          <RunSection
-            action={action}
-            m={m}
-            running={d.running}
-            runErr={d.runErr}
-            runSteps={d.runSteps}
-            runOk={d.runOk}
-            runDisabled={d.runDisabled}
-            onRun={d.runNow}
-          />
+          {flavor === 'fork' ? (
+            <RunSection
+              action={action}
+              m={m}
+              running={d.running}
+              runErr={d.runErr}
+              runSteps={d.runSteps}
+              runOk={d.runOk}
+              runDisabled={d.runDisabled}
+              onRun={d.runNow}
+            />
+          ) : null}
 
           {detail.link ? (
             <div style={{ marginTop: 14 }}>
