@@ -14,13 +14,14 @@
 
 | 层 | 文件 | 一句话 |
 |---|---|---|
-| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 39 条、进展记录 |
+| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、坑 40 条、进展记录 |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
 | 数据 | `server/schema/{core,mail,metrics}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
 | 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params,rows}.ts`、`kuma/{redact,beat,patch,http,recipe,payload,quick}.ts`、`web/lib/paths.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
 | 路由 | `server/routes/{notes,assets,tags,fields,meta}.ts`、`server/mail/routes.ts`、`server/kuma/routes.ts` | 各页 HTTP 面；写接口都要求 `Content-Type: application/json` |
 | 观测 | `server/kuma/{client,source,payload,feed,recipe,runner,actions,links,quick,backup}.ts` + `routes.ts` | socket.io 客户端 / 取数与两层缓存（`source.ts`）/ 列表纯拼装（`payload.ts`）/ 编排（`feed.ts`）/ 立即观测（`recipe.ts` 纯逻辑、`runner.ts` 执行、`actions.ts` 读配置）/ 跳转链接与快捷入口卡（`links.ts` / `quick.ts`）/ Kuma 库备份；PATCH 校验在 `patch.ts` |
 | 邮件 | `server/mail/{types,parse,params,rows,cache,errors,pool,client,store}.ts` | 类型 / 摘要解析（纯函数）/ 路由参数（纯函数）/ 列表行拼装与排序（纯函数）/ 四层缓存 / 错误翻译 / 连接池 / 归并列表（**只读**）/ 两张表 CRUD |
+| 密钥 | `server/secrets/{crypto,key,migrate}.ts` | 主密钥加载（`PINBOARD_SECRET` → `data/secret.key` → 首次生成 0600）/ AES-256-GCM 加解密 `enc:v1:…` / 启动时把明文凭据就地加密（幂等）；**只防备份泄漏，防不了进程被控** |
 | 入口 | `server/index.ts`（66 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
 | 快照 | `server/snapshot.ts` + `server/snapshot/{rows,markdown,write}.ts` | 取数 / 渲染（纯函数，有单测）/ 写文件与 1.5 秒防抖；`pnpm snapshot` 立即重生成，隔离实例不写 |
 | 指标 | `server/metrics/{config,hostmeta,onboard,services,store,poll,routes}.ts` + `server/kuma/{kuma-cli,provision}.ts` + `host-services.json` + `tools/node-metrics/` | 6 台采集端（bash + timer，零常驻）→ my-server nginx PUT 落盘 → 这里每 5 分钟拉回 `host_metrics`；**整条 JSON 存 `data` 列不拆字段**，`MIN_GAP_MS` 4 分钟别去掉；清单增/暂停/删走 `hostmeta.ts` 的纯函数 + `saveHosts()` 原子写回（保留 `base` 与未知键），服务 chip → 观测项的映射在 `services.ts`；「接入这台机器」的安装命令在 `onboard.ts`，加主机顺带建观测项在 `kuma/provision.ts` + `kuma-cli.ts`（走 kuma 的 `add`/`del`/`group-add`/`group-del` CLI） |
@@ -50,6 +51,7 @@ pnpm typecheck        # tsc --noEmit
 - **默认只监听 127.0.0.1，且必须登录**（`HOST` 可覆盖，容器里设 `0.0.0.0`）。要远程访问就走反代 + HTTPS，别把 7788 裸奔到公网。
 - 密码忘了：`powershell -File tools\pinboard.ps1 stop` → `node --import tsx server/index.ts --reset-password` → `start`；给脚本发 API token：`node --import tsx server/index.ts --new-token <名字>`（明文只打印一次）。
 - 数据目录 `data/`（可用环境变量 `PINBOARD_DATA` 覆盖），库文件 `data/pinboard.db`（WAL 模式，同目录还有 -wal/-shm）。
+- 凭据加密的主密钥在 `data/secret.key`（或环境变量 `PINBOARD_SECRET`，32 字节 base64）。**它丢了，邮箱密码 / Kuma 口令 / 指标源就都解不开**——备份要连它一起备，也绝不进版本库（见坑 40）。
 - 备份 = 停服务后复制 `data/`，或在设置页「导出 JSON」。
 - 改服务端代码必须重启 `pnpm start`（tsx 非 watch）；改前端需 `pnpm build` 后刷新。
 - 端口被占（`EADDRINUSE 127.0.0.1:7788`）时先 `tools\pinboard.ps1 stop`（或双击 `stop.cmd`），它会连同 tsx 子进程一起结束并等端口释放；实在清不掉再用 `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -like '*pinboard*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`。**只杀包装进程会留下 tsx 子进程继续占 7788。**
@@ -68,7 +70,7 @@ pnpm typecheck        # tsc --noEmit
 **历史进展（2026-10-19 起，逐条记录）见 [`docs/status-history.md`](docs/status-history.md)**
 —— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
 
-已知问题与坑（都踩过，勿回退）——**完整 39 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
+已知问题与坑（都踩过，勿回退）——**完整 40 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
 1. **默认只监听 127.0.0.1 + 必须登录**：要远程访问就前置反代并开 HTTPS（`TRUST_PROXY=1` 才读 `X-Forwarded-*`），不要直接映射 7788（坑 6）。
 2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。

@@ -91,7 +91,8 @@ Requirements: Node ≥ 22 (it uses the built-in `node:sqlite`; tested on 24.16) 
 | Backup | Stop the service and copy `data/`, or use "Export JSON" on the settings page |
 | Relocating | Set `PINBOARD_DATA` to another directory before starting |
 | Monitors | Read from Uptime Kuma, not from this database (`KUMA_URL` / `KUMA_SLUG` to point elsewhere) |
-| Mail | **IMAP passwords are stored in plain text** — fine for a local, 127.0.0.1-only service, but don't hand `data/` or an export to anyone. Bodies are never written to disk (memory, 10 minutes) |
+| Mail | IMAP passwords are encrypted at rest (`enc:v1:…`) with the key in `data/secret.key` or `PINBOARD_SECRET`. Bodies are never written to disk (memory, 10 minutes) |
+| Secret key | `data/secret.key` (or `PINBOARD_SECRET`, 32 bytes base64) encrypts mailbox passwords, the Kuma password and the metrics token. **Lose it and those fields become unreadable** — back it up with the database, never commit it |
 | Reset | Stop the service, delete `data/pinboard.db*`, start again |
 
 ## Project layout

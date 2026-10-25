@@ -25,6 +25,11 @@ export function AccountList({ accounts, confirmId, onConfirm, onEdit, onRemove }
             <div className="mail-acc-sub">
               {a.host}:{a.port} · {securityLabel(a.security)} · {a.username}
             </div>
+            {a.passwordError ? (
+              <div className="mail-acc-err">
+                <CircleAlert size={12} /> 密码解不开（主密钥换过或数据被改），请点编辑重填一次
+              </div>
+            ) : null}
             {a.error ? (
               <div className="mail-acc-err">
                 <CircleAlert size={12} /> {a.error}

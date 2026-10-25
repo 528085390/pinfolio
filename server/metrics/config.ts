@@ -1,6 +1,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DATA_DIR } from '../db.js'
+import { loadKey } from '../secrets/key.js'
+import { readSecret } from '../secrets/crypto.js'
 import { mergeMetricsFile, parseHosts, type HostMeta } from './hostmeta.js'
 
 // 指标源：各台机把自己的 JSON PUT 到一台带 nginx 的服务器（见 tools/node-metrics/），
@@ -33,6 +35,13 @@ export function metricsConfig(): MetricsConfig {
   let hosts = DEFAULT_HOSTS
   const j = readRaw()
   if (j && typeof j.base === 'string' && j.base.trim()) base = j.base.trim()
+  // base 里带采集 token，落盘时是密文（spec 03）；解不开就当没配，主机页显示「拉取失败」而不是整个崩
+  try {
+    base = base ? readSecret(base, loadKey(DATA_DIR)) : ''
+  } catch (e) {
+    console.error('[metrics] 指标源地址解密失败（主密钥可能变了）:', String(e))
+    base = ''
+  }
   // 文件里显式给了 hosts（哪怕是空数组）就听文件的：
   // 把主机删光了不该让默认 6 台又冒出来，否则「删除」等于删不掉。
   if (j && Array.isArray(j.hosts)) hosts = parseHosts(j.hosts)

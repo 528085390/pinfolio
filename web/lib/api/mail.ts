@@ -7,6 +7,8 @@ export type MailAccount = {
   /** 可选代理，如 socks5://127.0.0.1:10808；空 = 直连 */
   proxy: string
   created_at: string; updated_at: string; hasPassword: boolean
+  /** 库里的密码解不开（主密钥换过）：要提示重新填写，别当成「没设密码」 */
+  passwordError?: boolean
   /** 只读：服务端未读数 / 总数 / 该账号这次的错误（取不到就是 null） */
   unseen?: number | null; total?: number | null; error?: string | null
 }

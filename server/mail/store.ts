@@ -1,4 +1,6 @@
-import { all, get, run, nowIso } from '../db.js'
+import { all, get, run, nowIso, DATA_DIR } from '../db.js'
+import { loadKey } from '../secrets/key.js'
+import { encryptText, isEncrypted, readSecret } from '../secrets/crypto.js'
 import { normalizeProxy } from './proxy.js'
 
 // 代理地址规范化在 proxy.ts（纯函数，可单测）；这里再导出，老的 './store.js' 调用点不用改。
@@ -20,24 +22,52 @@ export type MailAccountRow = {
   sort: number
   created_at: string
   updated_at: string
+  /** 只读：库里那串密文解不开（主密钥换过 / 数据被改），页面要提示重填密码 */
+  passwordError?: boolean
 }
 
 /** 对外暴露的账号（不含密码） */
-export type MailAccountPublic = Omit<MailAccountRow, 'password'> & { hasPassword: boolean }
+export type MailAccountPublic = Omit<MailAccountRow, 'password'> & {
+  hasPassword: boolean
+  passwordError: boolean
+}
 
 export function publicAccount(row: MailAccountRow): MailAccountPublic {
-  const { password, ...rest } = row
-  return { ...rest, hasPassword: !!password }
+  const { password, passwordError, ...rest } = row
+  return { ...rest, hasPassword: !!password, passwordError: !!passwordError }
+}
+
+// 密码列在库里是密文（spec 03 静态加密）：写库前 seal，读库后 open。
+// 空串不加密（没有密码的账号不该多出一段密文），已是密文的也不重复加密。
+function key(): Buffer {
+  return loadKey(DATA_DIR)
+}
+
+function seal(pw: string): string {
+  if (!pw || isEncrypted(pw)) return pw
+  return encryptText(pw, key())
+}
+
+/** 解不开（主密钥换过）时返回空串并记日志：列表照常出，只是这个账号要重填密码。 */
+function open(row: MailAccountRow): MailAccountRow {
+  if (!row || !row.password) return row
+  try {
+    return { ...row, password: readSecret(row.password, key()), passwordError: false }
+  } catch (e) {
+    console.error('[mail] 账号 ' + row.id + ' 的密码解密失败（主密钥可能变了）:', String(e))
+    return { ...row, password: '', passwordError: true }
+  }
 }
 
 export function listAccounts(includeDisabled = true): MailAccountRow[] {
   const sql = 'SELECT * FROM mail_accounts' + (includeDisabled ? '' : ' WHERE enabled = 1') +
     ' ORDER BY sort ASC, id ASC'
-  return all<MailAccountRow>(sql)
+  return all<MailAccountRow>(sql).map(open)
 }
 
 export function getAccount(id: number): MailAccountRow | undefined {
-  return get<MailAccountRow>('SELECT * FROM mail_accounts WHERE id = ?', id)
+  const row = get<MailAccountRow>('SELECT * FROM mail_accounts WHERE id = ?', id)
+  return row ? open(row) : undefined
 }
 
 export type AccountInput = {
@@ -95,7 +125,7 @@ export function createAccount(v: {
   const now = nowIso()
   const r = run(
     'INSERT INTO mail_accounts (label, email, host, port, username, password, security, proxy, enabled, sort, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    v.label, v.email, v.host, v.port, v.username, v.password ?? '', v.security, v.proxy ?? '', v.enabled, v.sort, now, now,
+    v.label, v.email, v.host, v.port, v.username, seal(v.password ?? ''), v.security, v.proxy ?? '', v.enabled, v.sort, now, now,
   )
   return getAccount(r.id)!
 }
@@ -119,7 +149,7 @@ export function updateAccount(id: number, v: Partial<{
   }
   run(
     'UPDATE mail_accounts SET label = ?, email = ?, host = ?, port = ?, username = ?, password = ?, security = ?, proxy = ?, enabled = ?, sort = ?, updated_at = ? WHERE id = ?',
-    next.label, next.email, next.host, next.port, next.username, next.password, next.security, next.proxy, next.enabled, next.sort, nowIso(), id,
+    next.label, next.email, next.host, next.port, next.username, seal(next.password), next.security, next.proxy, next.enabled, next.sort, nowIso(), id,
   )
   return getAccount(id)
 }

@@ -17,6 +17,8 @@ import { tunnelRoute } from './routes/tunnel.js'
 import { startTunnelProbe } from './tunnel.js'
 import { startMetricsPoller } from './metrics/poll.js'
 import { scheduleSnapshot, writeSnapshot } from './snapshot.js'
+import { loadKey } from './secrets/key.js'
+import { migrateSecrets } from './secrets/migrate.js'
 import { mountStatic } from './static.js'
 
 const app = new Hono()
@@ -72,6 +74,13 @@ if (process.argv.includes('--new-token')) {
 }
 
 bootstrapPassword(db)
+
+// 静态加密（spec 03）：加载主密钥，把还躺在明文里的凭据就地加密。幂等，每次启动都跑。
+const secretKey = loadKey(DATA_DIR)
+const sealed = migrateSecrets(db, secretKey, DATA_DIR)
+if (sealed.mail || sealed.kuma || sealed.metrics) {
+  console.log('  凭据已就地加密  ->  邮箱 ' + sealed.mail + ' 条 / Kuma 口令 ' + sealed.kuma + ' / 指标源 ' + sealed.metrics)
+}
 
 const port = Number(process.env.PORT || 7788)
 // 默认只听本机；容器 / 局域网访问要显式设 HOST=0.0.0.0

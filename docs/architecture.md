@@ -32,7 +32,9 @@
 - `tmp/` —— 运行期临时产物（日志、截图），可整目录删除（见「可清理项」）。
 
 服务端（Node 24 + Hono + `node:sqlite`，无原生编译）：
-- `server/schema/core.ts` / `server/schema/mail.ts` / `server/schema/metrics.ts` —— 建表语句（core：tags / field_defs / assets / notes / note_tags / asset_tags + 5 个索引；mail：mail_accounts / mail_local_read；metrics：host_metrics + 1 个索引，见下面「主机指标」三条）。`server/db.ts` 只负责打开库、执行三段 schema、封装 `all/get/run` 与标签同步（`syncNoteTags`/`setAssetTags`），并做 `notes.done` / `mail_accounts.proxy` 的启动迁移。
+- `server/schema/core.ts` / `server/schema/mail.ts` / `server/schema/metrics.ts` —— 建表语句（core：tags / field_defs / assets / notes / note_tags / asset_tags + 5 个索引；mail：mail_accounts / mail_local_read；metrics：host_metrics + 1 个索引，见下面「主机指标」三条）。`server/db.ts` 只负责打开库、封装 `all/get/run` 与标签同步（`syncNoteTags`/`setAssetTags`），启动时调 `migrate(db)`。
+- `server/migrations.ts` —— **表结构演进的唯一入口**：`MIGRATIONS = [{ version, up(db) }]` + `PRAGMA user_version`，每步一个事务、失败回滚；v1 = 建表 + 老库补列（`notes.done` / `mail_accounts.proxy`）+ 预设标签，v2 = settings / sessions / api_tokens。**只追加，不改旧步**；老库靠列存在性探测归一。`registerPreMigrate(fn)` 给备份钩子留口。
+- `server/secrets/crypto.ts` / `key.ts` / `migrate.ts` —— **静态加密**：`HKDF-SHA256(secret, info="pinfolio/v1")` 派生 AES-256-GCM key，存储格式 `enc:v1:<iv>:<tag>:<ct>`；主密钥 = `PINBOARD_SECRET` → `data/secret.key` → 首次启动生成（0600）；`migrateSecrets()` 每次启动把还躺在明文里的 `mail_accounts.password`、`data/kuma-pass.txt`、`data/metrics.json` 的 `base` 就地加密（幂等）。**只防备份/库文件泄漏，防不了进程被控。**
 - `server/tags.ts` / `server/dates.ts` —— 纯函数（不碰库、不碰网络）：`extractTags`（TAG_RE 支持中英文标点前缀）、`tagColor`/`TAG_COLORS`/`PRESET_TAGS`；`daysLeft()` 到期天数。**纯逻辑放这里才测得了**（`db.ts` 一 import 就打开 SQLite），db.ts / meta.ts 再导出。
 - `server/hydrate.ts` —— `hydrateNotes`/`hydrateAssets`：批量 IN 查询拼 tags、asset、noteCount，解析 custom JSON。
 - `server/routes/notes.ts` —— 便签 CRUD + 筛选（q/tag/pinned/archived/assetId），内容变更时同步标签。

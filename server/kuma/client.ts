@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { io, type Socket } from 'socket.io-client'
+import { kumaPass } from './secret.js'
 
 // 观测项的「可写」通道：Kuma 的公开状态页接口只能读，改名 / 暂停 / 删除 / 立即探测
 // 都得走它自己的 socket.io API（前端被删了，但服务端事件还在）。
@@ -13,15 +12,9 @@ import { io, type Socket } from 'socket.io-client'
 // basic_auth_pass 之类的明文凭据，直接把 bean 丢给浏览器等于把服务器密码贴到网页上。
 export const KUMA_URL = (process.env.KUMA_URL || 'http://127.0.0.1:3001').replace(/\/+$/, '')
 const KUMA_USER = process.env.KUMA_USER || 'admin'
-const KUMA_PASS = process.env.KUMA_PASS || localSecret('kuma-pass.txt')
-
-/** 读本地凭据文件（相对项目根，data/ 不进版本库）。读不到回空串，由调用方报错。 */
-function localSecret(name: string): string {
-  try {
-    return readFileSync(join(process.cwd(), 'data', name), 'utf8').trim()
-  } catch {
-    return ''
-  }
+// 口令在 secret.ts 里解析（env → settings.kuma_pass → data/kuma-pass.txt，后两处可能是密文）
+function currentPass(): string {
+  return kumaPass()
 }
 
 const CALL_TIMEOUT = 20000
@@ -55,10 +48,11 @@ function openSocket(): Promise<Socket> {
     const timer = setTimeout(() => fail('登录超时'), 12000)
     s.on('connect_error', (e: any) => fail(String(e?.message || e)))
     s.on('connect', () => {
-      if (!KUMA_PASS) {
+      const pass = currentPass()
+      if (!pass) {
         return fail('没有配置 Kuma 口令：设置环境变量 KUMA_PASS，或把口令写进 data/kuma-pass.txt')
       }
-      s.emit('login', { username: KUMA_USER, password: KUMA_PASS }, (res: any) => {
+      s.emit('login', { username: KUMA_USER, password: pass }, (res: any) => {
         if (settled) return
         if (!res || !res.ok) return fail(res?.msg ? String(res.msg) : '登录被拒（检查 KUMA_USER / KUMA_PASS）')
         settled = true
