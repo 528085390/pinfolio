@@ -3,6 +3,7 @@
 //
 //   node tests/run.mjs                 # core + monitor：自己起一个隔离实例，跑完删
 //   node tests/run.mjs --only=core     # 只跑便签/资产/路由
+//   node tests/run.mjs --only=ci       # CI 用：core 全部 + 没接 Kuma 时的引导卡（不需要 Kuma/邮箱/采集端）
 //   node tests/run.mjs --only=mail     # 邮件套件，另需 MAIL_E2E_BASE 指向隔离实例
 //   node tests/run.mjs --only=all
 //   node tests/run.mjs --keep          # 保留临时数据目录，排查用
@@ -26,20 +27,25 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const KEEP = process.argv.includes('--keep')
 const TEST_PASSWORD = 'e2e-password'
 
+const CORE = [
+  ['smoke', 'smoke.mjs'],
+  ['e2e', 'e2e.mjs'],
+  ['done-smoke', 'done-smoke.mjs'],
+  ['e2e-done', 'e2e-done.mjs'],
+  ['e2e-dblclick', 'e2e-dblclick.mjs'],
+  ['e2e-filter', 'e2e-filter.mjs'],
+  ['e2e-archive', 'e2e-archive.mjs'],
+  ['e2e-tagbar', 'e2e-tagbar.mjs'],
+  ['e2e-router', 'e2e-router.mjs'],
+  ['e2e-tagpop', 'e2e-tagpop.mjs'],
+  ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
+]
+
 const SUITES = {
-  core: [
-    ['smoke', 'smoke.mjs'],
-    ['e2e', 'e2e.mjs'],
-    ['done-smoke', 'done-smoke.mjs'],
-    ['e2e-done', 'e2e-done.mjs'],
-    ['e2e-dblclick', 'e2e-dblclick.mjs'],
-    ['e2e-filter', 'e2e-filter.mjs'],
-    ['e2e-archive', 'e2e-archive.mjs'],
-    ['e2e-tagbar', 'e2e-tagbar.mjs'],
-    ['e2e-router', 'e2e-router.mjs'],
-    ['e2e-tagpop', 'e2e-tagpop.mjs'],
-    ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
-  ],
+  core: CORE,
+  // CI 只跑「不依赖外部服务」的那批：core 全部 + 没接 Kuma 时的引导卡。
+  // monitor 组要真 Kuma、mail 组要假 IMAP 服务、主机指标要采集端，都只在本地跑。
+  ci: [...CORE, ['e2e-monitor-empty', 'e2e-monitor-empty.mjs']],
   monitor: [
     ['e2e-monitor-note', 'e2e-monitor-note.mjs'],
     ['e2e-monitor-beat-tip', 'e2e-monitor-beat-tip.mjs'],
@@ -62,7 +68,7 @@ const groups = requested.includes('all') || requested.includes('default')
 
 const unknown = groups.filter((g) => !SUITES[g])
 if (unknown.length) {
-  console.error('[run] 不认识的套件：' + unknown.join(', ') + '（可选 core / monitor / mail / all）')
+  console.error('[run] 不认识的套件：' + unknown.join(', ') + '（可选 core / ci / monitor / mail / all）')
   process.exit(2)
 }
 

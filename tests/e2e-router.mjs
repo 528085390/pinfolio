@@ -14,7 +14,8 @@ const ok = (name, cond, extra) => results.push((cond ? 'PASS ' : 'FAIL ') + name
 
 const path = () => new URL(page.url()).pathname
 const onAssets = () => page.locator('.stat-label', { hasText: '资产总数' }).count().then((n) => n > 0)
-const onMonitors = () => page.locator('.stat-label', { hasText: '观测项' }).count().then((n) => n > 0)
+// 观测页有两副面孔：接了 Kuma 是观测台，没接是引导卡（CI 里没有 Kuma）。两者都渲染 .page-monitors。
+const onMonitors = () => page.locator('.page-monitors').count().then((n) => n > 0)
 const onNotes = () => page.locator('.composer').count().then((n) => n > 0)
 const onSettings = () => page.locator('.section-title', { hasText: '自定义资产字段' }).count().then((n) => n > 0)
 const activeNav = () => page.locator('.nav-item.active .nav-label').first().innerText().catch(() => '')

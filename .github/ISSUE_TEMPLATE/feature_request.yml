@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest something pinfolio should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        pinfolio is deliberately small: one Node process, one SQLite file, no external services,
+        single user. Requests that keep it that way are much more likely to land.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you hitting
+      description: Describe the situation, not the solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like it to do
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Notes
+        - Assets
+        - Monitors / Kuma
+        - Mail
+        - Hosts / metrics
+        - Backup
+        - Deployment
+        - Docs
+        - Other
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does it fit the shape of the app
+      options:
+        - label: It works with a single user and no external service
+          required: false
+        - label: I would be willing to send a pull request
+          required: false

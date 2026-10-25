@@ -22,6 +22,20 @@ monitorsRoute.get('/', async (c) => {
     // Kuma 挂了 / 没启动时，退回上一次的数据并标记 stale，比直接空屏有用
     const stale = lastPayload()
     if (stale) return c.json({ ...stale, stale: true, error: '读不到 Kuma：' + String(e?.message || e) })
+    // 压根没接 Kuma：给空列表而不是 502 —— 页面本来就会渲染引导卡（见 /meta），
+    // 后台的异常通知轮询每 30 秒来一次，回 502 只会让浏览器控制台一直刷「Failed to load resource」。
+    // 放在 catch 里是刻意的：接上了的实例走上面的快路径，不为此多付一次探测。
+    const meta = await kumaMeta().catch(() => null)
+    if (meta && !meta.configured) {
+      return c.json({
+        kuma: { base: meta.url || '', slug: '', title: '观测台' },
+        updatedAt: new Date().toISOString(),
+        summary: { total: 0, up: 0, down: 0, pending: 0, uptime24: null },
+        groups: [],
+        quick: [],
+        configured: false,
+      })
+    }
     return c.json({ error: '读不到 Kuma 状态页：' + String(e?.message || e) }, 502)
   }
 })

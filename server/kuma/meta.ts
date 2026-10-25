@@ -5,7 +5,7 @@ import { kumaPass } from './secret.js'
 //   1. 连的是不是那个改造版 fork —— fork 在 monitor 上多了 policy_json 等字段，
 //      上游原版没有；连到上游还渲染「立即观测」这类 fork 专属入口，用户点了只会报错。
 //   2. 用户到底配没配 Kuma —— 没配就别在观测页报「连不上」，直接给一张怎么接的引导卡。
-// 两者合成一个 GET /api/kuma/meta，判定逻辑做成纯函数放这里，方便单测。
+// 两者合成一个 GET /api/monitors/meta（monitorsRoute 挂在 /api/monitors 下），判定逻辑做成纯函数放这里，方便单测。
 
 export type KumaFlavor = 'fork' | 'upstream'
 

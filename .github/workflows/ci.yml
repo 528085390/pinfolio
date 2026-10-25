@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [master, arch, dev]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: typecheck + unit tests + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+
+  e2e:
+    name: e2e (ci group)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # the suites serve the built frontend, so build before starting the instance
+      - run: pnpm build
+      # playwright-core ships the CLI but not the browser; this downloads it
+      - run: npx playwright-core install --with-deps chromium
+      - name: Tell tools/chrome-path.mjs where Chromium is
+        run: node tools/ci-chrome-path.mjs
+      - name: e2e (no Kuma, no IMAP, no metrics endpoint needed)
+        run: node tests/run.mjs --only=ci
+        env:
+          PINBOARD_PASSWORD: e2e-password
+
+  docker:
+    name: docker build (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

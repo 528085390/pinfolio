@@ -1,0 +1,75 @@
+name: Bug report
+description: Something is broken or behaves differently than documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Most "it does not work" reports turn out to be deployment details,
+        so please fill in the fields below.
+
+        **Security issues: do not open an issue** — see [SECURITY.md](../blob/master/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Image tag, git commit, or "master as of 2026-10-26"
+      placeholder: v0.2.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How do you run it
+      options:
+        - Docker Compose (with the Caddy profile)
+        - Docker Compose (plain)
+        - Bare metal, Linux or macOS
+        - Windows (start.cmd)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: v24.16.0
+
+  - type: checkboxes
+    id: integrations
+    attributes:
+      label: What is wired up
+      options:
+        - label: Uptime Kuma (KUMA_URL)
+        - label: Mail accounts
+        - label: Host metrics (metrics.json)
+        - label: Remote database backup
+        - label: Behind a reverse proxy (TRUST_PROXY)
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Steps to reproduce, what you expected, what you got
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Last ~40 lines of logs/pinboard.log or docker logs. Remove passwords, tokens and personal data.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed passwords, tokens and personal data from the logs
+          required: true
+        - label: I am on the newest release or master
+          required: false
