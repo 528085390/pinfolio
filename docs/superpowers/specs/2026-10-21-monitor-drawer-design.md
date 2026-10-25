@@ -244,7 +244,7 @@ socket.on("checkNow", async (monitorID, callback) => {
 ## 9. 写后一致性（三件事，缺一件你都会以为没生效）
 
 1. **清 pinboard 缓存**：`routes/monitors.ts` 导出 `invalidate()`，清掉模块级 `cache`、`statusCache`、`beatCache`；写路由成功后立刻调用。
-2. **重生成 `kuma/SNAPSHOT.md`**：spawn `node E:/bqj/kuma/tools/snapshot.cjs`，防抖 1.5 秒（与 pinboard 自己的 snapshot 机制对齐），失败只记日志。
+2. **重生成 `kuma/SNAPSHOT.md`**：spawn `node <kuma 目录>/tools/snapshot.cjs`，防抖 1.5 秒（与 pinboard 自己的 snapshot 机制对齐），失败只记日志。
 3. **前端强制刷新**：写操作成功后 `load(true)`（带 `?fresh=1`），抽屉里的字段用返回值就地更新，不整块重载。
 
 「立即观测」触发后**不**碰 status-page（避免 5-30 秒的慢查询），改为每 2 秒调一次 `GET /api/monitors/:id`（走 socket，毫秒级），直到 `latest.time` 变化或 60 秒超时；拿到新结果后再做一次常规 `load()`。

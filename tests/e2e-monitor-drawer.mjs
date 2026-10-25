@@ -2,9 +2,13 @@ import { BASE } from './env.mjs'
 import { CHROME as exe } from '../tools/chrome-path.mjs';
 import { login } from './login.mjs'
 import { chromium } from 'playwright-core'
-import { existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// 仓库根：不要再写死 E:\bqj\pinboard 这类绝对路径（别人 clone 下来就废）
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const B = BASE
 const results = []
 const ok = (name, cond, extra) => results.push((cond ? 'PASS ' : 'FAIL ') + name + (cond || !extra ? '' : '  → ' + extra))
@@ -104,10 +108,11 @@ try {
 
 // ================= 阶段 2：写能力（改名 / 频率 / 暂停恢复 / 删除） =================
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const KUMA_DIR = 'E:\\bqj\\kuma'
+const KUMA_DIR = process.env.KUMA_DIR || path.join(ROOT, '..', 'kuma')
 const SNAPSHOT = path.join(KUMA_DIR, 'SNAPSHOT.md')
 const BACKUPS = path.join(KUMA_DIR, 'backups')
-const TMPDIR = path.join('E:\\bqj\\pinboard', 'tmp')
+const TMPDIR = path.join(ROOT, 'tmp')
+mkdirSync(TMPDIR, { recursive: true })
 const ID = target.id
 const ORIG_NAME = target.name
 const ORIG_INTERVAL = target.interval
@@ -338,7 +343,7 @@ try {
 }
 
 // ================= 阶段 3：立即观测（配方 + 步骤执行器） =================
-const ACTIONS = path.join('E:\\bqj\\pinboard', 'monitor-actions.json')
+const ACTIONS = process.env.MONITOR_ACTIONS || path.join(ROOT, 'monitor-actions.json')
 const actionsBackup = existsSync(ACTIONS) ? readFileSync(ACTIONS, 'utf8') : null
 const stamp3 = Date.now().toString().slice(-5)
 const nameD = 'e2e 立即 ' + stamp3
