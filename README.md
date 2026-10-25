@@ -1,19 +1,21 @@
 # pinfolio
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-376%20passing-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/unit%20tests-390%20passing-brightgreen)](#development)
+[![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **English** · [中文](README.zh.md)
 
-Notes, an asset inventory and an uptime dashboard in one local app. Jot a note, put `#tags` in it and it files itself; track servers, domains and accounts with expiry reminders; watch every machine on one screen; read several mailboxes as one read-only inbox.
+Notes, an asset inventory and an uptime dashboard in one self-hosted app. Jot a note, put `#tags` in it and it files itself; track servers, domains and accounts with expiry reminders; watch every machine on one screen; read several mailboxes as one read-only inbox.
 
-One Node process, one SQLite file, no accounts, no cloud, no Docker. Open http://127.0.0.1:7788 and it works.
+One Node process, one SQLite file, one password. No cloud, no external services: `docker compose up -d` or `pnpm build && node dist/server.js`, and the first visit asks you to set a password.
 
 - Repo: <https://github.com/528085390/pinfolio> — a personal tool, published in case someone finds it useful. Not on npm.
-- Run it: copy the directory anywhere, then `pnpm install && pnpm build && pnpm start`
+- Run it: `docker compose up -d` (image `ghcr.io/528085390/pinfolio`, amd64 + arm64), or bare metal with `pnpm install && pnpm build && node dist/server.js`
 - Stack: Node 24 + TypeScript + Hono + `node:sqlite`; Vite 7 + React 19 + hand-written CSS
-- Data: `data/pinboard.db` (local only)
+- Data: `data/pinboard.db` plus `data/secret.key` — one directory to back up ([restoring](docs/backup-restore.md))
 
 ## Screenshots
 
@@ -157,8 +159,9 @@ pnpm dev        # API on 7788 (tsx watch) + Vite on 5273, /api proxied
 pnpm build      # rebuild the frontend into dist/web — required after frontend changes
 pnpm typecheck  # tsc --noEmit
 pnpm start      # production mode, not watch: restart after backend changes
-pnpm test       # typecheck + 376 unit tests (no running service needed)
+pnpm test       # typecheck + 390 unit tests (no running service needed)
 pnpm test:e2e   # core + monitor suites (needs 7788 and Kuma on 3001)
+node tests/run.mjs --only=ci   # what CI runs: no Kuma, no mail server, no metrics endpoint
 pnpm test:mail  # mail suite, against an isolated instance
 ```
 
@@ -182,14 +185,23 @@ E2E suites drive the real UI through `playwright-core` with the Chromium already
 
 ## Docs
 
+- [`docs/deploy.md`](docs/deploy.md): Docker, bare metal, reverse proxy, environment variables, acceptance checklist.
+- [`docs/upgrade.md`](docs/upgrade.md) and [`docs/backup-restore.md`](docs/backup-restore.md): upgrading, rolling back, restoring.
+- [`docs/faq.md`](docs/faq.md): the questions this README does not answer.
 - [`docs/features.md`](docs/features.md): every page in full (English); [`docs/features.zh.md`](docs/features.zh.md) is the same in Chinese.
 - [`docs/api.md`](docs/api.md): the complete HTTP API (English; [`docs/api.zh.md`](docs/api.zh.md) 中文).
 - [`CHANGELOG.md`](CHANGELOG.md): what changed, and in which version.
-- [`AGENTS.md`](AGENTS.md): engineering conventions, module responsibilities and 30 hard-won pitfalls — **read this before changing code** (Chinese).
+- [`AGENTS.md`](AGENTS.md): engineering conventions, module responsibilities and 47 hard-won pitfalls — **read this before changing code** (Chinese).
 - [`docs/adding-assets.md`](docs/adding-assets.md): the one page to read before adding an asset or note (Chinese).
 - [`SNAPSHOT.md`](SNAPSHOT.md): auto-generated dump of the current data, rewritten 1.5 seconds after any write (do not edit).
 - The rest of `docs/` (`architecture.md`, `pitfalls.md`, `status-history.md`, `mail-page-requirements.md`) is internal documentation, in Chinese.
 
+## Contributing
+
+Bug reports, documentation fixes and deployment feedback are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Security issues go through [`SECURITY.md`](SECURITY.md), not the issue tracker.
+
 ## License
 
-[MIT](LICENSE). Use it, change it, sell it — just don't blame me when it breaks.
+[GNU AGPL-3.0-or-later](LICENSE). Self-host it, change it, use it commercially — if you run a modified
+version as a network service, publish your changes. No warranty.

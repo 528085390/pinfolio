@@ -1,19 +1,21 @@
 # pinfolio
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-376%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+[![Tests](https://img.shields.io/badge/unit%20tests-390%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+[![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **中文** · [English](README.md)
 
-一个跑在本机的小工具：**随手记便签**（写 `#标签` 自动归类）、**资产台账**（服务器 / 域名 / 账号 / 设备，带到期提醒和关联便签）、**观测台**（一眼看所有机器和服务）、**邮件**（多个邮箱合并成一个只读收件箱）。
+一个自托管的小工具：**随手记便签**（写 `#标签` 自动归类）、**资产台账**（服务器 / 域名 / 账号 / 设备，带到期提醒和关联便签）、**观测台**（一眼看所有机器和服务）、**邮件**（多个邮箱合并成一个只读收件箱）。
 
-一个进程、一个端口、一个 SQLite 文件，没有云端、没有账号、不用 Docker。打开 http://127.0.0.1:7788 就能用。
+一个进程、一个 SQLite 文件、一个密码。没有云端、没有外部服务：`docker compose up -d` 或 `pnpm build && node dist/server.js`，首次访问会让你设密码。
 
 - 仓库：<https://github.com/528085390/pinfolio> —— 自用小工具，公开出来给需要的人参考，没发布到 npm。
-- 运行方式：代码放哪都行，`pnpm install && pnpm build && pnpm start`
+- 运行方式：`docker compose up -d`（镜像 `ghcr.io/528085390/pinfolio`，amd64 + arm64），或裸机 `pnpm install && pnpm build && node dist/server.js`
 - 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 7 + React 19 + 手写 CSS
-- 数据：`data/pinboard.db`（只在本机）
+- 数据：`data/pinboard.db` 加 `data/secret.key` —— 备份就是这一个目录（[怎么恢复](docs/backup-restore.md)）
 
 ## 截图
 
@@ -157,8 +159,9 @@ pnpm dev        # 7788 跑 API（tsx watch）+ 5273 跑 Vite，/api 走代理
 pnpm build      # 重新构建前端到 dist/web —— 改完前端必须跑
 pnpm typecheck  # tsc --noEmit
 pnpm start      # 生产模式，不是 watch：改完后端要重启
-pnpm test       # typecheck + 376 条单测（不需要服务在跑）
+pnpm test       # typecheck + 390 条单测（不需要服务在跑）
 pnpm test:e2e   # core + monitor 套件（需要 7788 和 Kuma 3001）
+node tests/run.mjs --only=ci   # CI 跑的就是这个：不需要 Kuma / 邮箱 / 采集端
 pnpm test:mail  # 邮件套件，对着隔离实例跑
 ```
 
@@ -182,14 +185,23 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 
 ## 文档
 
+- [`docs/deploy.md`](docs/deploy.md)：Docker / 裸机 / 反代 / 环境变量 / 验收清单。
+- [`docs/upgrade.md`](docs/upgrade.md) 与 [`docs/backup-restore.md`](docs/backup-restore.md)：升级、回滚、恢复。
+- [`docs/faq.md`](docs/faq.md)：这份 README 没回答的问题。
 - [`docs/features.zh.md`](docs/features.zh.md)：各页完整行为（中文）；英文版见 [`docs/features.md`](docs/features.md)。
 - [`docs/api.zh.md`](docs/api.zh.md)：完整 HTTP API（中文；英文 [`docs/api.md`](docs/api.md)）。
 - [`CHANGELOG.md`](CHANGELOG.md)：改了什么、哪个版本改的。
-- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 45 条踩过的坑，**改代码前先读**。
+- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 47 条踩过的坑，**改代码前先读**。
 - [`docs/adding-assets.md`](docs/adding-assets.md)：加资产 / 加便签的唯一手册。
 - [`SNAPSHOT.md`](SNAPSHOT.md)：自动生成的数据快照，任何写入后 1.5 秒重写（不要手改）。
 - `docs/` 其余（`architecture.md`、`pitfalls.md`、`status-history.md`、`mail-page-requirements.md`）是内部文档。
 
+## 参与
+
+缺陷报告、文档修正、部署反馈都欢迎 —— 见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+安全问题走 [`SECURITY.md`](SECURITY.md)，不要开公开 issue。
+
 ## 许可
 
-[MIT](LICENSE)。随便用、随便改、商用也行，出事别找我。
+[GNU AGPL-3.0-or-later](LICENSE)。自用、修改、商用都可以；如果把改过的版本当网络服务对外提供，
+需要公开你的改动。不提供任何担保。

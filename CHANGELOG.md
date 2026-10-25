@@ -3,7 +3,7 @@
 本项目的改动都记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号在 0.x 阶段只表示「大改了一轮」，不承诺向后兼容——这是自用小工具，UI 和接口随时可能变。
 
-## [未发布]
+## [0.2.0] - 2026-10-26
 
 ### 备份（新页面 · 第 7 页）
 
@@ -70,6 +70,25 @@
   并写明「其余六页照常可用」。判定在 `GET /api/monitors/meta`：显式配了 `KUMA_URL`/`KUMA_PASS`，或者默认地址上读得到公开状态页，都算接上了。
 - **兼容上游原版 Kuma**：按观测项 bean 里有没有 `policyJson` 认自家 fork（`KUMA_FLAVOR=auto|fork|upstream` 可强制，缓存 5 分钟，探测失败按上游算）；
   上游版下详情抽屉不渲染「立即观测」，其余照常。仓库自带的 fork 专属能力只在自家 fork 上出现。
+
+### 工程化（开源）
+
+- **许可证从 MIT 换成 GNU AGPL-3.0-or-later**：`LICENSE` 是全文，`package.json` 与 README 两版同步改；
+  自用、修改、商用都可以，把改过的版本当网络服务对外提供要公开改动。版本号 `0.1.0` → `0.2.0`。
+- **CI**（`.github/workflows/ci.yml`，push 到 master/arch/dev 与所有 PR）：三个 job —— `test` 跑 `pnpm test` + `pnpm build`；
+  `e2e` 装 Playwright 的 chromium 后跑 `node tests/run.mjs --only=ci`；`docker` 用 buildx 真构建一次镜像（不推），
+  镜像构建挂了在 PR 上就能看见。concurrency 会取消同分支的旧 run。
+- **发版自动化**（`.github/workflows/release.yml`）：推 `v*.*.*` tag → buildx + QEMU 构建 `linux/amd64` + `linux/arm64`
+  推到 `ghcr.io/528085390/pinfolio`（版本 tag + latest），再用 `tools/release-notes.mjs` 从 CHANGELOG 抽本版本段落建 GitHub Release，
+  带 `-` 的 tag（如 `v0.3.0-rc.1`）自动标成 prerelease。人工清单在 `docs/release.md`。
+- **测试加了 `ci` 分组**：`node tests/run.mjs --only=ci` = core 全套 + 新的 `tests/e2e-monitor-empty.mjs`（自起一个没接 Kuma 的实例，
+  验证观测页出引导卡、`/api/monitors/meta` 判 `configured: false`），**不需要 Kuma / 邮箱 / 采集端**，CI 与贡献者都能跑。
+  `tests/e2e-router.mjs` 里「观测页加载出来了」的判定从「有观测项」改成「有 `.page-monitors`」，没数据时也能过。
+- **社区文件**：`CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`（Contributor Covenant 2.1）、`SECURITY.md`（走私密渠道、给支持版本）、
+  issue 表单（bug / 功能）与 PR 模板、`.github/dependabot.yml`（npm 每周分组、actions 与 docker 每月；typescript / vite / react 大版本忽略）。
+- **文档补齐三篇**：`docs/upgrade.md`（Docker / 裸机 / Windows 升级与回滚、迁移前快照怎么用）、`docs/faq.md`（部署形态、ARM、
+  多用户、手机、忘记密码、为什么 AGPL 等 20 问）、`docs/release.md`（维护者发版手册）。README 两版更新 badge（CI / 许可 / 镜像 / 单测数）、
+  单测数 376 → 390、坑数 → 47，并删掉「no accounts, no cloud, no Docker」那句过时描述。
 
 ## [0.1.0] - 2026-10-21
 

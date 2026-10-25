@@ -76,6 +76,7 @@ SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类
 
 ```powershell
 node tests/run.mjs --only=core
+node tests/run.mjs --only=ci       # CI 跑的就是这个：core + 没接 Kuma 时的引导卡
 node tests/run.mjs --only=monitor
 node tests/run.mjs --only=mail
 ```
@@ -85,6 +86,7 @@ node tests/run.mjs --only=mail
 | 套件 | 需要什么 |
 |---|---|
 | `core`（smoke / e2e / done / filter / archive / tagbar / router / tagpop） | 什么都不用准备：`run.mjs` 自己起隔离实例 |
+| `ci`（core 全部 + monitor-empty） | 同上；`monitor-empty` 自己再起一个**没接 Kuma**的实例（`KUMA_SLUG` 设成不存在的值），验证引导卡。**不需要 Kuma / 邮箱 / 采集端** |
 | `monitor`（monitor-note / monitor-drawer / alert） | 同上；`monitor-drawer` 还需要 Kuma 在 `http://127.0.0.1:3001`（它会临时建观测项并在结束时清理） |
 | `mail`（e2e-mail / mail-api-smoke） | 另需 `MAIL_E2E_BASE` 指向一个隔离实例 + `tests/fakeimap` 的依赖（见下） |
 

@@ -32,7 +32,8 @@
 | 组件 | `web/components/*` + `web/components/{monitor-drawer,asset-drawer,mail-reader,mail-account}/*` | 抽屉（`FormDrawer` 是共用壳；两个编辑抽屉各自拆成容器 + 分段/表单，纯逻辑在各自的 `form.ts`，观测抽屉的状态与接口调用在 `monitor-drawer/useMonitorDetail.ts`；命令面板的行拼装在 `command-palette/items.ts`）/ 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM，清洗规则在 `mail-reader/doc.ts`、`css.ts`）/ 邮箱账号抽屉（规则在 `mail-account/form.ts`） |
 | 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（七域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
 | 样式 | `web/styles/`（13 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
-| 测试 | `tests/`（`unit/` 390 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
+| 测试 | `tests/`（`unit/` 390 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md`；`node tests/run.mjs --only=ci` 是 CI 那一档（core + 引导卡，**不需要 Kuma / 邮箱 / 采集端**） |
+| 工程化 | `LICENSE`（AGPL-3.0-or-later）/ `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `SECURITY.md` / `.github/`（CI、release、dependabot、issue 与 PR 模板）/ `tools/ci-chrome-path.mjs` + `tools/release-notes.mjs` / `docs/{deploy,upgrade,faq,release,backup-restore}.md` | CI 三个 job（test / e2e `--only=ci` / docker 只构建不推）；推 `v*.*.*` tag 出双架构镜像并建 Release（正文从 CHANGELOG 抽） |
 | 工具 | `tools/screenshots/`、`tools/node-metrics/`（另有本地私有的 `seed-assets.mjs`、`streak-panel-trigger.cjs`，不进版本库） | 截图脚本（须在项目根跑，产物进 `tmp/`）、**服务器的采集端**（`build-install.mjs` 打成单文件安装器，托管在 `<站点根>/nm/`；安装/排错/回滚见该目录 `README.md`） |
 
 ## 怎么用

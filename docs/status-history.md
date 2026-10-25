@@ -387,3 +387,20 @@ HTTP 面是 `GET /api/monitors/meta` → `{configured, flavor, url}`，**必须�
 三态实测 A 自家 fork → `{"configured":true,"flavor":"fork","url":"http://127.0.0.1:3001"}`；C 全新数据 + `KUMA_URL=http://127.0.0.1:9` → `flavor:"upstream"`；
 D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, flavor:"upstream"`（读得到状态页算配了，没口令登录失败按上游）。
 引导卡在 1280×900 与 390×844 下截图确认无横向溢出（`tmp/guide-desktop.png` / `tmp/guide-mobile.png`）。
+
+## 已完成（2026-10-26，开源工程化 07）
+
+- **许可证换 AGPL-3.0-or-later**（原 MIT）：`LICENSE` 全文 + `package.json` + README 两版；版本号 `0.1.0` → `0.2.0`，
+  CHANGELOG 的 `## [未发布]` 落成 `## [0.2.0] - 2026-10-26`。
+- **CI**（`.github/workflows/ci.yml`）：`test`（`pnpm test` + `pnpm build`）/ `e2e`（装 chromium 后 `node tests/run.mjs --only=ci`）/
+  `docker`（buildx 构建一次镜像，不推）三个 job，push 到 `master`/`arch`/`dev` 与所有 PR 触发，concurrency 取消同分支旧 run。
+- **发版**（`.github/workflows/release.yml`）：推 `v*.*.*` tag → buildx + QEMU 出 `linux/amd64` + `linux/arm64` 推 `ghcr.io/528085390/pinfolio`，
+  再用 `tools/release-notes.mjs` 从 CHANGELOG 抽本版本正文建 GitHub Release（tag 含 `-` 自动 prerelease）。
+- **测试加了 `ci` 分组**：`--only=ci` = core 全套 + 新的 `tests/e2e-monitor-empty.mjs`（自起没接 Kuma 的实例验证引导卡）。
+  顺手修了 `tests/e2e-router.mjs` 里「有 `.stat-label` 才算观测页加载完」的旧判定（改成 `.page-monitors`，不再依赖数据）。
+- **社区文件**：`CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`（Contributor Covenant 2.1）、`SECURITY.md`、issue 表单（bug / 功能）、PR 模板、
+  `.github/dependabot.yml`（npm 每周分组，actions 与 docker 每月，typescript / vite / react 大版本忽略）。
+- **文档三篇**：`docs/upgrade.md`（升级与回滚、迁移前快照怎么用）、`docs/faq.md`（20 问）、`docs/release.md`（维护者发版手册）。
+  README 两版更新 badge（CI / 许可 / 镜像 / 390 单测）、坑数改 47，删掉「no accounts, no cloud, no Docker」那句。
+- 验证：`pnpm test` 全绿（390 单测 + 7 片段）、`node tests/run.mjs --only=ci` 通过、全量 e2e 15/15。**GitHub 上第一次真实运行还没发生**
+  （workflow 这次才进仓库）；`docker` job 会是镜像的第一次真实构建。

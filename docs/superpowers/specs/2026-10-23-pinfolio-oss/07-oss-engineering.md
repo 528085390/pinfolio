@@ -1,6 +1,6 @@
 # 07 · 开源工程化（CI / 发布 / 文档 / 社区）
 
-- 状态：待实施（最后一块）
+- 状态：**已实施**（2026-10-26，分支 arch；实施记录见文末）
 - 依赖：02–06（功能齐了才有意义）
 
 ## 前置：`package.json` 补齐
@@ -73,3 +73,28 @@ Description、Topics（已配好）、About 挂截图、Discussions 先不开、
 ## 不做
 
 - 覆盖率门槛、nightly 构建、自动合并 Dependabot、VitePress 文档站。
+
+## 实施记录（2026-10-26）
+
+与上面设计的偏差，逐条记下来：
+
+1. **CI 触发的分支是 `master` / `arch` / `dev`**，不是 `main` —— 2026-10-23 起 `main` 已改名 `master`（远程 `main` 删除），`dev` 是日常开发、`arch` 是架构升级工作树。
+2. **三个 job 而不是一个**：`test`（timeout 10：`pnpm test` + `pnpm build`）、`e2e`（timeout 15：装 chromium + `node tests/run.mjs --only=ci`）、
+   `docker`（timeout 20：buildx 真构建一次镜像但不推）。多加 `docker` 是因为镜像在本机从来没 build 过（本机与服务器都没有 docker），
+   让它在 PR 上就能暴露 Dockerfile 的问题。
+3. **`--only=ci` 的组成是「core 全套 + monitor-empty」**，不是当初设想的「notes / assets / settings / 观测页空态」子集：core 本来就是零外部依赖
+   （`run.mjs` 自己起隔离实例），真正需要 Kuma 的只有 `monitor` 组。新写的 `tests/e2e-monitor-empty.mjs` 自起一个 `KUMA_SLUG` 不存在的实例，
+   把「没接 Kuma → 引导卡」这条以前没人测的路径固化了。
+4. **`tests/e2e-router.mjs` 的判定顺手修了**：原来用「页面上有 `.stat-label` 的『观测项』」判断观测页加载完成，没数据时永远为假；改成 `.page-monitors`，
+   对数据不再有依赖 —— 这是 CI 能跑 core 的前提。
+5. **README 是英/中两版同构**（`README.md` + `README.zh.md`），不是「正文中文 + 顶部英文摘要」：两版的章节一一对应，badge 都是 5 个
+   （CI / AGPL-3.0 / Node ≥24 / 390 单测 / ghcr 镜像）。
+6. **许可证定为 AGPL-3.0-or-later**（`package.json` 的 SPDX 写法），`LICENSE` 是 AGPL-3.0 全文；版本号同步从 `0.1.0` 升到 `0.2.0`，
+   CHANGELOG 的 `## [未发布]` 落成 `## [0.2.0] - 2026-10-26`。
+7. **发布脚本拆成 `tools/release-notes.mjs`**：`extractSection(text, tag)` 是纯函数（可单测），workflow 里只负责把它接到 `action-gh-release`。
+   tag 名含 `-` 时自动标 prerelease。
+
+**验收状态**：CI 的三个 job 是照着「本机能跑通」写的（`pnpm test`、`node tests/run.mjs --only=ci`、全量 e2e 都已在本机验证），
+但 GitHub 上第一次实际跑还没发生（workflow 文件这次才进仓库）。`docker` job 是镜像的**第一次真实构建**。
+1.0.0 门槛（鉴权 + 部署 + 备份齐全 + `docker compose up` 一把通）里，前三条已达成，最后一条等镜像构建验证过再算。
+
