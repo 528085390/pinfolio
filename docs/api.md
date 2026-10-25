@@ -42,6 +42,17 @@ Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out, no aut
 | PATCH | `/hosts/:id` | Update `{ paused?, label?, note?, units?, disks?, address? }`. `paused: true` stops pulling that machine (the card stays, dimmed); `paused: false` pulls once to backfill the newest frame. Unknown id → 404 |
 | DELETE | `/hosts/:id?confirm=<id>&purge=1` | Remove a machine — the id must be typed exactly. `purge=1` also deletes its `host_metrics` rows, the Kuma monitors created for it (the ids recorded as `monitors` in `data/metrics.json`), the group once empty, and its `host-services.json` rules; the response adds `{ purged, monitorsDeleted, monitorsFailed }`. Unknown id → 404 |
 | POST | `/hosts/refresh` | Pull every machine from the ingest bucket right now (bypasses the 4-minute minimum gap). Requires `Content-Type: application/json`, otherwise 415 |
+| GET | `/backup` | Backup status: `{ local: { dir, keep, files: [{ name, size, mtime }], last, lastOkAt, lastError }, remote: { type, host, port, database, user, table, hasPassword, rows, last, lastError } }` |
+| GET | `/backup/local/:name/manifest` | The pack's `manifest.json` (member names, sizes, sha256, generated time, instance id) |
+| GET | `/backup/local/:name/download` | Download one pack (`Content-Disposition` carries the filename) |
+| DELETE | `/backup/local/:name` | Delete one pack (the name must match `pinfolio-*.tar.gz`; `pre-migrate-*` is refused) |
+| POST | `/backup/run` | Back up now: `{ only?: "local" | "remote" }`, returns the new status |
+| GET | `/backup/remote` | Remote rows (metadata only, never the payload) |
+| POST | `/backup/remote/test` | Test a connection: `{ type, host, port?, database, user, password?, table? }`; returns the server version. An empty password reuses the stored one |
+| POST | `/backup/remote/config` | Save the destination (same fields; the password is encrypted at rest) and create the table if it is missing |
+| DELETE | `/backup/remote/config` | Forget the destination (rows already uploaded stay in the database) |
+| DELETE | `/backup/remote/:id` | Delete one remote row |
+| POST | `/backup/remote/:id/download` | Fetch one remote row back into `data/backups/` (sha256 checked) |
 
 Examples:
 

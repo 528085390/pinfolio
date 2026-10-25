@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（39 条）
+# pinboard 已知问题与坑（45 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -59,3 +59,13 @@
 39. **删主机不能只删清单，顺带建的观测项要一起回收**（2026-10-22 加「顺带建观测项」时定的）：观测项建在 Kuma 里、地址指向这台机，主机从 `data/metrics.json` 消失后它们会一直探一个已经下线的地址（红一片）。做法：`POST /hosts` 建完把 `monitors: [id…]` 与 `group: <id>` 记进清单（`hostmeta.ts` 的 `safeMonitors` 清洗、上限 32），`DELETE ?purge=1` 时逐个 `deleteMonitor()`（失败的 id 进 `monitorsFailed` 回给前端）、组空了再 `deleteGroup()`（**组里还有观测项时 CLI 会拒绝**，所以必须放在删完之后、失败就 catch 忽略）、最后 `removeServiceRules()` 清 `host-services.json`。新建映射走 `mergeServiceRules()`（同 host+unit **覆盖** monitor id），**别追加**——追加会让 `resolveUnitMonitors` 一直命中旧 id。
 
 40. **静态加密的主密钥丢了，邮箱密码 / Kuma 口令 / 指标源就解不开了，程序不会自己恢复**（2026-10-23 做 spec 03 时定的）：主密钥 = `PINBOARD_SECRET` 或 `data/secret.key`，`mail_accounts.password`、`data/kuma-pass.txt`、`data/metrics.json` 的 `base` 都存成 `enc:v1:<iv>:<tag>:<ct>`（`server/secrets/*`）。三条铁律：① **备份要连 `data/secret.key` 一起备**，只拷 `pinboard.db` 换台机器等于把凭据全废掉；② 密钥文件**绝不进版本库**（`data/` 已 gitignore，别为了「方便」把它挪到根目录）；③ 换密钥目前没有轮换工具——换之前先按 03 的设计写迁移，别直接改环境变量，改了之后 `open()` 解不开只会返回空密码（列表照出，收信报认证失败），别误判成 IMAP 挂了。
+41. **Kuma 的 `heartbeat.time` 存的是 UTC 字符串，不是本地时间**（2026-10-26 做备份 CSV 时踩的）：格式 `YYYY-MM-DD HH:MM:SS.sss`，用 `new Date(y, m, d)` 的本地日边界去 `BETWEEN` 查，白天会查到 0 行（本地 00:00 = UTC 前一天 16:00）。正确做法是 `const utcStamp = (d: Date) => d.toISOString().slice(0, 19).replace('T', ' ')`，两端都用它（`server/backup/collect.ts`）。**别改成 `datetime(time,'localtime')`**：那会把索引查询变成全表扫描，59k 行就开始慢。
+
+42. **远端备份表的主键别拿「实例 id + 时间戳」拼**（2026-10-26 踩的）：实例 id 本身就是 36 字符的 UUID，拼上 13 位时间戳 = 50 字符，列是 `VARCHAR(36)` → MySQL 报 `Data too long for column 'id' at row 1`，PG 直接截断/报错。用 `randomUUID()`（`server/backup/run.ts`），实例归属放 `instance_id` 列。
+
+43. **MySQL 的 `DATETIME` 不吃 ISO 字符串**（同一天踩的）：`2026-10-25T16:28:13.643Z` 写进 `DATETIME` 报 `Incorrect datetime value`，而 PG 的 `TIMESTAMP` 又认它——两边行为不一致。备份表的 `created_at` 统一用 **`VARCHAR(32)` 存 ISO 串**（排序仍正确，页面上直接 `new Date()`），别为了「规范」改回 `TIMESTAMP`。
+
+44. **`pg` 的 `client.query()` 返回 `{ rows, rowCount, … }`，不是行数组**（同一天踩的）：照 `mysql2` 的习惯写 `const rows = await conn.query(sql)` 会拿到对象，`rows[0]` 是 undefined——回读 sha256 校验「拿不到行」、测试连接返回空版本号，全都表现成「成功但没数据」。在 `server/backup/remote.ts` 里把 pg 的连接包一层 `query: async (sql, params) => (await client.query(sql, params)).rows`。
+
+45. **ESM 里没有 `require()`**（同一天踩的）：`server/backup/local.ts` 第一版在函数里 `require('node:zlib')` 解 gzip，tsx 下不报错但纯 node 跑就 `require is not defined`。本项目是 `"type": "module"` + bundler 解析，一律顶层 `import`；**懒加载依赖用 `await import()`**（`mysql2` / `pg` 就是这么做的，没配远端就完全不加载）。
+

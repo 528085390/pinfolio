@@ -73,3 +73,13 @@
 - **为什么不直接上 node_exporter + Prometheus + Grafana**：每台要常驻 15–25 MB，本机再加约 200 MB；oj 只有 945 MB（历史上装 dnf-automatic 把它拖死过）。现在服务器侧**零常驻**，磁盘 2 KB。
 - **加一台机**：① 主机页点「+ 添加主机」填 id / 服务清单 / 磁盘 / 地址，要监控端口或站点就顺手勾上；② 保存后复制弹窗里那条命令，到目标机 `sudo` 跑一遍（下载单文件安装器 → 写 `/etc/node-metrics.conf` → 装 timer → 立刻上报一帧）；③ 弹窗里点「立即检查」或等 5 分钟，卡片从「还没收到上报」变成正常指标。没有界面时也能手装：`curl -fsSL https://metrics.example.com/nm/node-metrics-install.sh | sudo bash -s -- <URL> <HOST_ID> "<WATCH_UNITS>" "<DISK_PATHS>"`。
 - **排错**：`systemctl status node-metrics.service`（应 `status=0/SUCCESS`）→ `node-metrics.sh --print`（只打印不上报）→ `curl https://metrics.example.com/metrics/<token>/<id>.json`（看落盘那份）→ 本机 `GET /api/hosts` 看 `pollOk` / `pollFailed`。
+
+## 备份
+
+- **自动跑，不用配**：进程内定时器每天 03:00 打一个包到 `data/backups/pinfolio-YYYYMMDD-HHMM.tar.gz`，保留最新 14 份。`BACKUP=0` 关掉；`BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` / `KUMA_DB` 分别改时刻、份数、目录与心跳来源。手动走页面「立即备份」或 `node dist/server.js --backup`（`--local` / `--remote` 分开跑）。
+- **包里有什么**：库的一致性快照（`node:sqlite` 的 `backup()`，WAL 跑着也能备）、**当天每个时间点的观测心跳 CSV**（`time,monitor_id,monitor_name,status,msg,ping`，审计用）、观测项定义、`data/*.json|txt`（含 `secret.key`）、根目录四个配置，以及逐成员 sha256 的 `manifest.json`。`kuma.db` **只放在周日那份**——全量 3.3 MB gz，每天都带会让 14 份涨到 55 MB。
+- **审计比 Kuma 活得久**：每天的 CSV 同时在 `data/audit/` 留一份，**不受 14 份限制**。Kuma 自己按 `keepDataPeriodDays`（这里是 365 天）删心跳，长期审计只能靠这个目录——约 270 KB/天，一年 98 MB。
+- **第二个目的地：远程数据库**（MySQL / PostgreSQL）。同一个 tar.gz 变成一行（`id` 是随机 UUID、`instance_id`、`filename`、`created_at` 存 ISO 串、`size`、`sha256`、`payload`），密码跟其它凭据一样加密落盘，上传后把 `payload` 读回来重算 sha256——不一致就是报错，不会静默成功。「测试连接」会返回服务端版本；某一行可以取回 `data/backups/` 或删掉。
+- **页面**：两栏，各自显示份数、上次时间、上次结果（成功或报错原文）、「立即备份」和一张表（本机：下载 / 清单 / 删除；远端：取回 / 删除）。远端栏在没配置时是表单（类型 / 地址 / 端口 / 库名 / 用户名 / 密码 / 表名），配置后变成状态卡 + 「立即上传」「刷新」「改配置」「断开」。
+- **恢复**：见 [`backup-restore.md`](backup-restore.md)——解开包、删掉旧的 `-wal` / `-shm`、再启动。`secret.key` 丢了，邮箱密码 / Kuma 口令 / 指标 token 就永远解不开；包里带着它，所以包本身也要另存一份。
+

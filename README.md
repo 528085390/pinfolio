@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-259%20passing-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/unit%20tests-376%20passing-brightgreen)](#development)
 
 **English** · [中文](README.zh.md)
 
@@ -63,8 +63,16 @@ Output goes to `tmp/shot-*.png` (gitignored).
 - Anything older than 5 minutes shows "N min ago"; over 15 minutes counts as stale. "Refresh now" forces one pull.
 - Details (fields, install, rollback, why not Prometheus): [`docs/features.md`](docs/features.md#host-metrics) and [`tools/node-metrics/README.md`](tools/node-metrics/README.md).
 
+### Backup
+- **Runs by itself**: every day at 03:00 it packs a tarball into `data/backups/` (`BACKUP=0` turns it off, `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` adjust it). 14 kept, oldest deleted.
+- **What is in the box**: a consistent database snapshot (`node:sqlite`'s `backup()`, so WAL does not need a stop), **the day's heartbeats as CSV** (`time,monitor_id,monitor_name,status,msg,ping`) for auditing, the monitor definitions, `data/*.json|txt` including `secret.key`, the four root configs, and a `manifest.json` with a sha256 per member. The full `kuma.db` rides along **only in the Sunday pack**.
+- **Audit trail that outlives Kuma**: each day's CSV also lands in `data/audit/`, exempt from the 14-copy rule (Kuma itself only keeps 365 days).
+- **Second destination: a remote database** — MySQL or PostgreSQL; the same tarball becomes one row (sha256 re-read and verified after upload), password encrypted at rest like every other credential. Test the connection, upload, fetch a copy back, or delete a row from the page.
+- **Backup page** (7th item, 7th phone tab): copies, last run, last result, "Back up now", download, content list and delete — per destination.
+- Restore steps, what to do when `secret.key` is lost, and the audit CSV: [`docs/backup-restore.md`](docs/backup-restore.md).
+
 ### Global
-- **Every page has its own URL** (`/notes` `/mail` `/assets` `/monitors` `/hosts` `/settings`): F5 stays put, back/forward work, links open directly.
+- **Every page has its own URL** (`/notes` `/mail` `/assets` `/monitors` `/hosts` `/backup` `/settings`): F5 stays put, back/forward work, links open directly.
 - **Ctrl / ⌘ + K** command palette: search notes and assets, or run "new note / open mail / add asset / open monitors / open hosts / export JSON".
 - Theme light / dark / follow system; the settings page exports everything as JSON and can seed sample data.
 
@@ -88,7 +96,9 @@ Requirements: Node ≥ 22 (it uses the built-in `node:sqlite`; tested on 24.16) 
 | Item | Notes |
 |---|---|
 | Database | `data/pinboard.db` (SQLite, WAL) — notes, tags, assets, fields, links, mailbox settings |
-| Backup | Stop the service and copy `data/`, or use "Export JSON" on the settings page |
+| Backup | Automatic: a tarball in `data/backups/` every day at 03:00 (14 kept), optionally mirrored into a MySQL / PostgreSQL table. Manual: "Back up now" on the backup page, or `node dist/server.js --backup`. Restoring: [`docs/backup-restore.md`](docs/backup-restore.md) |
+| Audit trail | `data/audit/heartbeats-YYYYMMDD.csv.gz` — one CSV per day of monitor heartbeats, kept forever (the 14-copy rule does not apply) |
+| Backup env | `BACKUP=0` off, `BACKUP_HOUR=3`, `BACKUP_KEEP=14`, `BACKUP_DIR=<data>/backups`, `KUMA_DB` for the heartbeat source |
 | Relocating | Set `PINBOARD_DATA` to another directory before starting |
 | Monitors | Read from Uptime Kuma, not from this database (`KUMA_URL` / `KUMA_SLUG` to point elsewhere) |
 | Mail | IMAP passwords are encrypted at rest (`enc:v1:…`) with the key in `data/secret.key` or `PINBOARD_SECRET`. Bodies are never written to disk (memory, 10 minutes) |
@@ -109,9 +119,11 @@ pinfolio/
 │  ├─ snapshot/               rows / markdown (pure) / write
 │  ├─ mail/                   types, parse, errors, pool, client, cache, rows, store, routes
 │  ├─ kuma/                   client, source, payload, feed, recipe, runner, actions, links, backup, patch, routes
+│  ├─ backup/                 core (pure), tar, collect, local, remote, run, schedule
+│  ├─ secrets/                crypto, key, migrate (AES-256-GCM at rest)
 │  └─ routes/                 notes, assets, tags, fields, meta
 ├─ web/                        React frontend (pages/, components/, lib/, styles/, app/)
-├─ tests/                      unit/ (node:test) + 14 Playwright e2e suites + fakeimap/
+├─ tests/                      unit/ (node:test) + 15 Playwright e2e suites + fakeimap/
 ├─ docs/                       architecture, pitfalls, features, api, status-history, …
 ├─ data/  dist/web/  tmp/  logs/   runtime data, build output, scratch, logs
 └─ SNAPSHOT.md                 auto-generated data snapshot (do not edit)
@@ -126,7 +138,7 @@ pnpm dev        # API on 7788 (tsx watch) + Vite on 5273, /api proxied
 pnpm build      # rebuild the frontend into dist/web — required after frontend changes
 pnpm typecheck  # tsc --noEmit
 pnpm start      # production mode, not watch: restart after backend changes
-pnpm test       # typecheck + 259 unit tests (no running service needed)
+pnpm test       # typecheck + 376 unit tests (no running service needed)
 pnpm test:e2e   # core + monitor suites (needs 7788 and Kuma on 3001)
 pnpm test:mail  # mail suite, against an isolated instance
 ```
@@ -139,7 +151,7 @@ E2E suites drive the real UI through `playwright-core` with the Chromium already
 
 **Changes don't show up** — frontend changes need `pnpm build` and a reload; backend changes need a restart (`pnpm start` is not watch mode).
 
-**Can I expose it to the internet or use it from my phone** — not as-is: there is no authentication at all and it only listens on 127.0.0.1. Add auth and an HTTPS reverse proxy yourself.
+**Can I expose it to the internet or use it from my phone** — yes, but put it behind HTTPS: it has a single-user password login (first visit asks you to set one), it still listens on 127.0.0.1 by default (`HOST=0.0.0.0` in a container), and `TRUST_PROXY=1` makes it read `X-Forwarded-*`. See the tunnel card on the settings page for one way to reach it from a phone.
 
 **Why is the price total 0** — price and expiry date are empty by default; the total also adds currencies without converting, so don't treat it as accounting data.
 

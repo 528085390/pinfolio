@@ -42,6 +42,17 @@
 | PATCH | `/hosts/:id` | 改 `{ paused?, label?, note?, units?, disks?, address? }`。`paused: true` 之后不再拉这台机（卡片保留、变灰）；`paused: false` 会立刻拉一次补到最新一帧。没有这台机回 404 |
 | DELETE | `/hosts/:id?confirm=<id>&purge=1` | 删一台机 —— id 必须原样输对。`purge=1` 连带删掉它的 `host_metrics` 历史、加主机时顺带建的观测项（记在 `data/metrics.json` 的 `monitors` 里）、空出来的分组，以及 `host-services.json` 里它的映射；回包加 `{ purged, monitorsDeleted, monitorsFailed }`。没有这台机回 404 |
 | POST | `/hosts/refresh` | 立刻把六台机拉一遍（绕过 4 分钟最小间隔）；要求 `Content-Type: application/json`，否则 415 |
+| GET | `/backup` | 备份状态：`{ local: { dir, keep, files: [{ name, size, mtime }], last, lastOkAt, lastError }, remote: { type, host, port, database, user, table, hasPassword, rows, last, lastError } }` |
+| GET | `/backup/local/:name/manifest` | 读包里的 `manifest.json`（成员名 / 大小 / sha256 / 生成时间 / 实例 id） |
+| GET | `/backup/local/:name/download` | 下载一个包（`Content-Disposition` 带文件名） |
+| DELETE | `/backup/local/:name` | 删一个包（名字必须形如 `pinfolio-*.tar.gz`；`pre-migrate-*` 拒绝删除） |
+| POST | `/backup/run` | 立即备份：`{ only?: "local" | "remote" }`，返回新的状态 |
+| GET | `/backup/remote` | 远端行（只有元数据，永远不返回 payload） |
+| POST | `/backup/remote/test` | 测试连接：`{ type, host, port?, database, user, password?, table? }`，返回服务端版本；密码留空表示复用已存的 |
+| POST | `/backup/remote/config` | 保存远端目的地（字段同上，密码加密落盘），缺表时顺手建表 |
+| DELETE | `/backup/remote/config` | 断开目的地（已经传上去的行仍留在库里） |
+| DELETE | `/backup/remote/:id` | 删远端的一行 |
+| POST | `/backup/remote/:id/download` | 把远端某一行取回 `data/backups/`（校验 sha256） |
 
 示例：
 

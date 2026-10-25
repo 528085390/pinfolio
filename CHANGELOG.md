@@ -5,6 +5,21 @@
 
 ## [未发布]
 
+### 备份（新页面 · 第 7 页）
+
+- **每天 03:00 自动打一个包**，落在 `data/backups/pinfolio-YYYYMMDD-HHMM.tar.gz`，保留最近 14 份；
+  `BACKUP=0` 关掉，`BACKUP_KEEP` / `BACKUP_DIR` / `BACKUP_HOUR` 可改保留份数、目录与时刻。
+  包里是：库快照（`node:sqlite` 的 `backup()`，WAL 下不用停服）+ **当天每个时间点的观测心跳 CSV**
+  + 观测项定义 + `data/*.json|txt`（含 `secret.key`）+ 根目录四个配置 + `manifest.json`（逐成员 sha256）。
+- **观测历史单独留档**：每天的 `heartbeats-YYYYMMDD.csv.gz` 同时进 `data/audit/`，**不受 14 份限制**——
+  Kuma 自己只留 365 天，要更久的审计只能靠这份（约 270 KB/天，一年 98 MB）。
+- **远程数据库备份**（MySQL / PostgreSQL 二选一）：同一份 tar.gz 写进远端库的一行，密码跟其它凭据一样加密落盘，
+  上传后回读 sha256 校验；页面里能测试连接、上传、把某一份取回本机、删除。
+- **备份页**（侧栏第 7 项，手机底部栏第 7 个图标）：本机与远端两栏，各自显示份数、上次时间、上次结果，
+  「立即备份」「删除单份」「内容清单」「下载」；远端栏可改配置或断开。
+- 迁移前自动存一份 `pre-migrate-<版本>-<时间戳>.db`（保留 5 份），迁移失败不回滚但备份在。
+- 命令行也能跑：`node dist/server.js --backup`（或 `pnpm start -- --backup`），`--local` / `--remote` 只跑一边。
+
 ### 安全
 
 - **凭据不再明文落盘**：邮箱密码、Kuma 口令、指标采集 token 改成 AES-256-GCM 密文（`enc:v1:<iv>:<tag>:<ct>`），

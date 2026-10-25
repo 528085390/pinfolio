@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-259%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+[![Tests](https://img.shields.io/badge/unit%20tests-376%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
 
 **中文** · [English](README.md)
 
@@ -63,8 +63,16 @@ node tools/screenshots/shots.mjs      # 便签 / 资产 / 设置 / 命令面板 
 - 5 分钟没更新就标「N 分钟前」、超过 15 分钟算陈旧；「立即拉取」手动催一次。
 - 细节（字段、安装、回滚、为什么不上 Prometheus）：[`docs/features.zh.md`](docs/features.zh.md#主机指标) 与 [`tools/node-metrics/README.md`](tools/node-metrics/README.md)。
 
+### 备份
+- **自动跑**：每天 03:00 打一个包到 `data/backups/`（`BACKUP=0` 关掉，`BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` 可调），保留 14 份，多的删最旧。
+- **包里有什么**：库的一致性快照（`node:sqlite` 的 `backup()`，WAL 下不用停服）、**当天每个时间点的观测心跳 CSV**（`time,monitor_id,monitor_name,status,msg,ping`，审计用）、观测项定义、`data/*.json|txt`（含 `secret.key`）、根目录四个配置，以及逐成员 sha256 的 `manifest.json`；Kuma 全量库**只放在周日那份**里。
+- **比 Kuma 活得久的审计**：每天的 CSV 同时在 `data/audit/` 留一份，**不受 14 份限制**（Kuma 自己只留 365 天）。
+- **第二个目的地：远程数据库**（MySQL / PostgreSQL）：同一个包写进远端库的一行，上传后回读 sha256 校验，密码跟其它凭据一样加密落盘；页面里能测试连接、上传、取回、删除。
+- **备份页**（侧栏第 7 项、手机底部第 7 个图标）：两个目的地各显示份数 / 上次时间 / 上次结果，可「立即备份」、下载、看清单、删除单份。
+- 恢复步骤、`secret.key` 丢了怎么办、审计 CSV 怎么用：[`docs/backup-restore.md`](docs/backup-restore.md)。
+
 ### 全局
-- **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/hosts` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
+- **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/hosts` `/backup` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
 - **Ctrl / ⌘ + K** 命令面板：搜便签、搜资产，或执行「新建便签 / 打开邮件 / 新增资产 / 打开观测台 / 打开主机 / 导出 JSON」。
 - 主题：浅色 / 深色 / 跟随系统；设置页可把整库导出成 JSON，空库可一键写入示例数据。
 
@@ -88,10 +96,13 @@ pnpm start       # http://127.0.0.1:7788
 | 项目 | 说明 |
 |---|---|
 | 数据库 | `data/pinboard.db`（SQLite，WAL）—— 便签、标签、资产、自定义字段、关联、邮箱设置全在里面 |
-| 备份 | 停服务后复制整个 `data/`，或用设置页的「导出 JSON」 |
+| 备份 | 自动：每天 03:00 在 `data/backups/` 打一个包（保留 14 份），可另配 MySQL / PostgreSQL 远端库镜像。手动：备份页「立即备份」或 `node dist/server.js --backup`。恢复见 [`docs/backup-restore.md`](docs/backup-restore.md) |
+| 审计归档 | `data/audit/heartbeats-YYYYMMDD.csv.gz` —— 每天一份观测心跳 CSV，长期保留（不受 14 份限制） |
+| 备份环境变量 | `BACKUP=0` 关、`BACKUP_HOUR=3`、`BACKUP_KEEP=14`、`BACKUP_DIR=<data>/backups`、`KUMA_DB` 指定心跳来源 |
 | 换位置 | 启动前把 `PINBOARD_DATA` 指到别的目录 |
 | 观测项 | 从 Uptime Kuma 读，不在这个库里（`KUMA_URL` / `KUMA_SLUG` 可改指向） |
-| 邮件 | **IMAP 密码是明文存在库里的** —— 只因为库在本机、服务只听 127.0.0.1 才算可接受，别把 `data/` 或导出的 JSON 交给别人。正文不落盘（内存缓存 10 分钟） |
+| 邮件 | IMAP 密码**加密落盘**（`enc:v1:…`），密钥在 `data/secret.key` 或 `PINBOARD_SECRET`；正文不落盘（内存缓存 10 分钟） |
+| 主密钥 | `data/secret.key`（或 `PINBOARD_SECRET`，32 字节 base64）加密邮箱密码、Kuma 口令与指标 token。**丢了这些字段就解不开** —— 要跟库一起备份，绝不进版本库 |
 | 重置 | 停服务，删 `data/pinboard.db*`，重新启动就是空库 |
 
 ## 目录结构
@@ -108,9 +119,11 @@ pinfolio/
 │  ├─ snapshot/               rows / markdown（纯函数）/ write
 │  ├─ mail/                   types、parse、errors、pool、client、cache、rows、store、routes
 │  ├─ kuma/                   client、source、payload、feed、recipe、runner、actions、links、backup、patch、routes
+│  ├─ backup/                 core（纯函数）、tar、collect、local、remote、run、schedule
+│  ├─ secrets/                crypto、key、migrate（AES-256-GCM 静态加密）
 │  └─ routes/                 notes、assets、tags、fields、meta
 ├─ web/                        React 前端（pages/、components/、lib/、styles/、app/）
-├─ tests/                      unit/（node:test）+ 14 套 Playwright e2e + fakeimap/
+├─ tests/                      unit/（node:test）+ 15 套 Playwright e2e + fakeimap/
 ├─ docs/                       architecture、pitfalls、features、api、status-history……
 ├─ data/  dist/web/  tmp/  logs/   运行数据、构建产物、临时文件、日志
 └─ SNAPSHOT.md                 自动生成的数据快照（不要手改）
@@ -125,7 +138,7 @@ pnpm dev        # 7788 跑 API（tsx watch）+ 5273 跑 Vite，/api 走代理
 pnpm build      # 重新构建前端到 dist/web —— 改完前端必须跑
 pnpm typecheck  # tsc --noEmit
 pnpm start      # 生产模式，不是 watch：改完后端要重启
-pnpm test       # typecheck + 259 条单测（不需要服务在跑）
+pnpm test       # typecheck + 376 条单测（不需要服务在跑）
 pnpm test:e2e   # core + monitor 套件（需要 7788 和 Kuma 3001）
 pnpm test:mail  # 邮件套件，对着隔离实例跑
 ```
@@ -138,7 +151,7 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 
 **改了代码没生效** —— 前端要 `pnpm build` 后刷新；后端要重启（`pnpm start` 不是 watch 模式）。
 
-**能不能映射到公网 / 手机访问** —— 现在不行：完全没有鉴权，且只监听 127.0.0.1。要手机用，自己加鉴权和 HTTPS 反代。
+**能不能映射到公网 / 手机访问** —— 可以，但前面要挂 HTTPS：内置单用户密码登录（首次访问会让你设密码），默认仍只监听 127.0.0.1（容器里设 `HOST=0.0.0.0`），反代后面加 `TRUST_PROXY=1` 才会读 `X-Forwarded-*`。设置页的「公网访问」卡里有一种手机可达的接法。
 
 **为什么价格合计是 0** —— 价格和到期日期默认是空的，填了才计入；而且合计是把各币种数字直接相加、不换算汇率，别当财务数据用。
 
@@ -153,7 +166,7 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 - [`docs/features.zh.md`](docs/features.zh.md)：各页完整行为（中文）；英文版见 [`docs/features.md`](docs/features.md)。
 - [`docs/api.zh.md`](docs/api.zh.md)：完整 HTTP API（中文；英文 [`docs/api.md`](docs/api.md)）。
 - [`CHANGELOG.md`](CHANGELOG.md)：改了什么、哪个版本改的。
-- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 30 条踩过的坑，**改代码前先读**。
+- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 45 条踩过的坑，**改代码前先读**。
 - [`docs/adding-assets.md`](docs/adding-assets.md)：加资产 / 加便签的唯一手册。
 - [`SNAPSHOT.md`](SNAPSHOT.md)：自动生成的数据快照，任何写入后 1.5 秒重写（不要手改）。
 - `docs/` 其余（`architecture.md`、`pitfalls.md`、`status-history.md`、`mail-page-requirements.md`）是内部文档。
