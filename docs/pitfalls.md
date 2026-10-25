@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（45 条）
+# pinboard 已知问题与坑（46 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -68,4 +68,6 @@
 44. **`pg` 的 `client.query()` 返回 `{ rows, rowCount, … }`，不是行数组**（同一天踩的）：照 `mysql2` 的习惯写 `const rows = await conn.query(sql)` 会拿到对象，`rows[0]` 是 undefined——回读 sha256 校验「拿不到行」、测试连接返回空版本号，全都表现成「成功但没数据」。在 `server/backup/remote.ts` 里把 pg 的连接包一层 `query: async (sql, params) => (await client.query(sql, params)).rows`。
 
 45. **ESM 里没有 `require()`**（同一天踩的）：`server/backup/local.ts` 第一版在函数里 `require('node:zlib')` 解 gzip，tsx 下不报错但纯 node 跑就 `require is not defined`。本项目是 `"type": "module"` + bundler 解析，一律顶层 `import`；**懒加载依赖用 `await import()`**（`mysql2` / `pg` 就是这么做的，没配远端就完全不加载）。
+
+46. **WAL 模式下别用「拷文件」当备份或迁移前快照**（2026-10-26 做 04 的 `premigrate.ts` 时定的）：`pinboard.db` 开着 WAL，最近的事务还在 `pinboard.db-wal` 里，只 `copyFile(pinboard.db, …)` 拿到的是一份缺最新写入的旧库（本项目 `-wal` 曾经涨到 4.1 MB，见 `docs/runbook.md`）。要一致快照就用 **`db.exec("VACUUM INTO '<目标文件>'")`**（`server/backup/premigrate.ts`）或 **`node:sqlite` 的模块级 `backup(db, path)`**（`server/backup/collect.ts`）；两者都产出自包含的单文件，不需要 `-wal` / `-shm`。**注意 `DatabaseSync.prototype.backup` 是 undefined**，`backup` 只能从 `node:sqlite` 具名导入。
 

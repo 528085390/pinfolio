@@ -20,6 +20,17 @@
 - 迁移前自动存一份 `pre-migrate-<版本>-<时间戳>.db`（保留 5 份），迁移失败不回滚但备份在。
 - 命令行也能跑：`node dist/server.js --backup`（或 `pnpm start -- --backup`），`--local` / `--remote` 只跑一边。
 
+### 部署
+
+- **三种跑法**：Windows 双击 `start.cmd`（本机，不变）／裸机 `pnpm install && pnpm build && pnpm start`／**`docker compose up -d`**（开源用户主路径）。
+  容器镜像 `ghcr.io/528085390/pinfolio`，多阶段构建、以非 root 的 `node` 跑、只把 `/data` 当卷、端口默认只绑 `127.0.0.1:7788`。
+- **可选自动 TLS**：`docker compose --profile tls up -d` 再起一个 Caddy，设 `PINBOARD_DOMAIN` 就自动签证书，只暴露 80/443（`deploy/Caddyfile`）。
+- **服务端也打包了**：`pnpm build` 现在出 `dist/web/`（前端）+ `dist/server.js`（esbuild 单文件，197 KB），生产启动用 `node dist/server.js`（`pnpm start:dist`）；`tsx server/index.ts` 留作开发。
+  顺带把前端包（react / marked / dompurify / lucide-react）挪进 `devDependencies`——运行时依赖只剩 7 个包，镜像里的 `node_modules` 从 300 MB 级降到 23 MB。
+- **新增 `HOST` 环境变量**（默认仍是 `127.0.0.1`，容器里设 `0.0.0.0`）；`engines: node >= 24`、`packageManager: pnpm@12.3.4` 写进 `package.json`。
+- **迁移前自动快照**：有 pending 迁移时先 `VACUUM INTO data/backups/pre-migrate-v<版本>-<时间戳>.db`（保留 5 份），快照失败就中止升级——宁可停在旧版本，也不留一个没有退路的半迁移库。
+- 部署手册 `docs/deploy.md`（Docker / 裸机 / Windows / 环境变量全表 / 接不接 Kuma / 验收清单）。
+
 ### 安全
 
 - **凭据不再明文落盘**：邮箱密码、Kuma 口令、指标采集 token 改成 AES-256-GCM 密文（`enc:v1:<iv>:<tag>:<ct>`），

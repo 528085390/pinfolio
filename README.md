@@ -89,7 +89,26 @@ pnpm install     # first time
 pnpm start       # http://127.0.0.1:7788
 ```
 
-Requirements: Node ≥ 22 (it uses the built-in `node:sqlite`; tested on 24.16) and pnpm. No Docker, no database server, no native modules. Stop it with `stop.cmd` or `.\tools\pinboard.ps1 stop`.
+Requirements: Node ≥ 24 (it uses the built-in `node:sqlite`) and pnpm 12. No database server, no native modules. Stop it with `stop.cmd` or `.\tools\pinboard.ps1 stop`.
+
+### Option 3: Docker
+
+```bash
+docker compose up -d     # http://127.0.0.1:7788, data in the pinfolio-data volume
+PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d   # + Caddy, automatic HTTPS
+```
+
+The image is `ghcr.io/528085390/pinfolio` (amd64 + arm64). Everything lives in `/data` (database, `secret.key`, backups). Full guide — reverse proxy, upgrades, rollback, environment variables, acceptance checklist — in [`docs/deploy.md`](docs/deploy.md).
+
+## Deploy
+
+| Way | Who it is for | Entry point |
+|---|---|---|
+| Docker Compose | most people | `docker compose up -d`, optional Caddy profile for TLS |
+| Bare metal (Linux / macOS) | no Docker | `pnpm install && pnpm build && node dist/server.js` |
+| Bare metal (Windows) | author's machine | `start.cmd` |
+
+All three listen on loopback only; put HTTPS in front. The app has built-in single-user password auth (first visit goes to `/setup`), but that is not a substitute for TLS. See [`docs/deploy.md`](docs/deploy.md).
 
 ## Data and backup
 

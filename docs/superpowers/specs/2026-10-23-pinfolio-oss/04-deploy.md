@@ -1,6 +1,6 @@
 # 04 · 部署（Docker / 裸机 / 升级）
 
-- 状态：待实施
+- 状态：**已实施**（2026-10-26，分支 arch；实施记录见文末）
 - 依赖：01（迁移）、02（`PINBOARD_PASSWORD`）、03（`secret.key`）、05（升级前备份）
 
 ## 目标
@@ -85,6 +85,18 @@ docker compose pull && docker compose up -d
 - 本地 `docker compose up -d`：`/api/health` 200、数据落在 `/data`、`down && up` 后数据还在、`down -v` 后是空库（走 `/setup`）。
 - 镜像体积记录（预期 < 250 MB）。
 - 裸机路径回归：`HOST=127.0.0.1 pnpm start` 与 Windows `start.cmd` 都还能用。
+
+## 实施记录（2026-10-26）
+
+实际落地与上面设计的差异：
+
+1. **`build:server` 用 `--packages=external`**（不是 `--external:node:*`）：把 `hono` / `imapflow` / `mysql2` / `pg` 这些留在 `node_modules` 里，bundle 只打自己的代码（197.2 kB）。这样 `node:sqlite` 这类内置模块与原生依赖都不会被误打包。
+2. **依赖分层是新增的一步**（设计里没写）：`react` / `react-dom` / `marked` / `dompurify` / `lucide-react` 移到 `devDependencies`——前端已经 `vite build` 成静态文件，运行时不需要它们。runtime 阶段 `pnpm install --prod` 后 `node_modules` 只有 23 MB。**别把它们挪回 `dependencies`**，否则镜像白胖 200 MB 以上。
+3. **迁移前快照做成独立模块** `server/backup/premigrate.ts` + `migrate()` 的 `opts.dataDir`：用 `VACUUM INTO` 而不是拷文件（WAL 下拷 .db 会漏掉 `-wal` 里的事务，见坑 46），快照失败直接抛错中止升级。
+4. **compose 的端口默认绑 `127.0.0.1:7788`**（不是 `7788:7788`）：想让 Caddy 或外部反代接，就走 compose 内网；要给局域网直连再自己改绑定。
+5. **Caddy 用 profile 而不是默认起**：`docker compose --profile tls up -d`，避免不需要 TLS 的人多拉一个镜像。
+
+验收状态：本机 `pnpm build` + `node dist/server.js` 通过、`--prod` 依赖目录跑通；Linux（my-server）上 `pnpm install` / `pnpm build` / `--prod` 启动都通过，产物字节数与本机一致。**镜像没 build 过**——本机与服务器都没有 Docker，Dockerfile 属「按官方多阶段写法写好、待有 Docker 的机器首次验证」。
 
 ## 不做
 

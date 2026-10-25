@@ -89,7 +89,26 @@ pnpm install     # 第一次
 pnpm start       # http://127.0.0.1:7788
 ```
 
-要求 Node ≥ 22（用到内置的 `node:sqlite`，实测 Node 24.16）和 pnpm。不用 Docker、不用数据库服务、没有需要编译的原生模块。停服务用 `stop.cmd` 或 `.\tools\pinboard.ps1 stop`。
+要求 Node ≥ 24（用到内置的 `node:sqlite`）和 pnpm 12。不用数据库服务、没有需要编译的原生模块。停服务用 `stop.cmd` 或 `.\tools\pinboard.ps1 stop`。
+
+### 方式三：Docker
+
+```bash
+docker compose up -d     # http://127.0.0.1:7788，数据在命名卷 pinfolio-data 里
+PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d   # 顺带起 Caddy，自动 HTTPS
+```
+
+镜像 `ghcr.io/528085390/pinfolio`（amd64 + arm64）。数据全在容器的 `/data`（库、`secret.key`、备份）。反代、升级、回滚、环境变量、验收清单都在 [`docs/deploy.md`](docs/deploy.md)。
+
+## 部署
+
+| 方式 | 面向 | 入口 |
+|---|---|---|
+| Docker Compose | 大多数人 | `docker compose up -d`，可选 Caddy profile 自动 TLS |
+| 裸机（Linux / macOS） | 不想装 Docker | `pnpm install && pnpm build && node dist/server.js` |
+| 裸机（Windows） | 作者本机 | `start.cmd` |
+
+三种都只监听回环地址，对外一律前置 HTTPS。应用自带单用户密码登录（首次访问进 `/setup`），但那不能替代 TLS。详见 [`docs/deploy.md`](docs/deploy.md)。
 
 ## 数据与备份
 

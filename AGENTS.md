@@ -22,7 +22,8 @@
 | 观测 | `server/kuma/{client,source,payload,feed,recipe,runner,actions,links,quick,backup}.ts` + `routes.ts` | socket.io 客户端 / 取数与两层缓存（`source.ts`）/ 列表纯拼装（`payload.ts`）/ 编排（`feed.ts`）/ 立即观测（`recipe.ts` 纯逻辑、`runner.ts` 执行、`actions.ts` 读配置）/ 跳转链接与快捷入口卡（`links.ts` / `quick.ts`）/ Kuma 库备份；PATCH 校验在 `patch.ts` |
 | 邮件 | `server/mail/{types,parse,params,rows,cache,errors,pool,client,store}.ts` | 类型 / 摘要解析（纯函数）/ 路由参数（纯函数）/ 列表行拼装与排序（纯函数）/ 四层缓存 / 错误翻译 / 连接池 / 归并列表（**只读**）/ 两张表 CRUD |
 | 密钥 | `server/secrets/{crypto,key,migrate}.ts` | 主密钥加载（`PINBOARD_SECRET` → `data/secret.key` → 首次生成 0600）/ AES-256-GCM 加解密 `enc:v1:…` / 启动时把明文凭据就地加密（幂等）；**只防备份泄漏，防不了进程被控** |
-| 备份 | `server/backup/{core,tar,collect,local,remote,run,schedule}.ts` + `server/routes/backup.ts` + `web/pages/BackupPage.tsx` | 纯函数（文件名 / 保留 / CSV 转义 / ustar）/ 取库快照与当天心跳 CSV / 落本机 / 写 MySQL·PostgreSQL（`mysql2`、`pg` 懒加载）/ 编排与定时（每天 03:00，`BACKUP=0` 关）；**心跳按 UTC 日边界查**（坑 41） |
+| 备份 | `server/backup/{core,tar,collect,local,remote,run,schedule,premigrate}.ts` + `server/routes/backup.ts` + `web/pages/BackupPage.tsx` | 纯函数（文件名 / 保留 / CSV 转义 / ustar）/ 取库快照与当天心跳 CSV / 落本机 / 写 MySQL·PostgreSQL（`mysql2`、`pg` 懒加载）/ 编排与定时（每天 03:00，`BACKUP=0` 关）；**心跳按 UTC 日边界查**（坑 41） |
+| 部署 | `Dockerfile` / `docker-compose.yml` / `deploy/Caddyfile` / `docs/deploy.md` | 多阶段镜像（build 装全量 → `pnpm build`；runtime 只 `pnpm install --prod` + `dist/`）；**前端包在 devDependencies**，别挪回 dependencies |
 | 入口 | `server/index.ts`（66 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
 | 快照 | `server/snapshot.ts` + `server/snapshot/{rows,markdown,write}.ts` | 取数 / 渲染（纯函数，有单测）/ 写文件与 1.5 秒防抖；`pnpm snapshot` 立即重生成，隔离实例不写 |
 | 指标 | `server/metrics/{config,hostmeta,onboard,services,store,poll,routes}.ts` + `server/kuma/{kuma-cli,provision}.ts` + `host-services.json` + `tools/node-metrics/` | 6 台采集端（bash + timer，零常驻）→ my-server nginx PUT 落盘 → 这里每 5 分钟拉回 `host_metrics`；**整条 JSON 存 `data` 列不拆字段**，`MIN_GAP_MS` 4 分钟别去掉；清单增/暂停/删走 `hostmeta.ts` 的纯函数 + `saveHosts()` 原子写回（保留 `base` 与未知键），服务 chip → 观测项的映射在 `services.ts`；「接入这台机器」的安装命令在 `onboard.ts`，加主机顺带建观测项在 `kuma/provision.ts` + `kuma-cli.ts`（走 kuma 的 `add`/`del`/`group-add`/`group-del` CLI） |
@@ -31,20 +32,21 @@
 | 组件 | `web/components/*` + `web/components/{monitor-drawer,asset-drawer,mail-reader,mail-account}/*` | 抽屉（`FormDrawer` 是共用壳；两个编辑抽屉各自拆成容器 + 分段/表单，纯逻辑在各自的 `form.ts`，观测抽屉的状态与接口调用在 `monitor-drawer/useMonitorDetail.ts`；命令面板的行拼装在 `command-palette/items.ts`）/ 心跳色条 / 异常通知栈 / 邮件阅读区（Shadow DOM，清洗规则在 `mail-reader/doc.ts`、`css.ts`）/ 邮箱账号抽屉（规则在 `mail-account/form.ts`） |
 | 前端数据 | `web/lib/api.ts`（门面）+ `web/lib/api/*`（七域）+ `cx.ts`/`format.ts`/`monitors.ts` | 请求与类型 / 工具函数 / 告警轮询 |
 | 样式 | `web/styles/`（13 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
-| 测试 | `tests/`（`unit/` 376 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
+| 测试 | `tests/`（`unit/` 380 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md` |
 | 工具 | `tools/screenshots/`、`tools/node-metrics/`（另有本地私有的 `seed-assets.mjs`、`streak-panel-trigger.cjs`，不进版本库） | 截图脚本（须在项目根跑，产物进 `tmp/`）、**服务器的采集端**（`build-install.mjs` 打成单文件安装器，托管在 `<站点根>/nm/`；安装/排错/回滚见该目录 `README.md`） |
 
 ## 怎么用
 双击 `start.cmd`（后台隐藏启动；已在运行就只开浏览器），停止双击 `stop.cmd`；或手动：
 
-环境：Node ≥ 22（用到内置 `node:sqlite`，本机 Node v24.16.0）、pnpm。无需 Docker、无需数据库服务、无需编译原生模块。
+环境：Node ≥ 24（用到内置 `node:sqlite` 的 `backup()`，本机 Node v24.16.0）、pnpm 12。无需数据库服务、无需编译原生模块；想用容器就跑 `docker compose up -d`（见 `docs/deploy.md`）。
 
 ```powershell
 cd <项目目录>
 pnpm install          # 首次；pnpm 12 需 pnpm-workspace.yaml 的 allowBuilds 才放行 esbuild
 pnpm start            # 生产模式：tsx server/index.ts，访问 http://127.0.0.1:7788
 pnpm dev              # 开发模式：API 7788 + Vite 5273（/api 代理到 7788）
-pnpm build            # 重建前端到 dist/web（改前端后必须执行，server 直接读该目录）
+pnpm build            # 前端到 dist/web + 服务端打包到 dist/server.js（改前端后必须执行，server 直接读该目录）
+pnpm start:dist       # 跑打好的 dist/server.js（= 容器里的启动方式）
 pnpm typecheck        # tsc --noEmit
 ```
 
@@ -64,9 +66,9 @@ pnpm typecheck        # tsc --noEmit
 
 ## 状态
 
-**当前状态（2026-10-22）**：7788 运行中，六页（便签 / 邮件 / 资产 / 观测 / 主机 / 设置）全部可用；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开），筛选条下面还有一排「快捷入口」卡（`quick-links.json`，整卡外链、**不参与观测**）；主机页汇总 6 台服务器指标（每 5 分钟采集，24 小时曲线，`failed_units` 与关注服务状态一眼可见），服务 chip 可一键跳到观测台那张卡（滚过去 + 闪 1.6 秒），主机能在页面上加 / 暂停 / 删（`data/metrics.json` 原子写回，不用重启），加的时候还能顺手勾端口 / HTTP 站点 / systemd 服务观测项，保存后弹「接入这台机器」：一条命令装好采集端、立刻上报首帧。工程整理已收口——
+**当前状态（2026-10-26）**：7788 运行中，七页（便签 / 邮件 / 资产 / 观测 / 主机 / 备份 / 设置）全部可用；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开），筛选条下面还有一排「快捷入口」卡（`quick-links.json`，整卡外链、**不参与观测**）；主机页汇总 6 台服务器指标（每 5 分钟采集，24 小时曲线，`failed_units` 与关注服务状态一眼可见），服务 chip 可一键跳到观测台那张卡（滚过去 + 闪 1.6 秒），主机能在页面上加 / 暂停 / 删（`data/metrics.json` 原子写回，不用重启），加的时候还能顺手勾端口 / HTTP 站点 / systemd 服务观测项，保存后弹「接入这台机器」：一条命令装好采集端、立刻上报首帧。工程整理已收口——
 服务端按职责拆分（`server/kuma/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
-前端 api 与样式分片，`tests/` 里有 376 条单测 + 15 套 e2e（`pnpm test` / `pnpm test:e2e`）。
+前端 api 与样式分片，`tests/` 里有 380 条单测 + 15 套 e2e（`pnpm test` / `pnpm test:e2e`）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
 未做：Gmail 跨页翻页（`hasMore:true` 的下一页）待信箱多于一页时复测；kuma 的 Windows Defender 排除项随旧路径失效，
 需管理员重跑 `kuma\tools\add-defender-exclusions.ps1`。
