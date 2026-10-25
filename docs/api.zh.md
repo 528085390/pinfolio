@@ -23,6 +23,7 @@
 | GET/POST | `/fields` | 自定义字段列表 / 新建 |
 | PATCH/DELETE | `/fields/:id` | 修改 / 删除 |
 | GET | `/monitors` | 观测台数据：`{ kuma, updatedAt, summary, groups, quick }`，聚合 Kuma 状态页 + 心跳；`quick` 是根目录 `quick-links.json` 的快捷入口卡（`{ name, url, note, label, icon }[]`，只是外链、不进 summary 与筛选）；`?fresh=1` 强制重取观测项清单（清单缓存 5 分钟，心跳 5 秒） |
+| GET | `/monitors/meta` | 连的是哪个 Kuma、到底配没配：`{ configured, flavor, url }`。`flavor` 由 monitor 上的 `policyJson` 判定（`fork`/`upstream`，缓存 5 分钟，探测失败按 upstream，可用 `KUMA_FLAVOR` 强制）；`configured=false` 时前端显示引导卡 |
 | GET | `/monitors/:id` | 单个观测项详情：`{ monitor, latest, beats, action, link }`（敏感字段已脱敏，不含 SSH 私钥 / 密码 / token） |
 | PATCH | `/monitors/:id` | 改名 / 改介绍 / 改频率 / 改超时重试（`name` `description` `interval` `timeout` `maxretries` `retryInterval` `showMsg`），写回 Kuma；重名、被策略按名字引用、超时 ≥ 频率都会被拒 |
 | POST | `/monitors/:id/pause`、`/monitors/:id/resume` | 暂停 / 恢复观测（Kuma 不再探测，历史心跳保留） |

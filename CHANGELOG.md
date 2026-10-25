@@ -66,6 +66,10 @@
 - **快捷入口卡**：筛选条下面多一排「快捷入口」，只跳转、**不参与观测**（没有状态、心跳与统计，点一下在新标签页打开那个服务）。
   配置在根目录 `quick-links.json`（每次请求热读，改完刷新页面即生效，不用重启），仓库里只带 `quick-links.example.json`；
   `url` 只认 http(s)，`name` 留空退回 host，同一 URL 只留第一条，`icon` 认 `image` / `globe`。当前放了一条 Immich 图库。
+- **没接 Kuma 也有引导**：观测页不再空白或报错，而是给一张三步引导卡（起 Kuma → 建 slug=obs 的状态页 → 填 `KUMA_URL` / `KUMA_SLUG` / `KUMA_PASS`），
+  并写明「其余六页照常可用」。判定在 `GET /api/monitors/meta`：显式配了 `KUMA_URL`/`KUMA_PASS`，或者默认地址上读得到公开状态页，都算接上了。
+- **兼容上游原版 Kuma**：按观测项 bean 里有没有 `policyJson` 认自家 fork（`KUMA_FLAVOR=auto|fork|upstream` 可强制，缓存 5 分钟，探测失败按上游算）；
+  上游版下详情抽屉不渲染「立即观测」，其余照常。仓库自带的 fork 专属能力只在自家 fork 上出现。
 
 ## [0.1.0] - 2026-10-21
 

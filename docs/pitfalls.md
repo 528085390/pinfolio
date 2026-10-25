@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（46 条）
+# pinboard 已知问题与坑（47 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -71,3 +71,5 @@
 
 46. **WAL 模式下别用「拷文件」当备份或迁移前快照**（2026-10-26 做 04 的 `premigrate.ts` 时定的）：`pinboard.db` 开着 WAL，最近的事务还在 `pinboard.db-wal` 里，只 `copyFile(pinboard.db, …)` 拿到的是一份缺最新写入的旧库（本项目 `-wal` 曾经涨到 4.1 MB，见 `docs/runbook.md`）。要一致快照就用 **`db.exec("VACUUM INTO '<目标文件>'")`**（`server/backup/premigrate.ts`）或 **`node:sqlite` 的模块级 `backup(db, path)`**（`server/backup/collect.ts`）；两者都产出自包含的单文件，不需要 `-wal` / `-shm`。**注意 `DatabaseSync.prototype.backup` 是 undefined**，`backup` 只能从 `node:sqlite` 具名导入。
 
+
+47. **观测项从 socket 拿回来的 bean 是 camelCase，库里的列名才是 snake_case**（2026-10-26 做 06 风味探测时踩的）：fork 的库里列叫 `policy_json`，但 `getMonitorList` 推回来的 bean 只有 `policyJson`（`server/model/monitor.js` 的 toJSON 走 camelCase），拿 `'policy_json' in bean` 判定永远 false → 自家 fork 被判成 upstream，「立即观测」整段不渲染。同理 **Hono 按注册顺序匹配**：`/meta` 必须写在 `/:id` **之前**（`server/kuma/routes.ts`），否则 `meta` 会被当成 id。

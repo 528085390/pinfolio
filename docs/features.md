@@ -4,6 +4,8 @@ The full behaviour of the two busiest pages. For a quick overview see the [READM
 
 ## Monitors
 - The data source is a **local Uptime Kuma** (default `http://127.0.0.1:3001`, status page slug `obs`). Kuma is only the probing backend; the UI lives here.
+- **No Kuma? The other six pages still work.** When neither `KUMA_URL`/`KUMA_PASS` is set nor a status page is readable at the default address, this page shows a setup guide (how to run Kuma, which slug to create, which env vars to set) instead of an error or an empty screen.
+- **Works with stock upstream Kuma too**: the fork is detected from the `policyJson` field on a monitor (stock Kuma has none), and fork-only entry points such as "run a check now" are hidden on upstream — everything else is identical. Force it with `KUMA_FLAVOR=fork|upstream`.
 - **Kuma's own `http://127.0.0.1:3001/status/obs` was retired on 2026-10-19** (it returns 404) — this page is the only UI. Kuma's `/api/status-page/obs` and `/api/status-page/heartbeat/obs` JSON endpoints are kept and are what this page reads.
 - Everything fits on one screen: 4 columns (6 on screens ≥1700px wide), grouped by machine (12 monitors used to be two rows at 2560×1440 and three rows at 1600×900; as of 2026-10-20 there are 15 monitors in 5 groups, so a few more rows).
 - Each card: name + machine + type, a bar of the **last 40 heartbeats** (green up / red down / yellow pending / grey maintenance), response time in ms, time of the last check, 24h uptime and the number of incidents in the window. **Hover any segment** to see that single beat: exact time (to the second), status, relative time, response time, `beat i/N` and the heartbeat message. The hovered segment grows slightly and pushes its neighbours aside; it eases back when the mouse leaves.

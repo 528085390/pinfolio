@@ -369,3 +369,21 @@ aws-node 11% / 42.5%，`failed_units` 全 0。
 
 验证：`pnpm typecheck` 0 错误、`pnpm test:unit` **380/380**、`pnpm build` 出 dist/web（CSS 56.26 kB / JS 461.36 kB）+ dist/server.js 197.2 kB；本地 `node dist/server.js` 与「只装 --prod 依赖」两个目录都跑通（health 200 / `/` 200 / `/api/auth/state` 200）；把源码 tar 到 my-server 上 `pnpm install` + `pnpm build` 产物字节数与本机一致、`--prod` 目录跑起来也 200。**本机与服务器都没有 docker，镜像本身未 build 过**（Dockerfile 按官方多阶段写法，待有 Docker 的机器验证）。
 
+
+**已完成（2026-10-26，Kuma 集成 06）**：观测页不再假设「Kuma 一定接着」，也不再假设「接的一定是自家 fork」。
+
+① **风味探测**：新增 `server/kuma/meta.ts` —— `flavorOf(beans, override)` 看观测项 bean 里有没有 `policyJson`（**camelCase；库里列才叫 `policy_json`**，见坑 47）判 fork / upstream，
+`KUMA_FLAVOR=auto|fork|upstream` 可强制（大小写、空白不敏感，`auto` 等于没指定），结果缓存 5 分钟（`FLAVOR_TTL`），探测失败按 upstream 算（保守：不显示不存在的功能）。
+HTTP 面是 `GET /api/monitors/meta` → `{configured, flavor, url}`，**必须注册在 `GET /:id` 之前**（Hono 按注册顺序匹配）。
+
+② **`configured` 的含义放宽了**：不是「有没有设 `KUMA_URL`」，而是「显式配了 url/pass，**或者**默认地址 `http://127.0.0.1:3001` 上读得到公开状态页」——
+否则本机已经跑着 Kuma、只是没设环境变量的人会被塞一张「还没接上」的错卡。`decideConfigured(env, reachable)` 与 `statusPageReachable()`（3 秒超时）都是纯逻辑，可单测。
+
+③ **界面差异**：upstream 下 `MonitorDrawer` 不渲染 `RunSection`（「立即观测」），由新加的 `flavor` prop 控制；所谓「策略编辑器」从来没实现过，
+详情抽屉里只有 BasicSection 的只读 `m.policy` 摘要，上游 bean 没有 `policyJson` 自然不渲染。未配置时 `MonitorsPage` 早返回 `KumaGuide`（新组件
+`web/pages/monitors/KumaGuide.tsx` + `monitors.css` 追加 `.kuma-guide*` 约 50 行）：三步引导 + 「其余六页照常可用」，不隐藏页面、不报错、不空转。
+
+验证：`pnpm test:unit` **390/390**（新增 `tests/unit/kuma-meta.test.mts` 10 条）、`pnpm build` 通过（dist/server.js 198.9 kB / CSS 58.28 kB / JS 463.93 kB）；
+三态实测 A 自家 fork → `{"configured":true,"flavor":"fork","url":"http://127.0.0.1:3001"}`；C 全新数据 + `KUMA_URL=http://127.0.0.1:9` → `flavor:"upstream"`；
+D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, flavor:"upstream"`（读得到状态页算配了，没口令登录失败按上游）。
+引导卡在 1280×900 与 390×844 下截图确认无横向溢出（`tmp/guide-desktop.png` / `tmp/guide-mobile.png`）。

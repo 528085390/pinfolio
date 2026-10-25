@@ -23,6 +23,7 @@ Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out, no aut
 | GET/POST | `/fields` | Custom field list / create |
 | PATCH/DELETE | `/fields/:id` | Update / delete |
 | GET | `/monitors` | Monitor data: `{ kuma, updatedAt, summary, groups, quick }`, merging Kuma's status page and heartbeats; `quick` holds the link-only cards from `quick-links.json` (`{ name, url, note, label, icon }[]` — never counted in `summary` or filters); `?fresh=1` forces a re-read of the monitor list (list cached 5 minutes, heartbeats 5 seconds). Every monitor also carries `beatTimes` / `beatMsgs` / `beatPings`, aligned 1:1 with `beats` (same window), for the beat-strip hover tooltip |
+| GET | `/monitors/meta` | Which Kuma is connected and whether one is configured at all: `{ configured, flavor, url }`. `flavor` is detected from `policyJson` on a monitor (`fork` / `upstream`, cached 5 minutes, probe failure falls back to upstream, override with `KUMA_FLAVOR`); when `configured` is false the UI shows a setup guide instead |
 | GET | `/monitors/:id` | One monitor: `{ monitor, latest, beats, action, link }` (secrets redacted — no SSH keys, passwords or tokens) |
 | PATCH | `/monitors/:id` | Rename / description / interval / timeout and retries (`name` `description` `interval` `timeout` `maxretries` `retryInterval` `showMsg`), written back to Kuma; duplicate names, names referenced by a policy, and timeout ≥ interval are rejected |
 | POST | `/monitors/:id/pause`, `/monitors/:id/resume` | Pause / resume probing (Kuma stops, history kept) |
