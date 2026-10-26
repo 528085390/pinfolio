@@ -5,6 +5,11 @@
 
 ## [未发布]
 
+### 分享预览（新）
+
+- 把地址分享到 Discord / Telegram / Slack / Reddit / X 时会出一张预览卡：标题、一句描述、一张 1200×630 的图（`web/public/og.png`），不再是光秃秃一个 "pinfolio"。
+- 卡片里的绝对地址按访客实际访问的域名生成（`index.html` 里留 `__PINBOARD_ORIGIN__` 占位符，`server/static.ts` 渲染时替换），所以别人自建时用自己的域名也能正常出图；反代后面读 `X-Forwarded-Proto` / `X-Forwarded-Host`，且只在 `TRUST_PROXY=1` 时信任。
+
 ### 文档
 
 - 部署文档补一句：`:edge` 只构建 `linux/amd64`，ARM 机器请用发版 tag。
