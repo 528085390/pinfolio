@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { backupFileName, isWeeklySnapshot, pickExpired, csvCell, heartbeatCsv } from '../../server/backup/core.js'
-import { scheduledEnabled } from '../../server/backup/schedule.js'
+import { backupFileName, isWeeklySnapshot, pickExpired, csvCell, heartbeatCsv, scheduledEnabled } from '../../server/backup/core.js'
 import { createTar, readTar } from '../../server/backup/tar.js'
 
 test('备份文件名带时间戳', () => {

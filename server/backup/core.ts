@@ -1,4 +1,7 @@
-// 备份的纯逻辑：文件名、保留策略、心跳 CSV。不碰磁盘、不碰数据库，方便单测。
+// 备份的纯逻辑：文件名、保留策略、心跳 CSV、定时开关。不碰磁盘、不碰数据库，方便单测。
+//
+// scheduledEnabled() 放在这里而不是 schedule.ts：schedule.ts 会 import runBackup → db.ts，
+// 单测只要碰一下它就等于打开真实数据库，CI 上并行跑测试直接 "database is locked"（坑 52）。
 
 export type HeartbeatRow = {
   time: string
@@ -7,6 +10,12 @@ export type HeartbeatRow = {
   status: number
   msg: string | null
   ping: number | null
+}
+
+/** BACKUP=0 / off / false / no 关掉定时任务；空串或未设算开启（默认开）。 */
+export function scheduledEnabled(): boolean {
+  const v = String(process.env.BACKUP ?? '').trim().toLowerCase()
+  return !(v === '0' || v === 'off' || v === 'false' || v === 'no')
 }
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0')
