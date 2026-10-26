@@ -19,6 +19,10 @@ export function detectLocale(): Locale {
   } catch {
     // 隐私模式下 localStorage 会抛，忽略
   }
+  // 没有 window 就是 Node（单测、脚本）：没有「浏览器语言」可跟，按源码语言中文，
+  // 和 pickLocale(null) 一致。Node 24 也有 navigator.language，但它的值跟 LANG 走——
+  // 本机是 zh-CN、CI 是 en-US，不挡掉的话同一份单测两边结论不同。
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'zh'
   const langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || '']
   const list = langs.filter(Boolean)
   if (!list.length) return 'zh'

@@ -10,6 +10,7 @@ RUN pnpm install --frozen-lockfile
 COPY tsconfig.json vite.config.ts ./
 COPY server ./server
 COPY web ./web
+COPY shared ./shared
 RUN pnpm build
 
 FROM node:24-bookworm-slim AS runtime
