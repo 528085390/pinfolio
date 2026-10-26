@@ -141,6 +141,10 @@ powershell -File tools\pinboard.ps1 start
 
 ## 环境变量
 
+配置写进环境变量即可，也可以放在**项目根的 `.env`** —— `pnpm start` / `pnpm start:dist` 会用
+`node --env-file-if-exists=.env` 自动读（容器里用 compose 的 `environment` / `env_file`）。
+仓库带一份 `.env.example`，复制成 `.env` 改就行；`.env` 在 `.gitignore` 里，不会进版本库。
+
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `PORT` | `7788` | 监听端口 |
@@ -149,7 +153,7 @@ powershell -File tools\pinboard.ps1 start
 | `PINBOARD_PASSWORD` | — | 首启即设密码，跳过 `/setup` |
 | `PINBOARD_SECRET` | 自动生成到 `data/secret.key` | 静态加密主密钥（32 字节 base64） |
 | `PUBLIC_URL` | 请求来源 | 生成「接入这台机器」的绝对链接 |
-| `TRUST_PROXY` | 关 | 前置反代时设 `1`，才读 `X-Forwarded-*` |
+| `TRUST_PROXY` | 关 | 前置反代时设 `1`，才读 `X-Forwarded-*`（客户端 IP 取 `X-Forwarded-For` 最后一段） |
 | `BACKUP` | 开 | `0` / `off` / `false` 关掉每天 03:00 的定时备份 |
 | `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` | `3` / `14` / `<data>/backups` | 定时备份的时间与保留份数 |
 | `KUMA_URL` / `KUMA_USER` / `KUMA_PASS` | `http://127.0.0.1:3001` / `admin` / 读 `data/kuma-pass.txt` | 观测页的数据源 |

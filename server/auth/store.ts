@@ -40,14 +40,26 @@ export function findValidSession(db: DatabaseSync, token: string, now = Date.now
   }
 }
 
-/** 滑动续期；同一会话 60 秒内不重复写库（返回 false 表示没写）。 */
-export function touchSession(db: DatabaseSync, id: string, now = Date.now(), ttlMs = SESSION_TTL_MS): boolean {
-  const row = db.prepare('SELECT last_seen_at FROM sessions WHERE id = ?').get(id) as any
+/**
+ * 滑动续期；同一会话 60 秒内不重复写 last_seen（返回 false 表示什么都没写）。
+ *
+ * ip 变了要立刻写：反代没配好时老会话存的可能是 127.0.0.1，配好之后设备列表得自己纠正过来，
+ * 不能等到 30 天后重登（手机 IP 也会随网络变，同样按最新一次访问记）。
+ */
+export function touchSession(db: DatabaseSync, id: string, now = Date.now(), ttlMs = SESSION_TTL_MS, ip?: string): boolean {
+  const row = db.prepare('SELECT last_seen_at, ip FROM sessions WHERE id = ?').get(id) as any
   if (!row) return false
-  if (now - Date.parse(row.last_seen_at) < TOUCH_THROTTLE_MS) return false
-  db.prepare('UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?')
-    .run(new Date(now).toISOString(), new Date(now + ttlMs).toISOString(), id)
-  return true
+  let wrote = false
+  if (ip && ip !== row.ip) {
+    db.prepare('UPDATE sessions SET ip = ? WHERE id = ?').run(ip, id)
+    wrote = true
+  }
+  if (now - Date.parse(row.last_seen_at) >= TOUCH_THROTTLE_MS) {
+    db.prepare('UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?')
+      .run(new Date(now).toISOString(), new Date(now + ttlMs).toISOString(), id)
+    wrote = true
+  }
+  return wrote
 }
 
 export function deleteSession(db: DatabaseSync, id: string): void {

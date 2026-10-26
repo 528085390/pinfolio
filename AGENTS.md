@@ -54,6 +54,7 @@ pnpm typecheck        # tsc --noEmit
 要点：
 - **默认只监听 127.0.0.1，且必须登录**（`HOST` 可覆盖，容器里设 `0.0.0.0`）。要远程访问就走反代 + HTTPS，别把 7788 裸奔到公网。
 - 密码忘了：`powershell -File tools\pinboard.ps1 stop` → `node --import tsx server/index.ts --reset-password` → `start`；给脚本发 API token：`node --import tsx server/index.ts --new-token <名字>`（明文只打印一次）。
+- 配置写环境变量，或放进项目根的 `.env`（`pnpm start` / `pnpm start:dist` 走 `node --env-file-if-exists=.env` 自动读；仓库带 `.env.example`，`.env` 已 gitignore）。本机那份只有一行 `TRUST_PROXY=1`——frp 从公网进来，不开的话设备 IP 全是 127.0.0.1。
 - 数据目录 `data/`（可用环境变量 `PINBOARD_DATA` 覆盖），库文件 `data/pinboard.db`（WAL 模式，同目录还有 -wal/-shm）。
 - 凭据加密的主密钥在 `data/secret.key`（或环境变量 `PINBOARD_SECRET`，32 字节 base64）。**它丢了，邮箱密码 / Kuma 口令 / 指标源就都解不开**——备份要连它一起备，也绝不进版本库（见坑 40）。
 - **自动备份**（2026-10-26 起，第 7 页「备份」）：每天 03:00 打一个包到 `data/backups/pinfolio-YYYYMMDD-HHMM.tar.gz`，保留 14 份；`BACKUP=0` 关，`BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` 可调。包里 = 库快照 + 当天心跳 CSV + 观测项 + `data/*.json|txt`（含 `secret.key`）+ 根目录四个配置 + `manifest.json`；`kuma.db` 只在周日那份。命令行 `node dist/server.js --backup`（`--local` / `--remote`）。恢复见 `docs/backup-restore.md`。

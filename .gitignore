@@ -1,6 +1,9 @@
 node_modules/
 dist/
 data/
+# 本机配置（密码、密钥、TRUST_PROXY 等），仓库只带 .env.example
+.env
+.env.local
 *.log
 .DS_Store
 tmp/**/*.png

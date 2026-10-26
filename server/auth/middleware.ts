@@ -1,6 +1,6 @@
 import type { Context, Next } from 'hono'
 import { db } from '../db.js'
-import { findValidSession, touchSession } from './store.js'
+import { findValidSession, touchSession, SESSION_TTL_MS } from './store.js'
 import { hashToken } from './tokens.js'
 
 export const COOKIE_NAME = 'pb_session'
@@ -69,7 +69,7 @@ export async function authMiddleware(c: Context, next: Next) {
   const session = token ? findValidSession(db, token) : null
   if (!session) return c.json({ error: 'unauthorized' }, 401)
 
-  touchSession(db, session.id)
+  touchSession(db, session.id, Date.now(), SESSION_TTL_MS, clientIp(c))
   c.set('sessionId', session.id)
   return next()
 }

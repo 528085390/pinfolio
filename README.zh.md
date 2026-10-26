@@ -93,6 +93,8 @@ pnpm start       # http://127.0.0.1:7788
 
 要求 Node ≥ 24（用到内置的 `node:sqlite`）和 pnpm 12。不用数据库服务、没有需要编译的原生模块。停服务用 `stop.cmd` 或 `.\tools\pinboard.ps1 stop`。
 
+配置写环境变量，或者放在 `package.json` 旁边的 `.env` 里（`pnpm start` 自动读）。复制 [`.env.example`](.env.example) 改就行，`.env` 不进版本库。
+
 ### 方式三：Docker
 
 ```bash

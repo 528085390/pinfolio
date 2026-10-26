@@ -93,6 +93,8 @@ pnpm start       # http://127.0.0.1:7788
 
 Requirements: Node ≥ 24 (it uses the built-in `node:sqlite`) and pnpm 12. No database server, no native modules. Stop it with `stop.cmd` or `.\tools\pinboard.ps1 stop`.
 
+Settings can go in the environment or in a `.env` file next to `package.json` — `pnpm start` reads it automatically. Copy [`.env.example`](.env.example) and edit; `.env` is gitignored.
+
 ### Option 3: Docker
 
 ```bash

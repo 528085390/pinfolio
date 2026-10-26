@@ -47,6 +47,16 @@ test('会话：touch 在节流窗口内不重复写库，超过才顺延', () =>
   assert.equal(row.expires_at, new Date(1000 + 61_000 + 60_000).toISOString())
 })
 
+test('会话：IP 变了立刻写（不受 60 秒节流限制），没变不写', () => {
+  const db = fresh()
+  const s = createSession(db, { now: 1000, ip: '127.0.0.1' })
+  // 节流窗口内，但 IP 变了 → 要写
+  assert.equal(touchSession(db, s.id, 1000 + 5_000, 60_000, '120.1.2.3'), true)
+  assert.equal((db.prepare('SELECT ip FROM sessions WHERE id = ?').get(s.id) as any).ip, '120.1.2.3')
+  // IP 没变、还在节流窗口 → 什么都不写
+  assert.equal(touchSession(db, s.id, 1000 + 6_000, 60_000, '120.1.2.3'), false)
+})
+
 test('会话：删除后失效，列表不含', () => {
   const db = fresh()
   const a = createSession(db, { now: 1000, ua: 'A' })
