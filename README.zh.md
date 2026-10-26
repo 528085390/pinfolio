@@ -162,7 +162,7 @@ pinfolio/
 │  ├─ secrets/                crypto、key、migrate（AES-256-GCM 静态加密）
 │  └─ routes/                 notes、assets、tags、fields、meta
 ├─ web/                        React 前端（pages/、components/、lib/、styles/、app/）
-├─ tests/                      unit/（node:test）+ 15 套 Playwright e2e + fakeimap/
+├─ tests/                      unit/（node:test）+ 17 套 Playwright e2e + fakeimap/
 ├─ docs/                       architecture、pitfalls、features、api、status-history……
 ├─ data/  dist/web/  tmp/  logs/   运行数据、构建产物、临时文件、日志
 └─ SNAPSHOT.md                 自动生成的数据快照（不要手改）

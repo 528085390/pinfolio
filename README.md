@@ -161,7 +161,7 @@ pinfolio/
 │  ├─ secrets/                crypto, key, migrate (AES-256-GCM at rest)
 │  └─ routes/                 notes, assets, tags, fields, meta
 ├─ web/                        React frontend (pages/, components/, lib/, styles/, app/)
-├─ tests/                      unit/ (node:test) + 15 Playwright e2e suites + fakeimap/
+├─ tests/                      unit/ (node:test) + 17 Playwright e2e suites + fakeimap/
 ├─ docs/                       architecture, pitfalls, features, api, status-history, …
 ├─ data/  dist/web/  tmp/  logs/   runtime data, build output, scratch, logs
 └─ SNAPSHOT.md                 auto-generated data snapshot (do not edit)
