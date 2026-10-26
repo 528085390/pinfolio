@@ -3,7 +3,7 @@
 [![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-390%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+[![Tests](https://img.shields.io/badge/unit%20tests-395%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
 [![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **中文** · [English](README.md)
@@ -159,7 +159,7 @@ pnpm dev        # 7788 跑 API（tsx watch）+ 5273 跑 Vite，/api 走代理
 pnpm build      # 重新构建前端到 dist/web —— 改完前端必须跑
 pnpm typecheck  # tsc --noEmit
 pnpm start      # 生产模式，不是 watch：改完后端要重启
-pnpm test       # typecheck + 390 条单测（不需要服务在跑）
+pnpm test       # typecheck + 395 条单测（不需要服务在跑）
 pnpm test:e2e   # core + monitor 套件（需要 7788 和 Kuma 3001）
 node tests/run.mjs --only=ci   # CI 跑的就是这个：不需要 Kuma / 邮箱 / 采集端
 pnpm test:mail  # 邮件套件，对着隔离实例跑
@@ -191,7 +191,7 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 - [`docs/features.zh.md`](docs/features.zh.md)：各页完整行为（中文）；英文版见 [`docs/features.md`](docs/features.md)。
 - [`docs/api.zh.md`](docs/api.zh.md)：完整 HTTP API（中文；英文 [`docs/api.md`](docs/api.md)）。
 - [`CHANGELOG.md`](CHANGELOG.md)：改了什么、哪个版本改的。
-- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 47 条踩过的坑，**改代码前先读**。
+- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 51 条踩过的坑，**改代码前先读**。
 - [`docs/adding-assets.md`](docs/adding-assets.md)：加资产 / 加便签的唯一手册。
 - [`SNAPSHOT.md`](SNAPSHOT.md)：自动生成的数据快照，任何写入后 1.5 秒重写（不要手改）。
 - `docs/` 其余（`architecture.md`、`pitfalls.md`、`status-history.md`、`mail-page-requirements.md`）是内部文档。

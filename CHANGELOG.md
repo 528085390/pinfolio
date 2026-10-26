@@ -38,6 +38,15 @@
   升级后第一次启动会就地加密已有明文，日志打一行「凭据已就地加密」，之后幂等不再动。
   **`secret.key` 要跟数据库一起备份**：丢了这些凭据就解不开，只能在页面里重填；它绝不进版本库。
 - 密码解不开时（换了主密钥 / 数据被改）账号列表直接提示「请点编辑重填一次」，不再假装成「没设密码」。
+- **安全审查修了四处**（隔离环境里实测的，见 `docs/pitfalls.md` 48–51）：
+  登录限流的客户端 IP 改成取 `X-Forwarded-For` 的**最后一段**（原来取第一段，配 nginx 的
+  `$proxy_add_x_forwarded_for` 时每次换个头就是一条新 IP，限流形同虚设）；
+  systemd 单元名加字符集白名单（它会被拼进 Kuma 的 `ssh_command` 在目标机上按 shell 跑）；
+  「读私钥」只收真私钥（匹配 `-----BEGIN … PRIVATE KEY-----`）且限 64 KB；
+  畸形 URL 编码回 400 而不是 500。
+- **新增安全响应头**：`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、
+  `Permissions-Policy`、CSP 的 `frame-ancestors 'none'; base-uri 'self'`，HTTPS 下再发 HSTS。
+  完整 CSP 暂时不加：会挡住子路径部署注入的 `window.__PB_BASE__` 与邮件里用户主动加载的远程图片。
 
 ### 主机
 

