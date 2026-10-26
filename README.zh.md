@@ -8,14 +8,15 @@
 
 **中文** · [English](README.md)
 
-一个自托管的小工具：**随手记便签**（写 `#标签` 自动归类）、**资产台账**（服务器 / 域名 / 账号 / 设备，带到期提醒和关联便签）、**观测台**（一眼看所有机器和服务）、**邮件**（多个邮箱合并成一个只读收件箱）。
+一个自托管的小工具：**便签**、**资产台账**、**观测台**、**只读邮件收件箱** —— 四件事，一个进程、一个 SQLite 文件、一个密码。
 
-一个进程、一个 SQLite 文件、一个密码。没有云端、没有外部服务：`docker compose up -d` 或 `pnpm build && node dist/server.js`，首次访问会让你设密码。
+写条便签，`#标签` 自动归类；登记服务器 / 域名 / 账号，带到期提醒；所有机器一屏看完；几个邮箱合成一个收件箱。**标签在各页之间是共用的** —— `#homelab` 底下同时有那条便签、那台服务器和那个域名。
 
-- 仓库：<https://github.com/528085390/pinfolio> —— 自用小工具，公开出来给需要的人参考，没发布到 npm。
-- 运行方式：`docker compose up -d`（镜像 `ghcr.io/528085390/pinfolio`，amd64 + arm64），或裸机 `pnpm install && pnpm build && node dist/server.js`
-- 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 8 + React 19 + 手写 CSS
-- 数据：`data/pinboard.db` 加 `data/secret.key` —— 备份就是这一个目录（[怎么恢复](docs/backup-restore.zh.md)）
+**已经有 Memos / HomeBox / Uptime Kuma 了，为什么还要它？** 常见做法是三个应用：Memos 记便签、HomeBox 记家当、Uptime Kuma 看服务器。三个容器、三个登录、三套永远不相通的标签，而且「关于某台服务器的便签」没地方待在那台服务器旁边。pinfolio 把这三件事（外加邮件和服务地图）放进一个登录后面。[和别的项目比，差在哪 →](docs/alternatives.zh.md)
+
+- **跑起来**：`docker compose up -d`（镜像 `ghcr.io/528085390/pinfolio`，amd64 + arm64），或裸机 `pnpm install && pnpm build && node dist/server.js`。没有云端、没有外部服务，首次访问会让你设密码。没发布到 npm —— 这是个服务端应用。
+- **技术栈**：Node 24 + TypeScript + Hono + 内置的 `node:sqlite`，所以没有要编译的原生模块、也没有数据库要装；前端 Vite 8 + React 19 + 手写 CSS。
+- **数据**：`data/pinboard.db` 加 `data/secret.key` —— 备份就是这一个目录（[怎么恢复](docs/backup-restore.zh.md)）。
 
 ## 截图
 
@@ -202,6 +203,7 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 - [`docs/deploy.zh.md`](docs/deploy.zh.md)：Docker / 裸机 / 反代 / 环境变量 / 验收清单。
 - [`docs/upgrade.zh.md`](docs/upgrade.zh.md) 与 [`docs/backup-restore.zh.md`](docs/backup-restore.zh.md)：升级、回滚、恢复。
 - [`docs/faq.zh.md`](docs/faq.zh.md)：这份 README 没回答的问题。
+- [`docs/alternatives.zh.md`](docs/alternatives.zh.md)：和 Memos / HomeBox / Uptime Kuma / linkding 的逐项对比，以及什么时候该用它们而不是这个。
 - [`docs/features.zh.md`](docs/features.zh.md)：各页完整行为（中文）；英文版见 [`docs/features.md`](docs/features.md)。
 - [`docs/api.zh.md`](docs/api.zh.md)：完整 HTTP API（中文；英文 [`docs/api.md`](docs/api.md)）。
 - [`CHANGELOG.md`](CHANGELOG.md)：改了什么、哪个版本改的。

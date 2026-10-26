@@ -8,14 +8,15 @@
 
 **English** · [中文](README.zh.md)
 
-Notes, an asset inventory and an uptime dashboard in one self-hosted app. Jot a note, put `#tags` in it and it files itself; track servers, domains and accounts with expiry reminders; watch every machine on one screen; read several mailboxes as one read-only inbox.
+Notes, an asset inventory, an uptime dashboard and a read-only inbox in one self-hosted app — one Node process, one SQLite file, one password.
 
-One Node process, one SQLite file, one password. No cloud, no external services: `docker compose up -d` or `pnpm build && node dist/server.js`, and the first visit asks you to set a password.
+Write a note, put `#tags` in it and it files itself; track servers, domains and accounts with expiry reminders; watch every machine on one screen; read several mailboxes as one inbox. **The tags are shared across all of it**, so `#homelab` holds the note, the server and the domain in the same place.
 
-- Repo: <https://github.com/528085390/pinfolio> — a personal tool, published in case someone finds it useful. Not on npm.
-- Run it: `docker compose up -d` (image `ghcr.io/528085390/pinfolio`, amd64 + arm64), or bare metal with `pnpm install && pnpm build && node dist/server.js`
-- Stack: Node 24 + TypeScript + Hono + `node:sqlite`; Vite 8 + React 19 + hand-written CSS
-- Data: `data/pinboard.db` plus `data/secret.key` — one directory to back up ([restoring](docs/backup-restore.md))
+**Why another one?** The usual answer is three apps — Memos for notes, HomeBox for the hardware you own, Uptime Kuma for the servers. That is three containers, three logins and three tag systems that never meet, and a note about a server has nowhere to live next to the server. pinfolio is those three, plus mail and a service map, behind one login. [How it compares, honestly →](docs/alternatives.md)
+
+- **Run it**: `docker compose up -d` (image `ghcr.io/528085390/pinfolio`, amd64 + arm64), or bare metal with `pnpm install && pnpm build && node dist/server.js`. No cloud, no external services; the first visit asks you to set a password. Not on npm — this is a server app.
+- **Stack**: Node 24 + TypeScript + Hono + the built-in `node:sqlite`, so there is no native module to compile and no database server to run; Vite 8 + React 19 + hand-written CSS.
+- **Data**: `data/pinboard.db` plus `data/secret.key` — one directory to back up ([restoring](docs/backup-restore.md)).
 
 ## Screenshots
 
@@ -201,6 +202,7 @@ E2E suites drive the real UI through `playwright-core` with the Chromium already
 - [`docs/deploy.md`](docs/deploy.md): Docker, bare metal, reverse proxy, environment variables, acceptance checklist.
 - [`docs/upgrade.md`](docs/upgrade.md) and [`docs/backup-restore.md`](docs/backup-restore.md): upgrading, rolling back, restoring.
 - [`docs/faq.md`](docs/faq.md): the questions this README does not answer.
+- [`docs/alternatives.md`](docs/alternatives.md): how it compares to Memos, HomeBox, Uptime Kuma and linkding — and when to use one of them instead.
 - [`docs/features.md`](docs/features.md): every page in full (English); [`docs/features.zh.md`](docs/features.zh.md) is the same in Chinese.
 - [`docs/api.md`](docs/api.md): the complete HTTP API (English; [`docs/api.zh.md`](docs/api.zh.md) 中文).
 - [`CHANGELOG.md`](CHANGELOG.md): what changed, and in which version.
