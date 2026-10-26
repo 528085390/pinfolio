@@ -2,7 +2,7 @@
 # 多阶段构建：build 里装全量依赖编前端 + 打服务端单文件，runtime 只装生产依赖。
 # 选 Debian slim 而不是 alpine：node:sqlite 是内置模块，alpine 变体历史上出过编译差异。
 
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 RUN npm install -g pnpm@12.3.4
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -12,7 +12,7 @@ COPY server ./server
 COPY web ./web
 RUN pnpm build
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=7788 \
