@@ -4,7 +4,7 @@
 
 ## 观测台
 - 数据源是**本机的 Uptime Kuma**（默认 `http://127.0.0.1:3001`，状态页 slug `obs`），Kuma 只当探测后端，页面在 pinboard 里。
-- **没接 Kuma 也不影响其余六页**：既没给 `KUMA_URL`/`KUMA_PASS`、默认地址上又读不到状态页时，观测页显示一张引导卡（怎么起 Kuma、状态页 slug 怎么填、环境变量怎么写），不报错、不空白。
+- **没接 Kuma 也不影响其余七页**：既没给 `KUMA_URL`/`KUMA_PASS`、默认地址上又读不到状态页时，观测页显示一张引导卡（怎么起 Kuma、状态页 slug 怎么填、环境变量怎么写），不报错、不空白。
 - **兼容上游原版 Kuma**：自动识别连的是改造版还是原版（原版没有 `policyJson` 字段），原版下不渲染「立即观测」这类改造版才有的入口，其余完全一致；也可以 `KUMA_FLAVOR=fork|upstream` 强制指定。
 - **Kuma 自带的 `http://127.0.0.1:3001/status/obs` 已于 2026-10-19 下线**（返回 404），观测只看这一页。Kuma 的
   `/api/status-page/obs`、`/api/status-page/heartbeat/obs` 两个 JSON 接口保留，是这里的数据来源。

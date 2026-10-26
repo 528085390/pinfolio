@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（51 条）
+# pinboard 已知问题与坑（54 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -81,3 +81,9 @@
 50. **「读私钥」的接口天然就是任意文件读取**（同一天）：`server/metrics/routes.ts` 的 `readTemplates()` 拿请求体里的 `keyPath` 直接 `readFileSync(keyPath, 'utf8')`，实测 `keyPath: 'data/secret.key'` 能读出来（内容会进 Kuma 观测项的 `ssh_private_key`）。只靠登录挡不住（单用户也会误用、也可能被 CSRF 链上），加两条：**大小 ≤ 64 KB** + **内容必须匹配 `/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/`**。
 
 51. **安全头只加半套，CSP 是故意留白的**（同一天）：`server/index.ts` 加了 `X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Permissions-Policy`、CSP 里的 `frame-ancestors 'none'; base-uri 'self'`，`isHttps()` 为真时再加 HSTS。**别加完整 CSP**：nginx 子路径部署靠 `sub_filter` 往 `<head>` 注入 `<script>window.__PB_BASE__</script>`（见 `web/lib/base.ts`），邮件阅读器里用户点「加载图片」也是直接把 `src` 改到远端——`script-src 'self'` / `img-src 'self'` 会同时干掉这两件事。真要上完整 CSP，得先把注入脚本改成 nonce 或独立文件。
+
+52. **表格每行各自 grid + 最后一列 `auto`，列一定对不齐**（2026-10-26 做服务页详细视图时被用户指出的）：`.svc-row { display:grid; grid-template-columns: … 190px auto }` 写在各行上，列宽随每行内容各算各的，前面几列的起点于是逐行漂移。改法是在**卡片上**定义一次 `--svc-cols`（`.svc-card` 与 `.svc-card.is-svc` 各一套），`.svc-row, .svc-rows-head { grid-template-columns: var(--svc-cols) }` 共用，并且**最后一列给固定宽度**（24px 的换视角按钮），别再留 `auto`。验收方式：量每行每格 `getBoundingClientRect().left` 与表头对应格比对，maxDev 必须是 0。
+
+53. **`document.documentElement.scrollHeight` 量不出滚动**（同一天）：本项目的滚动容器是 `shell.css` 里的 `.content { flex:1; overflow-y:auto }`，`documentElement` 的高度恒等于视口，于是「一屏放不放得下」永远量成「放得下」。要量 `.content` 的 `scrollHeight` vs `clientHeight`（`tools/screenshots/shot-services.mjs` 的 `metrics()` 就是这么做的，另加 `usedHeight` 量内容实际占到哪）。
+
+54. **「每个实体一张卡」在列表视角会自己顶破一屏**（同一天）：服务视角最初照服务器视角做成卡片，23 个服务 = 23 张卡，光卡片头（标题 + IP + 条数）就吃掉 121px，比单行多出一屏（963 > 842）。**服务视角改成一个服务一行**（`.svc-slist` 两列网格，行里排部署机名），行内别再放带框的小标签——3 台机 + 长 IP（`127.0.0.1:7863`）会换行把行高撑成两倍，纯文本机名 + `·` 分隔就够。同理紧凑行不要加第二行路径：加了以后服务视角 963px 直接超出一屏。

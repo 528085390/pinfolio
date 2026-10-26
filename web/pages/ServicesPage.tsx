@@ -1,15 +1,17 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
-import { ArrowLeftRight, Boxes, LayoutGrid, List, Search, Server } from 'lucide-react'
+import { ArrowLeftRight, Boxes, ExternalLink, LayoutGrid, List, Search, Server } from 'lucide-react'
 import { Button, Empty } from '../components/ui'
 import { cx } from '../lib/cx'
 import {
   KIND_LABEL,
+  deployTarget,
   deployTitle,
   filterServerGroups,
   filterServiceGroups,
   groupByServer,
   groupByService,
   summaryOf,
+  type DeployTarget,
   type ServerGroup,
   type ServerRow,
   type ServiceGroup,
@@ -38,9 +40,14 @@ function saveDense(dense: boolean) {
   }
 }
 
-/** 一行里的观测入口：挂了观测项才是按钮，没挂就一个「—」。 */
-function MonChips({ ids, onOpen }: { ids?: number[]; onOpen?: (id: number) => void }) {
-  if (!ids || ids.length === 0) return <span className="svc-nomon">—</span>
+/** 管理页新开一个标签页打开（noopener 避免被打开的页面拿到 window.opener） */
+function openUrl(url: string) {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+/** 一行里的观测入口：挂了观测项才是按钮，没挂就一个「—」（这一格还有管理页时不给「—」）。 */
+function MonChips({ ids, onOpen, quiet }: { ids?: number[]; onOpen?: (id: number) => void; quiet?: boolean }) {
+  if (!ids || ids.length === 0) return quiet ? null : <span className="svc-nomon">—</span>
   return (
     <>
       {ids.map((id) => (
@@ -55,6 +62,41 @@ function MonChips({ ids, onOpen }: { ids?: number[]; onOpen?: (id: number) => vo
         </button>
       ))}
     </>
+  )
+}
+
+/** 管理页入口：和观测标签同一格。没挂观测时它就是这一格唯一的内容。 */
+function ManageLink({ url }: { url: string }) {
+  return (
+    <a className="svc-manage" href={url} target="_blank" rel="noreferrer noopener" title={'打开管理页：' + url}>
+      管理页
+      <ExternalLink size={10} />
+    </a>
+  )
+}
+
+/** 详细视图里的名字格：能跳就是按钮，不能跳就是灰字（点了没反应）。 */
+function NameCell({ name, summary, target, onOpen }: {
+  name: string
+  summary: string
+  target: DeployTarget | null
+  onOpen?: (id: number) => void
+}) {
+  if (!target) {
+    return <span className="svc-name is-static" title={summary + '（没挂观测也没有管理页，点了不跳）'}>{name}</span>
+  }
+  const tip = target.kind === 'monitor'
+    ? summary + '（点一下去观测台看「' + monitorName(target.id) + '」）'
+    : summary + '（点一下打开管理页 ' + target.url + '）'
+  return (
+    <button
+      type="button"
+      className="svc-name"
+      title={tip}
+      onClick={() => (target.kind === 'monitor' ? onOpen?.(target.id) : openUrl(target.url))}
+    >
+      {name}
+    </button>
   )
 }
 
@@ -74,28 +116,15 @@ function ServerDeployRow({ row, onOpen, onService }: {
   onOpen?: (id: number) => void
   onService: (cardId: string) => void
 }) {
-  const first = row.monitor?.[0]
   return (
     <li className="svc-row">
       <span className={cx('svc-kind', 'kind-' + row.svc.kind)}>{KIND_LABEL[row.svc.kind]}</span>
-      {typeof first === 'number' ? (
-        <button
-          type="button"
-          className="svc-name"
-          title={row.svc.summary + '（点一下去观测台看「' + monitorName(first) + '」）'}
-          onClick={() => onOpen?.(first)}
-        >
-          {row.svc.name}
-        </button>
-      ) : (
-        <span className="svc-name is-static" title={row.svc.summary + '（没挂观测，点了不跳）'}>
-          {row.svc.name}
-        </span>
-      )}
+      <NameCell name={row.svc.name} summary={row.svc.summary} target={deployTarget(row)} onOpen={onOpen} />
       <span className="svc-path" title={row.path}>{row.path}</span>
       <RunCell row={row} />
       <span className="svc-mons">
-        <MonChips ids={row.monitor} onOpen={onOpen} />
+        <MonChips ids={row.monitor} onOpen={onOpen} quiet={!!row.url} />
+        {row.url ? <ManageLink url={row.url} /> : null}
       </span>
       <button
         type="button"
@@ -115,27 +144,19 @@ function ServiceDeployRow({ row, onOpen, onServer }: {
   onOpen?: (id: number) => void
   onServer: (cardId: string) => void
 }) {
-  const first = row.monitor?.[0]
   return (
     <li className="svc-row is-srv">
-      {typeof first === 'number' ? (
-        <button
-          type="button"
-          className="svc-name"
-          title={row.srv.vendor + ' · ' + row.srv.ip + ' · ' + row.srv.user + '（点一下去观测台看「' + monitorName(first) + '」）'}
-          onClick={() => onOpen?.(first)}
-        >
-          {row.srv.name}
-        </button>
-      ) : (
-        <span className="svc-name is-static" title={row.srv.vendor + ' · ' + row.srv.ip + ' · ' + row.srv.user + '（没挂观测，点了不跳）'}>
-          {row.srv.name}
-        </span>
-      )}
+      <NameCell
+        name={row.srv.name}
+        summary={row.srv.vendor + ' · ' + row.srv.ip + ' · ' + row.srv.user}
+        target={deployTarget(row)}
+        onOpen={onOpen}
+      />
       <span className="svc-path" title={row.path}>{row.path}</span>
       <RunCell row={row} />
       <span className="svc-mons">
-        <MonChips ids={row.monitor} onOpen={onOpen} />
+        <MonChips ids={row.monitor} onOpen={onOpen} quiet={!!row.url} />
+        {row.url ? <ManageLink url={row.url} /> : null}
       </span>
       <button
         type="button"
@@ -149,14 +170,15 @@ function ServiceDeployRow({ row, onOpen, onServer }: {
   )
 }
 
-/** 紧凑视图的一行：种类点 + 名字 + 端口 + 观测标记。
-    整行就是入口——挂了观测点哪儿都跳观测台，没挂的点了不动。细节全在悬停提示里。 */
+/** 紧凑视图的一行：种类点 + 名字 + 端口。
+    整行就是入口——挂了观测去观测台，没观测但有管理页就打开管理页，都没有的点了不动。
+    细节全在悬停提示里。 */
 function MiniRow({
   dot,
   label,
   labelTitle,
   port,
-  monitors,
+  target,
   detail,
   onOpen,
 }: {
@@ -164,27 +186,32 @@ function MiniRow({
   label: string
   labelTitle: string
   port?: string
-  monitors?: number[]
+  target: DeployTarget | null
   detail: string
   onOpen?: (id: number) => void
 }) {
-  const mons = monitors ?? []
-  const first = mons[0]
-  const linked = typeof first === 'number'
-  const tip = linked
-    ? detail + '\n点一下 → 观测台看「' + monitorName(first) + '」'
-    : detail + '\n没挂观测，点了不跳'
+  const linked = target !== null
+  const tip = !target
+    ? detail + '\n没挂观测也没有管理页，点了不跳'
+    : target.kind === 'monitor'
+      ? detail + '\n点一下 → 观测台看「' + monitorName(target.id) + '」'
+      : detail + '\n点一下 → 打开管理页 ' + target.url
+  const go = () => {
+    if (!target) return
+    if (target.kind === 'monitor') onOpen?.(target.id)
+    else openUrl(target.url)
+  }
   return (
     <li
       className={cx('svc-mini-row', linked && 'is-link')}
       title={tip}
       role={linked ? 'button' : undefined}
       tabIndex={linked ? 0 : undefined}
-      onClick={linked ? () => onOpen?.(first) : undefined}
+      onClick={linked ? go : undefined}
       onKeyDown={linked ? (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onOpen?.(first)
+          go()
         }
       } : undefined}
     >
@@ -217,7 +244,7 @@ function MiniServerCard({ g, flash, onOpen }: {
             label={row.svc.name}
             labelTitle={KIND_LABEL[row.svc.kind] + ' · ' + row.svc.summary}
             port={row.port}
-            monitors={row.monitor}
+            target={deployTarget(row)}
             detail={deployTitle(row, (row.monitor ?? []).map(monitorName))}
             onOpen={onOpen}
           />
@@ -251,22 +278,27 @@ function ServiceListRow({ g, flash, onOpen, onJump }: {
   onJump: (view: View, cardId: string) => void
 }) {
   const cardId = 'svc-card-svc-' + g.service.id
-  const first = g.rows[0]?.monitor?.[0]
-  const linked = typeof first === 'number'
+  // 服务视角的名字只有一个入口：优先取第一条挂了观测/有管理页的部署
+  const target = g.rows.map(deployTarget).find((t) => t !== null) ?? null
+  const tip = !target
+    ? g.service.summary + '（没挂观测也没有管理页，点了不跳）'
+    : target.kind === 'monitor'
+      ? g.service.summary + '（点一下去观测台看「' + monitorName(target.id) + '」）'
+      : g.service.summary + '（点一下打开管理页 ' + target.url + '）'
   return (
     <li id={cardId} className={cx('svc-srow', flash === cardId && 'is-flash')}>
       <span className={cx('svc-dot', 'kind-' + g.service.kind)} />
-      {linked ? (
+      {target ? (
         <button
           type="button"
           className="svc-srow-name"
-          title={g.service.summary + '（点一下去观测台看「' + monitorName(first) + '」）'}
-          onClick={() => onOpen?.(first)}
+          title={tip}
+          onClick={() => (target.kind === 'monitor' ? onOpen?.(target.id) : openUrl(target.url))}
         >
           {g.service.name}
         </button>
       ) : (
-        <span className="svc-srow-name is-static" title={g.service.summary + '（没挂观测，点了不跳）'}>
+        <span className="svc-srow-name is-static" title={tip}>
           {g.service.name}
         </span>
       )}
@@ -339,6 +371,8 @@ export function ServicesPage({ onOpenMonitor }: {
           <span className="svc-sum-dim">{sum.deploys} 条部署</span>
           <span className="svc-sum-sep">·</span>
           <span className="svc-sum-dim">{sum.linked} 条挂了观测（共 {sum.monitors} 项）</span>
+          <span className="svc-sum-sep">·</span>
+          <span className="svc-sum-dim">{sum.manage} 条能打开管理页</span>
         </div>
         <div className="svc-actions">
           <div className="svc-tabs">
@@ -390,18 +424,18 @@ export function ServicesPage({ onOpenMonitor }: {
         {dense ? (
           view === 'server' ? (
             <>
-              只登记部署关系，<b>不做任何探测</b>。点任意一行直接去观测台定位那一项（<b>没挂观测的行点不动</b>）；
-              服务器级观测在卡片底部；路径 / 启动方式 / 端口看悬停提示。
+              只登记部署关系，<b>不做任何探测</b>。点任意一行：挂了观测的去观测台，没观测但有管理页的打开管理页，
+              都没有的点不动；服务器级观测在卡片底部；路径 / 启动方式 / 端口看悬停提示。
             </>
           ) : (
             <>
-              只登记部署关系，<b>不做任何探测</b>。点服务名直接去观测台定位那一项（没挂观测的点不动）；
+              只登记部署关系，<b>不做任何探测</b>。点服务名：有观测去观测台，没观测就打开它的管理页（都没有的点不动）；
               点右边的机名小标签换到服务器视角，看那台机上还部署了什么。
             </>
           )
         ) : (
           <>
-            这一栏只登记部署关系，<b>不做任何探测</b>。点名字直接去观测台定位那一项（没挂观测的点了不跳）；
+            这一栏只登记部署关系，<b>不做任何探测</b>。点名字：有观测去观测台，没观测就打开管理页（都没有的点了不跳）；
             行尾的 <ArrowLeftRight size={11} className="svc-hint-ico" /> 换到另一个视角。
           </>
         )}

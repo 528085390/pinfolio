@@ -2,7 +2,7 @@ import { Activity, Server, Terminal } from 'lucide-react'
 
 /**
  * 观测页的引导卡：没配 Kuma 时显示，替掉「读不到观测项 + 报错」那种像坏了的样子。
- * 观测页本身不探测（探测在 Kuma 里），所以没有 Kuma 时其余六页完全不受影响——
+ * 观测页本身不探测（探测在 Kuma 里），所以没有 Kuma 时其余七页完全不受影响——
  * 这点要写清楚，否则用户会以为整个应用挂了。
  */
 export function KumaGuide({ url }: { url?: string }) {
@@ -13,7 +13,7 @@ export function KumaGuide({ url }: { url?: string }) {
         <div>
           <div className="kuma-guide-title">观测页还没接上 Uptime Kuma</div>
           <div className="kuma-guide-sub">
-            这一页只是 Kuma 的界面，探测是 Kuma 在跑。没接上时<strong>其余六页照常可用</strong>，不需要为了用便签去装 Kuma。
+            这一页只是 Kuma 的界面，探测是 Kuma 在跑。没接上时<strong>其余七页照常可用</strong>，不需要为了用便签去装 Kuma。
           </div>
         </div>
       </div>

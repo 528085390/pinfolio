@@ -190,21 +190,6 @@
 .host-bar-fill.tone-warn { background: var(--warn); }
 .host-bar-fill.tone-bad { background: var(--danger); }
 
-.host-units { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; }
-.host-unit {
-  font-size: 11px;
-  line-height: 1;
-  padding: 4px 7px;
-  border-radius: 7px;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  background: var(--surface-2);
-  font-family: var(--font-mono);
-}
-.host-unit.is-on { color: var(--ok); border-color: rgba(21, 128, 61, 0.25); background: transparent; }
-.host-unit.is-off { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
-.host-unit.is-bad { color: var(--danger); border-color: var(--danger); }
-
 .host-foot {
   display: flex;
   align-items: baseline;
@@ -264,13 +249,6 @@
 .host-op:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
 .host-op.is-danger:hover { border-color: var(--danger-soft); color: var(--danger); background: var(--danger-soft); }
 .host-op:disabled { opacity: 0.4; cursor: default; }
-
-/* 能跳观测台的服务 chip：只有配了映射的才是按钮，名字后面挂个小箭头当提示 */
-button.host-unit { cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
-.host-unit-go { opacity: 0.5; flex: none; }
-button.host-unit:hover .host-unit-go { opacity: 1; }
-button.host-unit.is-link:hover { border-color: var(--line-strong); color: var(--ink); background: var(--surface); }
-.host-unit.is-link.is-on:hover { border-color: var(--ok); }
 
 /* 添加主机抽屉 / 删除主机弹窗 */
 .host-form-tip { margin-top: 12px; font-size: 12px; line-height: 1.55; color: var(--muted); }

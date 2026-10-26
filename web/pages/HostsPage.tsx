@@ -8,10 +8,8 @@ import { AddHostDrawer } from './hosts/AddHostDrawer'
 import { DeleteHostModal } from './hosts/DeleteHostModal'
 import { OnboardModal } from './hosts/OnboardModal'
 
-export function HostsPage({ onSummary, onOpenMonitor }: {
+export function HostsPage({ onSummary }: {
   onSummary?: (s: HostSummary) => void
-  /** 点服务 chip → 观测台定位高亮（App 传 s.openMonitor 进来） */
-  onOpenMonitor?: (id: number) => void
 }) {
   const H = useHosts({ onSummary })
   const hosts = H.data?.hosts ?? []
@@ -124,7 +122,6 @@ export function HostsPage({ onSummary, onOpenMonitor }: {
               key={h.id}
               h={h}
               busy={busyId === h.id}
-              onOpenMonitor={onOpenMonitor}
               onTogglePause={togglePause}
               onDelete={setDelHost}
               onOnboard={(h) => setOnboardId(h.id)}

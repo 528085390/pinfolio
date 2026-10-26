@@ -2,13 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PATHS, TITLES, pageFromPath, pathForPage } from '../../web/lib/paths.js'
 
-test('pageFromPath：七个页面', () => {
+test('pageFromPath：八个页面', () => {
   assert.equal(pageFromPath('/notes'), 'notes')
   assert.equal(pageFromPath('/mail'), 'mail')
   assert.equal(pageFromPath('/assets'), 'assets')
   assert.equal(pageFromPath('/monitors'), 'monitors')
   assert.equal(pageFromPath('/hosts'), 'hosts')
   assert.equal(pageFromPath('/services'), 'services')
+  assert.equal(pageFromPath('/backup'), 'backup')
   assert.equal(pageFromPath('/settings'), 'settings')
 })
 

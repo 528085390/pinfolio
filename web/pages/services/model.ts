@@ -54,7 +54,26 @@ export type DeployRec = {
   port?: string
   /** 对应的 Kuma 观测项 id（没有观测就不写，点了也没得跳） */
   monitor?: number[]
+  /**
+   * 这个部署自己的管理页（面板 / 后台那种能打开的页面）。
+   * 没挂观测项时点名字就打开它——比如抖音续火花面板 8765。
+   */
+  url?: string
   note?: string
+}
+
+/** 点一行会去哪儿：观测台定位某一项，或者打开这个部署自己的管理页。 */
+export type DeployTarget = { kind: 'monitor'; id: number } | { kind: 'url'; url: string }
+
+/**
+ * 行的入口：先看有没有观测项，再看有没有管理页，都没有就返回 null（点了不动）。
+ * 两个都有时优先观测台——观测项是「这个部署活着吗」，比管理页更常用。
+ */
+export function deployTarget(rec: DeployRec): DeployTarget | null {
+  const first = (rec.monitor ?? [])[0]
+  if (typeof first === 'number') return { kind: 'monitor', id: first }
+  if (rec.url) return { kind: 'url', url: rec.url }
+  return null
 }
 
 export type ServerRow = DeployRec & { svc: ServiceRec }
@@ -78,6 +97,8 @@ export type Summary = {
   deploys: number
   /** 挂了观测项的部署条数 */
   linked: number
+  /** 有管理页的部署条数（没观测也能点开的那种） */
+  manage: number
   /** 去重后的观测项个数（含服务器级的） */
   monitors: number
 }
@@ -153,7 +174,7 @@ export function filterServerGroups(groups: ServerGroup[], q: string): ServerGrou
       out.push(g)
       continue
     }
-    const rows = g.rows.filter((r) => hit(term, r.svc.name, r.svc.summary, r.path, r.runtime, r.port, r.note))
+    const rows = g.rows.filter((r) => hit(term, r.svc.name, r.svc.summary, r.path, r.runtime, r.port, r.url, r.note))
     if (rows.length) out.push({ ...g, rows })
   }
   return out
@@ -170,7 +191,7 @@ export function filterServiceGroups(groups: ServiceGroup[], q: string): ServiceG
       out.push(g)
       continue
     }
-    const rows = g.rows.filter((r) => hit(term, r.srv.name, r.srv.vendor, r.srv.ip, r.srv.user, r.path, r.runtime, r.port))
+    const rows = g.rows.filter((r) => hit(term, r.srv.name, r.srv.vendor, r.srv.ip, r.srv.user, r.path, r.runtime, r.port, r.url))
     if (rows.length) out.push({ ...g, rows })
   }
   return out
@@ -183,6 +204,7 @@ export function filterServiceGroups(groups: ServiceGroup[], q: string): ServiceG
 export function deployTitle(rec: DeployRec, monitorLabels: string[] = []): string {
   const lines = [rec.path, rec.runtime + (rec.port ? ' · ' + rec.port : '')]
   if (monitorLabels.length) lines.push('观测：' + monitorLabels.join('、'))
+  if (rec.url) lines.push('管理页：' + rec.url)
   if (rec.note) lines.push(rec.note)
   return lines.join('\n')
 }
@@ -192,10 +214,12 @@ export function summaryOf(servers: ServerRec[], services: ServiceRec[], deploys:
   const ids = new Set<number>()
   const deployed = new Set<string>()
   let linked = 0
+  let manage = 0
   for (const d of deploys) {
     deployed.add(d.service)
     const list = d.monitor ?? []
     if (list.length) linked++
+    if (d.url) manage++
     for (const id of list) ids.add(id)
   }
   for (const s of servers) for (const id of s.monitors ?? []) ids.add(id)
@@ -204,6 +228,7 @@ export function summaryOf(servers: ServerRec[], services: ServiceRec[], deploys:
     services: services.filter((s) => deployed.has(s.id)).length,
     deploys: deploys.length,
     linked,
+    manage,
     monitors: ids.size,
   }
 }

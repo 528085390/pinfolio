@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   KIND_LABEL,
+  deployTarget,
   deployTitle,
   filterServerGroups,
   filterServiceGroups,
@@ -29,7 +30,7 @@ const services: ServiceRec[] = [
 const deploys: DeployRec[] = [
   { server: 'a', service: 'x', path: '/etc/xray', runtime: 'systemd xray', port: '443', monitor: [7] },
   { server: 'a', service: 'n', path: '/etc/nginx', runtime: 'systemd nginx', monitor: [5, 6] },
-  { server: 'b', service: 'x', path: '/usr/local/etc/xray', runtime: 'systemd xray' },
+  { server: 'b', service: 'x', path: '/usr/local/etc/xray', runtime: 'systemd xray', url: 'http://127.0.0.1:9000' },
   { server: 'b', service: 'ghost', path: '/x', runtime: 'x' }, // 指向不存在的服务
   { server: 'ghost', service: 'x', path: '/y', runtime: 'y' }, // 指向不存在的服务器
 ]
@@ -77,6 +78,11 @@ test('搜索：服务器自己命中留整张卡，否则只留命中的行', ()
   assert.equal(byPort.length, 1)
   assert.deepEqual(byPort[0].rows.map((r) => r.svc.name), ['Xray'])
 
+  // 管理页地址也在搜索范围里
+  const byUrl = filterServerGroups(groups, '9000')
+  assert.equal(byUrl.length, 1)
+  assert.equal(byUrl[0].rows[0].server, 'b')
+
   assert.deepEqual(filterServerGroups(groups, '  '), groups)
   assert.deepEqual(filterServerGroups(groups, '不存在'), [])
 })
@@ -102,7 +108,20 @@ test('summaryOf：服务数只算部署过的，观测项按 id 去重', () => {
   assert.equal(s.services, 2) // Zzz 没部署，不算
   assert.equal(s.deploys, 5)
   assert.equal(s.linked, 2) // 只有前两条挂了观测
+  assert.equal(s.manage, 1) // 只有 b 机那条填了管理页
   assert.equal(s.monitors, 5) // 7 / 5 / 6 + 服务器级 3 / 9
+})
+
+test('deployTarget：先观测后管理页，都没有就返回 null', () => {
+  const base: DeployRec = { server: 'a', service: 'x', path: '/etc/xray', runtime: 'systemd xray' }
+  // 两个都有时优先观测台
+  assert.deepEqual(deployTarget({ ...base, monitor: [7, 8], url: 'http://127.0.0.1:9000' }), { kind: 'monitor', id: 7 })
+  // 只有管理页：点名字打开它（抖音续火花面板这种没观测但能打开的服务）
+  assert.deepEqual(deployTarget({ ...base, url: 'http://127.0.0.1:8765' }), { kind: 'url', url: 'http://127.0.0.1:8765' })
+  // 空的 monitor 数组不算
+  assert.deepEqual(deployTarget({ ...base, monitor: [], url: 'http://127.0.0.1:8765' }), { kind: 'url', url: 'http://127.0.0.1:8765' })
+  // 都没有：点了不动
+  assert.equal(deployTarget(base), null)
 })
 
 test('样例数据：部署都指向真实存在的服务器与服务', () => {
@@ -113,6 +132,7 @@ test('样例数据：部署都指向真实存在的服务器与服务', () => {
     assert.ok(svcIds.has(d.service), '未知服务：' + d.service)
     assert.ok(d.path.length > 0, '缺路径：' + d.server + '/' + d.service)
     assert.ok(d.runtime.length > 0, '缺启动方式：' + d.server + '/' + d.service)
+    if (d.url) assert.match(d.url, /^https?:\/\//, '管理页得是 http(s) 地址：' + d.server + '/' + d.service)
   }
   // 每个服务至少被部署一次（否则服务视角里看不到它，等于白登记）
   const used = new Set(DEPLOYS.map((d) => d.service))
@@ -125,6 +145,11 @@ test('deployTitle：紧凑视图的悬停提示——路径 / 启动·端口 / �
   assert.equal(
     deployTitle({ ...base, port: '443', note: '主用' }, ['Xray 代理服务', '代理端口 443（TCP）']),
     '/etc/xray\nsystemd xray · 443\n观测：Xray 代理服务、代理端口 443（TCP）\n主用',
+  )
+  // 管理页单占一行，排在观测后面、备注前面
+  assert.equal(
+    deployTitle({ ...base, url: 'http://127.0.0.1:8765', note: '手动启动' }),
+    '/etc/xray\nsystemd xray\n管理页：http://127.0.0.1:8765\n手动启动',
   )
 })
 

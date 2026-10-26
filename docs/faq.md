@@ -29,7 +29,7 @@ Windows 双击 `start.cmd`。见 [`deploy.md`](deploy.md)。
 
 ## 功能
 
-**没装 Uptime Kuma 会怎样？** 只有「观测」这一页显示一张三步引导卡，其余六页完全正常。
+**没装 Uptime Kuma 会怎样？** 只有「观测」这一页显示一张三步引导卡，其余七页完全正常。
 探测本身是 Kuma 在跑，pinfolio 只是它的界面。
 
 **能连上游原版 Kuma 吗？** 能。程序按 `policyJson` 字段识别是不是改造版 fork；上游原版只是不显示

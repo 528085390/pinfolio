@@ -1,4 +1,4 @@
-import { ArrowUpRight, Pause, Play, Trash2 } from 'lucide-react'
+import { Pause, Play, Trash2 } from 'lucide-react'
 import { cx, type Host, type HostSeriesPoint } from '../../lib/api'
 
 // 一张卡 = 一台机。数据缺字段时全部走兜底文案，不要因为一台机少个字段就整页白屏。
@@ -75,18 +75,15 @@ function Bar({ label, pct: v, text }: { label: string; pct: number; text: string
   )
 }
 
-export function HostCard({ h, busy, onOpenMonitor, onTogglePause, onDelete, onOnboard }: {
+export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
   h: Host
   /** 有写操作在跑时禁用暂停 / 删除，避免连点 */
   busy?: boolean
-  /** 点服务 chip → 跳到观测台并高亮那一项（没有观测项的 chip 不传这个函数，点了也没反应） */
-  onOpenMonitor?: (id: number) => void
   onTogglePause?: (h: Host) => void
   onDelete?: (h: Host) => void
   /** 还没收到上报时给一条「接入指引」（安装命令），有数据就不显示 */
   onOnboard?: (h: Host) => void
 }) {
-  const units = Object.entries(h.units || {})
   const memTotal = h.mem?.total_kb ?? 0
   const memUsed = memTotal - (h.mem?.avail_kb ?? 0)
 
@@ -156,33 +153,6 @@ export function HostCard({ h, busy, onOpenMonitor, onTogglePause, onDelete, onOn
             {(h.disk || []).map((d) => (
               <Bar key={d.path} label={d.path} pct={d.pct} text={bytes(d.used) + ' / ' + bytes(d.total)} />
             ))}
-          </div>
-
-          <div className="host-units">
-            {units.map(([name, st]) => {
-              // host-services.json 配了映射、且观测项还在 → 可点；否则纯文字（需求：没有观测就不跳）
-              const mon = h.unitMonitors?.[name]
-              const cls = cx('host-unit', st === 'active' ? 'is-on' : 'is-off', mon && 'is-link')
-              if (!mon) {
-                return (
-                  <span key={name} className={cls} title={name + ' · ' + st + '（没有对应的观测项）'}>
-                    {name}
-                  </span>
-                )
-              }
-              return (
-                <button
-                  key={name}
-                  className={cls}
-                  title={name + ' · ' + st + ' · 点击跳到观测台：' + mon.name}
-                  onClick={() => onOpenMonitor?.(mon.id)}
-                >
-                  {name}
-                  <ArrowUpRight size={10} className="host-unit-go" />
-                </button>
-              )
-            })}
-            {h.failed_units ? <span className="host-unit is-bad">{h.failed_units} 个 unit 失败</span> : null}
           </div>
 
           <div className="host-foot">

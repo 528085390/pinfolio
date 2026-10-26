@@ -9,13 +9,14 @@ const stats = (o: Partial<{ notes: number; archived: number; assets: number; act
   totalValue: 200, expiringSoon: 1, expired: 0, expiring: 1, ...o,
 }) as any
 
-test('pageTitle：七个页面各有标题', () => {
+test('pageTitle：八个页面各有标题', () => {
   assert.equal(pageTitle('notes'), '便签')
   assert.equal(pageTitle('mail'), '邮件')
   assert.equal(pageTitle('assets'), '资产台账')
   assert.equal(pageTitle('monitors'), '观测台')
   assert.equal(pageTitle('hosts'), '主机')
   assert.equal(pageTitle('services'), '服务')
+  assert.equal(pageTitle('backup'), '备份')
   assert.equal(pageTitle('settings'), '设置')
 })
 

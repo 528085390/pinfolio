@@ -24,7 +24,7 @@ export function MonitorsPage({
   const M = useMonitors({ onSummary, focusId, onFocusDone })
 
   // 没配 Kuma（没给 KUMA_URL 也没有口令）：观测页只给引导卡，不摆统计条和筛选条——
-  // 那些都是「有数据」才成立的东西，空着会让人以为坏了。其余六页不受影响。
+  // 那些都是「有数据」才成立的东西，空着会让人以为坏了。其余七页不受影响。
   if (M.meta && !M.meta.configured) {
     return (
       <div className="page page-wide page-monitors">

@@ -106,18 +106,18 @@ export const SERVICES: ServiceRec[] = [
 
 export const DEPLOYS: DeployRec[] = [
   // 本机
-  { server: 'local', service: 'wbapi', path: 'E:\\workbuddy-workspace\\projects\\wbapi', runtime: '计划任务 WorkBuddyServices', port: '7863', monitor: [1] },
-  { server: 'local', service: 'manager', path: 'E:\\workbuddy-workspace\\projects\\workbuddy-manager', runtime: 'uvicorn server.main:app', port: '7864', monitor: [2] },
+  { server: 'local', service: 'wbapi', path: 'E:\\workbuddy-workspace\\projects\\wbapi', runtime: '计划任务 WorkBuddyServices', port: '7863', monitor: [1], url: 'http://127.0.0.1:7863' },
+  { server: 'local', service: 'manager', path: 'E:\\workbuddy-workspace\\projects\\workbuddy-manager', runtime: 'uvicorn server.main:app', port: '7864', monitor: [2], url: 'http://127.0.0.1:7864' },
   { server: 'local', service: 'kuma', path: 'E:\\bqj\\kuma', runtime: 'node server\\server.js（任务 KumaObs）', port: '3001' },
-  { server: 'local', service: 'pinboard', path: 'E:\\bqj\\pinboard', runtime: 'tsx server/index.ts（自启 vbs）', port: '7788' },
-  { server: 'local', service: 'yb', path: 'D:\\ai_project\\yb', runtime: 'node src\\sign-server.cjs', port: '8787', monitor: [23], note: '手动启动' },
-  { server: 'local', service: 'douyin', path: 'D:\\ai_project\\douyin-auto-fire', runtime: 'python panel.py（启动项目.bat）', port: '8765', note: '手动启动' },
+  { server: 'local', service: 'pinboard', path: 'E:\\bqj\\pinboard', runtime: 'tsx server/index.ts（自启 vbs）', port: '7788', url: 'http://127.0.0.1:7788' },
+  { server: 'local', service: 'yb', path: 'D:\\ai_project\\yb', runtime: 'node src\\sign-server.cjs', port: '8787', monitor: [23], url: 'http://127.0.0.1:8787', note: '手动启动' },
+  { server: 'local', service: 'douyin', path: 'D:\\ai_project\\douyin-auto-fire', runtime: 'python panel.py（启动项目.bat）', port: '8765', url: 'http://127.0.0.1:8765', note: '手动启动' },
   { server: 'local', service: 'streak', path: 'D:\\ai_project\\douyin-auto-fire\\observability', runtime: '计划任务 StreakBeat', monitor: [24] },
 
   // wb-server2
   { server: 'wb-server2', service: 'wbapi', path: '/opt/workbuddy2api', runtime: 'systemd workbuddy2api', port: '127.0.0.1:7863', monitor: [3, 116] },
   { server: 'wb-server2', service: 'manager', path: '/opt/workbuddy-manager', runtime: 'systemd workbuddy-manager', port: '127.0.0.1:7864', monitor: [4] },
-  { server: 'wb-server2', service: 'nginx', path: '/etc/nginx/sites-enabled/wb-proxy', runtime: 'systemd nginx', port: '80 / 443', monitor: [5], note: '兼做 /sub 订阅托管' },
+  { server: 'wb-server2', service: 'nginx', path: '/etc/nginx/sites-enabled/wb-proxy', runtime: 'systemd nginx', port: '80 / 443', monitor: [5], url: 'https://47.93.5.235/', note: '兼做 /sub 订阅托管' },
   { server: 'wb-server2', service: 'banwatch', path: '/usr/local/bin/wb-banwatch.py', runtime: 'wb-banwatch.timer（10 分钟）' },
   { server: 'wb-server2', service: 'cert', path: '/root/.acme.sh', runtime: 'cron（4 / 10 / 16 / 22 点）' },
   { server: 'wb-server2', service: 'nodemetrics', path: '/opt/node-metrics', runtime: 'node-metrics.timer（5 分钟）' },

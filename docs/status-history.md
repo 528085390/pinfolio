@@ -414,3 +414,15 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 ④ 畸形 URL 编码让 `decodeURIComponent` 抛错冒到 `onError` 变 500 → 回 400。另加安全响应头（nosniff / X-Frame-Options / Referrer-Policy / Permissions-Policy / CSP 的 frame-ancestors+base-uri / HTTPS 下 HSTS）。
 新增 `tests/unit/auth-ip.test.mts` 3 例、`tests/unit/kuma-provision.test.mts` 2 例，`pnpm test` 395/395 + 7 片段全绿；坑记到 `docs/pitfalls.md` 48–51。
 仍属「已知且接受」的：认证后的 SSRF（公网访问卡的探活、远端库测试连接）、`onError` 把 `err.message` 回给客户端、`GET /api/hosts` 在没有指标源时报错而 `POST` 能写、没有完整 CSP。
+
+**已完成（2026-10-26，服务页 08）**：用户要「加一个服务栏，这个栏位不做观测，只记录服务器和服务的对应关系」——服务器视角看每台机部署了什么，服务视角看每个服务落在哪些机，点名字能跳对应观测。做成第 8 页 `/services`，**数据先用手写的静态样例**（`web/pages/services/sample.ts`：7 台服务器 / 23 个服务 / 37 条部署，全部照 `C:\Users\huang\.dsh\memory\services.md` 与 `E:\services` 抄），**还没接库**，等看过效果再定存储。
+
+① **纯逻辑与两视角**：新增 `web/pages/services/model.ts`（全纯函数，有单测）——`DeployKind` 五类（项目/服务/站点/脚本/任务）、`groupByServer`（一台机一张卡，行按种类再按名字排）、`groupByService`（只出部署过的服务）、两个 `filter*`（自身命中留整卡，否则只留命中行）、`summaryOf`、`deployTitle`（悬停提示）、`deployTarget`。`web/pages/ServicesPage.tsx` 用 `View = 'server' | 'service'` 切换；换视角 `jump()` 会清搜索、滚到目标卡并 `.is-flash` 闪 1.7 秒（关键帧 `svcJump` 用强调色，不用 `alertFlash` 那套告警红——「就是这张」不是告警）。
+
+② **一屏看全（用户三次提意见后定的形态）**：默认「紧凑」密度（`localStorage` 键 `pinboard-svc-density`），服务器视角是 `.svc-board` 的 `repeat(auto-fill, minmax(276px,1fr))` 网格（1440 宽 = 4 列），行 = 种类点 + 服务名 + 端口，路径/启动方式/观测全走 `title` 悬停；服务视角不是卡片而是一行一个服务（`.svc-slist` 两列，右边排出部署机名 + 端口，点机名跳服务器视角）。实测 1440×900（内容区 842px）服务器视角占 671、服务视角 645，**37 条部署一屏看完、无省略号**；「详细」密度保留原来的表格卡，加表头、列宽靠 `.svc-card { --svc-cols }` 写死（每行各自 grid 会列错位，见坑 52）。
+
+③ **点名字的三种行为**（用户「默认点服务名就跳转观测，没有则不跳转」+「像抖音续火花面板这样没观测但有部署运行的服务也要加跳转」）：`DeployRec` 有 `monitor?: number[]` 就去观测台（`onOpenMonitor` → 切页并高亮那张卡），只有 `url?: string` 就 `window.open(url,'_blank','noopener,noreferrer')` 打开它自己的管理页（样例里 6 条：7863 / 7864 / 7788 / 8787 / 8765 与 `https://47.93.5.235/`，详细视图渲染成 `a.svc-manage` 带 ↗），两者都没有就走灰字 `.is-static`、点了不动。判定收在 `deployTarget(rec)` 一个函数里（先观测后管理页），页面只负责分派。
+
+④ **主机页收口**：按用户「主机下面的小卡片也可以不要了，这一页纯粹展示主机的数据」，删掉 `HostCard` 底部的 `.host-units` 服务 chip（连带 `onOpenMonitor` prop、`ArrowUpRight`、`failed_units` 红标与 `hosts.css` 里那段样式），`HostsPage` 不再收 `onOpenMonitor`。后端 `host-services.json` 与 `/api/hosts` 的 `unitMonitors` **没动**（留着，只是前端暂时没有消费者）。
+
+验证：`pnpm typecheck` 0 错误、`pnpm test` 全绿（单测 **407/407**，新增 `tests/unit/services-model.test.mts` 10 例覆盖分组/筛选/统计/标题/目标分派与样例自洽）、`pnpm build` 通过（dist/web JS 499.89 kB / CSS 63.63 kB、dist/server.js 205.5 kB）。用真实库快照起的隔离实例（`tmp/svc-preview.mjs`，7791，测试数据不进真实库）跑 Playwright：统计行「7 台服务器 · 23 个服务 · 37 条部署 · 16 条挂了观测（共 24 项） · 6 条能打开管理页」；点「抖音续火花面板」→ `window.open('http://127.0.0.1:8765')`、点「网关 API」行 → `/monitors` 且 1 张卡闪、点「观测后端（Kuma）」→ URL 不变、服务视角点机名 → 回服务器视角并闪那张卡；主机页 6 张卡、`.host-unit` 计数 0；控制台 0 报错。截图 `tmp/shot-svc-manage.png` / `tmp/shot-svc-detail-manage.png` / `tmp/shot-hosts.png` 目视通过。坑记到 `docs/pitfalls.md` 52–54。**观测页里「快捷入口」那条 Immich 卡去不去掉，等用户确认**（他说的「观测项可以去掉，移动到服务里了」可能指 Kuma #24 抖音心跳，那项删了 `StreakBeat` 计划任务会推失败）。

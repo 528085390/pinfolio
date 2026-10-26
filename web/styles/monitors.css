@@ -185,7 +185,7 @@
 .monitor-drawer-result-detail { grid-column: 2 / -1; font-size: 11.5px; line-height: 1.6; color: var(--ink-2); word-break: break-word; }
 
 
-/* ---- 未接上 Kuma 时的引导卡（观测页专用，其余六页不受影响） ---- */
+/* ---- 未接上 Kuma 时的引导卡（观测页专用，其余七页不受影响） ---- */
 .kuma-guide {
   max-width: 760px; margin: 8px auto 0; padding: 20px 22px 18px;
   border: 1px solid var(--line); border-radius: var(--radius);

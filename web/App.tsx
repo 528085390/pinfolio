@@ -62,7 +62,7 @@ export function App() {
           ) : s.page === 'monitors' ? (
             <MonitorsPage onSummary={s.setMon} focusId={s.focusMonitorId} onFocusDone={() => s.setFocusMonitorId(null)} />
           ) : s.page === 'hosts' ? (
-            <HostsPage onSummary={s.setHost} onOpenMonitor={s.openMonitor} />
+            <HostsPage onSummary={s.setHost} />
           ) : s.page === 'services' ? (
             <ServicesPage onOpenMonitor={s.openMonitor} />
           ) : s.page === 'settings' ? (

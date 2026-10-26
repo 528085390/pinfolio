@@ -270,6 +270,23 @@
 .svc-mon { max-width: 160px; }
 .svc-mon span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .svc-nomon { font-size: 11px; color: var(--line-strong); }
+/* 管理页入口：没挂观测时这一格就是它。尺寸跟观测标签一致，用强调色表示「能打开」 */
+.svc-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--accent-ring);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.svc-manage:hover { border-color: var(--accent); }
+.svc-manage svg { flex: none; opacity: 0.75; }
 
 .svc-foot {
   display: flex;
