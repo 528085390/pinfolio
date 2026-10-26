@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { DATA_DIR, db } from './db.js'
-import { authMiddleware } from './auth/middleware.js'
+import { authMiddleware, isHttps } from './auth/middleware.js'
 import { authRoute } from './auth/routes.js'
 import { bootstrapPassword } from './auth/bootstrap.js'
 import { createApiToken, deleteSetting } from './auth/store.js'
@@ -26,6 +26,20 @@ import { mountStatic } from './static.js'
 
 const app = new Hono()
 const api = new Hono()
+
+// 安全响应头（壳与 /api 都加）。CSP 只写 frame-ancestors / base-uri：
+// 完整的 CSP 会挡住 nginx 子路径部署时注入的 <script>window.__PB_BASE__</script>，
+// 也会挡住邮件阅读器里用户主动加载的远程图片，见坑 51。
+app.use('*', async (c, next) => {
+  await next()
+  c.header('X-Content-Type-Options', 'nosniff')
+  c.header('X-Frame-Options', 'DENY')
+  c.header('Referrer-Policy', 'no-referrer')
+  c.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
+  c.header('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'")
+  // 只有真的是 HTTPS（直连或反代声明）才发 HSTS，别在 http 上误导浏览器
+  if (isHttps(c)) c.header('Strict-Transport-Security', 'max-age=31536000')
+})
 
 // 除白名单外，/api/* 一律要登录（见 server/auth/middleware.ts）
 api.use('*', authMiddleware)

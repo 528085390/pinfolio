@@ -74,10 +74,23 @@ export async function authMiddleware(c: Context, next: Next) {
   return next()
 }
 
+/**
+ * 反代链上的客户端 IP：取 X-Forwarded-For 的**最后一段**。
+ *
+ * 前面的段是客户端自己带进来的（nginx 的 `$proxy_add_x_forwarded_for` 会把原值追加在最前），
+ * 只有最后一段是紧挨着我们的那台反代写进去的，客户端伪造不了。取第一段的话，
+ * 攻击者每次换一个 X-Forwarded-For 就是一条新 IP，登录限流等于没有（坑 48）。
+ */
+export function pickClientIp(xff: string | null | undefined): string | null {
+  if (!xff) return null
+  const parts = xff.split(',').map((s) => s.trim()).filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : null
+}
+
 export function clientIp(c: Context): string {
   if (process.env.TRUST_PROXY === '1') {
-    const xff = c.req.header('x-forwarded-for')
-    if (xff) return xff.split(',')[0].trim()
+    const ip = pickClientIp(c.req.header('x-forwarded-for'))
+    if (ip) return ip
   }
   const incoming = (c.env as any)?.incoming
   return incoming?.socket?.remoteAddress ?? 'unknown'

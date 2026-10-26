@@ -98,6 +98,9 @@ type Templates = {
   services: { unit: string; ssh: { user: string; key: string } }[]
 }
 
+/** 私钥文件大小上限：真私钥几 KB，超过这个数基本是拿错文件了。 */
+const KEY_MAX = 64 * 1024
+
 /**
  * 抽屉「观测项」段：端口 / HTTP 站点 / systemd 服务，都可以不填。
  * 私钥在这一步读好（读不到就直接 400，别把主机加进去一半）。
@@ -122,6 +125,12 @@ function readTemplates(body: any): Templates {
       key = readFileSync(keyPath, 'utf8')
     } catch {
       throw new Error('读不到私钥：' + keyPath)
+    }
+    // keyPath 是请求体给的，等于「任意文件读取」的入口：只收真私钥、限大小，
+    // 免得被拿来读 data/secret.key 之类的东西再顺着 Kuma 观测项带出去（坑 50）。
+    if (key.length > KEY_MAX) throw new Error('私钥文件太大（超过 64 KB）：' + keyPath)
+    if (!/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(key)) {
+      throw new Error('这个文件不是 OpenSSH / PEM 私钥：' + keyPath)
     }
     services.push({ unit, ssh: { user, key } })
   }
