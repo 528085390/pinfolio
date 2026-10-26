@@ -111,3 +111,8 @@
 
 64. **e2e 快照只拷文件，会把 `data/uploads/` 丢掉**（同一天跑 core 套件时暴露）：`tests/run.mjs` 的 `startIsolated()` 原来只 `statSync(s).isFile()` 才 `copyFileSync`，而便签图片存在 `data/uploads/` **目录**里 → 隔离实例里带图便签的 `<img src="/api/attachments/1">` 一律 404，`e2e-tagpop` / `e2e-router` / `e2e-tagpop-outside` 这三套「不许有 console 报错」的断言全红，功能本身却没毛病。改成目录走 `cpSync(s, dst, { recursive: true })`。
     **判据**：失败项写着 `console: Failed to load resource: … 404` 时，先挂 `page.on('response', r => r.status() >= 400 && …)` 把 URL 打出来，再判断是代码问题还是快照缺东西——别急着改业务代码。
+
+65. **便签列表要「散开排」只能用 JS 量高度 + Grid 跨行，别用 CSS `columns`**（2026-10-26 用户说「便签都是顺序排列的，长文本把其他便签挤下去，两边空间用上」）：纯 CSS 的 `columns: 3` 是**列优先**——先填满第一列再填第二列，卡片的时间顺序会被打乱（最新那条跑到最左，往下变成更早的），对便签这种按时间读的列表是错的；`grid-template-rows: masonry` 至今不是稳定标准。落地方案：`.note-grid { display: grid; align-items: start; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)) }` + `.note-grid.masonry { grid-auto-rows: 8px }`，再由 `web/pages/notes/useMasonry.ts` 给每张卡片写 `grid-row-end: span N`（`N = ceil((h + gap) / (row + gap))`，公式在 `web/lib/masonry.ts` 的 `rowSpan()`，有单测）。
+    三个坑：① **必须 `align-items: start`**，否则 grid 默认 `stretch` 会把卡片拉满跨行的高度，卡片之间出现大片空白、而且测量值越算越大；② 只给**便签页**加 `.note-grid`，资产抽屉的「关联便签」也复用 `.note-list`，那是个窄容器，别一起改；③ 图片加载完、展开编辑框都会改卡片高度，所以要挂 `ResizeObserver` 重量，光靠 `useEffect` 的依赖数组会错位（图片是懒加载的，首帧量到的还是空高度）。
+    页面宽度：便签页单独用 `.page-notes { max-width: 1440px }`（别的页还是 980 / 1220），实测 1440 视口 3 列、1920 视口 4 列，列表总高 1303 → 588 / 488px。量列数别数 DOM，取卡片 `getBoundingClientRect().left` 去重。
+

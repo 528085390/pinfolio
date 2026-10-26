@@ -43,8 +43,16 @@
 .section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 
 .note-list { display: flex; flex-direction: column; gap: 10px; }
+/* 便签页的瀑布流：宽屏排多列，长短卡片各占各的高度（行优先，顺序与时间一致）。
+   每张卡片跨几行由 useMasonry 算（见 web/lib/masonry.ts），所以这里的 8px / 12px
+   必须和那边保持一致；少了 .masonry 就退回普通网格（单列也不会塌）。 */
+.note-grid {
+  display: grid; align-items: start; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+}
+.note-grid.masonry { grid-auto-rows: 8px; }
 .note {
-  position: relative; padding: 15px 17px; border-radius: 14px;
+  position: relative; padding: 12px 14px; border-radius: 14px;
   border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-sm);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -53,10 +61,18 @@
   content: ''; position: absolute; left: -1px; top: 16px; bottom: 16px; width: 3px;
   border-radius: 0 3px 3px 0; background: var(--accent);
 }
-.note-head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); margin-bottom: 9px; min-height: 24px; }
+.note-head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); margin-bottom: 7px; min-height: 22px; }
 .note-actions { margin-left: auto; display: flex; gap: 1px; opacity: 0; transition: opacity 0.15s; }
 .note:hover .note-actions, .note:focus-within .note-actions { opacity: 1; }
-.note-body { font-size: 14.5px; }
+.note-body { font-size: 14px; }
+.note-body .prose { font-size: 14px; line-height: 1.7; }
+/* 列表里图片限高：等比缩到 max-height、整张可见不裁切（横图竖图都收得住）；
+   点图开灯箱看原图，灯箱与编辑框不受这条限制。别把 max-height 去掉——去掉后一张竖屏
+   截图就占满一屏，下面的便签要翻页才看得到（坑 60）。 */
+.note-body .prose img { max-height: 180px; width: auto; max-width: 100%; box-shadow: 0 0 0 1px var(--line); }
+/* 纯图片段落排成一行：一张图一个 <p>，让它们按 inline-block 并排（多了自动换行），
+   这样「两张截图」的便签只占一行高度，而不是叠成两屏。:has() 不支持时退回竖排，不影响功能。 */
+.note-body .prose p:has(> img:only-child) { display: inline-block; margin: 0 8px 8px 0; vertical-align: top; }
 .note-check {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; padding: 0; flex: none;
@@ -93,7 +109,7 @@
   margin-top: 10px; padding-top: 8px; border: 0; border-top: 1px dashed var(--line);
   background: transparent; color: var(--accent); font-size: 12px; cursor: pointer;
 }
-.note-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 11px; }
+.note-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
 .note-asset {
   display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 8px;
   border-radius: 6px; background: var(--surface-2); color: var(--ink-2); border: 0; cursor: pointer;

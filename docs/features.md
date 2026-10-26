@@ -12,6 +12,7 @@ The full behaviour of the busiest pages. For a quick overview see the [README](.
 - **The note body is the only source of truth for ownership**: dropping the reference makes the image an orphan (the file is kept 7 days, so an accidental delete can be undone) and orphans are swept daily; deleting the note deletes its images at once; copying a whole body into another note only rebinds, never deletes.
 - In `SNAPSHOT.md` images collapse to `[图片]` (or `[图片：alt]`) — the snapshot is for humans and grep, not for a wall of URLs.
 - Images ride along in backups: `data/uploads/` is packed into `pinfolio-*.tar.gz`.
+- **On wide screens notes lay out as a multi-column waterfall**: cards flow left-to-right, top-to-bottom, and each one takes only its own height — a long note no longer pushes its neighbours down; 3 columns at 1440px, 4 at 1920px, back to a single column on narrow windows. The notes page alone is widened to 1440px (other pages stay at 980 / 1220), so the empty margins get used.
 
 ## Monitors
 - The data source is a **local Uptime Kuma** (default `http://127.0.0.1:3001`, status page slug `obs`). Kuma is only the probing backend; the UI lives here.

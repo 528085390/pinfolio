@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import { useRef, type MouseEvent } from 'react'
 import { Archive, Inbox, Pin } from 'lucide-react'
 import { type Note, type Tag } from '../lib/api'
 import { Button, Empty, Spinner, Modal } from '../components/ui'
@@ -7,6 +7,7 @@ import { useComposer } from './notes/useComposer'
 import { NoteCard } from './notes/NoteCard'
 import { Composer } from './notes/Composer'
 import { FilterBar } from './notes/FilterBar'
+import { useMasonry } from './notes/useMasonry'
 import { t } from '../lib/i18n'
 
 export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
@@ -17,6 +18,14 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
 }) {
   const N = useNotes(refreshMeta)
   const C = useComposer({ reload: N.reload, refreshMeta, onError: N.setError })
+
+  // 三个列表各自排瀑布流（归档 / 置顶 / 其余），卡片高度变了就重量一遍。
+  const archivedRef = useRef<HTMLDivElement | null>(null)
+  const pinnedRef = useRef<HTMLDivElement | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  useMasonry(archivedRef, [N.notes])
+  useMasonry(pinnedRef, [N.pinned])
+  useMasonry(listRef, [N.notes, N.pinned, N.rest, N.pinnedOnly, N.editingId])
 
   const usedTags = tags.filter((tg) => (tg.notes || 0) > 0)
 
@@ -57,7 +66,7 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
   }
 
   return (
-    <div className="page">
+    <div className="page page-notes">
       {N.archivedMode ? null : <Composer c={C} tags={tags} onError={N.setError} />}
 
       <FilterBar
@@ -94,18 +103,18 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
       ) : N.archivedMode ? (
         <>
           <div className="section-title"><Archive size={12} /> {t('已归档 · 只读')}</div>
-          <div className="note-list">{N.notes.map(renderNote)}</div>
+          <div className="note-list note-grid" ref={archivedRef}>{N.notes.map(renderNote)}</div>
         </>
       ) : (
         <>
           {N.pinned.length > 0 && !N.pinnedOnly ? (
             <>
               <div className="section-title"><Pin size={12} /> {t('置顶')}</div>
-              <div className="note-list">{N.pinned.map(renderNote)}</div>
+              <div className="note-list note-grid" ref={pinnedRef}>{N.pinned.map(renderNote)}</div>
               <div className="section-title">{t('全部')}</div>
             </>
           ) : null}
-          <div className="note-list" style={{ marginTop: N.pinned.length > 0 && !N.pinnedOnly ? 0 : 18 }}>
+          <div className="note-list note-grid" ref={listRef} style={{ marginTop: N.pinned.length > 0 && !N.pinnedOnly ? 0 : 18 }}>
             {(N.pinnedOnly ? N.pinned : N.pinned.length > 0 && !N.pinnedOnly ? N.rest : N.notes).map(renderNote)}
           </div>
         </>

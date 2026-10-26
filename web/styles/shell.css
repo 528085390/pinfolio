@@ -49,4 +49,6 @@
 .content { flex: 1; overflow-y: auto; overflow-x: hidden; }
 .page { max-width: 980px; margin: 0 auto; padding: 24px 24px 90px; }
 .page-wide { max-width: 1220px; }
+/* 便签页比别的页更宽：一屏能放 3–4 列便签，两边不留大片空白。 */
+.page-notes { max-width: 1440px; }
 
