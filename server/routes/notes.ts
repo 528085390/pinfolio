@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { all, get, run, nowIso, syncNoteTags, toBool } from '../db.js'
+import { deleteAttachmentsForNote, syncNoteAttachments } from '../attachments/store.js'
 import { hydrateNotes, type NoteRow } from '../hydrate.js'
 
 export const notesRoute = new Hono()
@@ -45,6 +46,8 @@ notesRoute.post('/', async (c) => {
     content, toBool(b.pinned), toBool(b.archived), toBool(b.done), assetId, now, now,
   )
   syncNoteTags(id, content)
+  // 正文里的图片引用现在有主了（先传图后存便签时，note_id 在这里补上）
+  syncNoteAttachments(id, content)
   return c.json(hydrateNotes(all<NoteRow>('SELECT * FROM notes WHERE id = ?', id))[0], 201)
 })
 
@@ -68,12 +71,18 @@ notesRoute.patch('/:id', async (c) => {
   sets.push('updated_at = ?'); params.push(nowIso()); params.push(id)
   run('UPDATE notes SET ' + sets.join(', ') + ' WHERE id = ?', ...params)
   const row = get<NoteRow>('SELECT * FROM notes WHERE id = ?', id)!
-  if (typeof b.content === 'string') syncNoteTags(id, row.content)
+  if (typeof b.content === 'string') {
+    syncNoteTags(id, row.content)
+    // 正文删掉的图解绑（7 天后清扫），新贴进来的图绑上
+    syncNoteAttachments(id, row.content)
+  }
   return c.json(hydrateNotes([row])[0])
 })
 
 notesRoute.delete('/:id', (c) => {
   const id = Number(c.req.param('id'))
+  // 永久删除 = 图片立刻一起删（别让 data/uploads 只涨不落）
+  deleteAttachmentsForNote(id)
   run('DELETE FROM notes WHERE id = ?', id)
   return c.json({ ok: true })
 })

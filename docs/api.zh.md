@@ -2,7 +2,7 @@
 
 前端用到的全部接口。概览见 [README](../README.zh.md)。
 
-所有接口都在 `http://127.0.0.1:7788/api` 下，JSON 进 JSON 出，无鉴权（只监听本机）。
+所有接口都在 `http://127.0.0.1:7788/api` 下，JSON 进 JSON 出。**除 `/health` 与 `/auth/*` 外都要登录**（会话 cookie，或 `Authorization: Bearer <api token>`）；带 body 的写接口只认 `Content-Type: application/json`（跨站表单发不出这个头，这就是 CSRF 防线），**唯一例外是图片上传**——它的请求体就是图片二进制。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -15,6 +15,8 @@
 | GET | `/notes` | 列表，支持 `q` `tag` `pinned` `done` `archived` `assetId` |
 | GET/POST | `/notes/:id`、`/notes` | 单条 / 新建 |
 | PATCH/DELETE | `/notes/:id` | 修改（`content` `pinned` `done` `archived` `assetId`）/ 删除 |
+| POST | `/attachments` | 上传一张图：**请求体就是图片二进制**，`Content-Type: image/*`（唯一不走 JSON 的写接口）。`?name=` 记原始文件名、`?noteId=` 可先绑到某条便签。按魔数只收 PNG / JPEG / WebP / GIF（SVG 415）、空文件 400、超 10 MB 413。回 201 `{ id, url, mime, bytes, name }`，`url` 就是 `/api/attachments/<id>` |
+| GET | `/attachments/:id` | 取图。`Content-Type` 按存的类型回，`Cache-Control: private, max-age=31536000, immutable`（同一个 id 的内容永不改写，换图 = 新 id），`Content-Disposition: inline`。记录不存在、或 `data/uploads/` 里的文件被手工删了，都是 404 |
 | GET | `/assets` | 列表，支持 `q` `kind` `status` `tag` |
 | GET | `/assets/:id` | 详情，附 `linkedNotes`（已带标签） |
 | POST/PATCH/DELETE | `/assets`、`/assets/:id` | 新建 / 修改 / 删除 |

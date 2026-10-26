@@ -50,13 +50,14 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
         onCardDoubleClick={(e) => onCardDoubleClick(e, n)}
         onOpenAsset={onOpenAsset}
         onTagClick={(name) => N.setTag(N.tag === name ? null : name)}
+        onError={N.setError}
       />
     )
   }
 
   return (
     <div className="page">
-      {N.archivedMode ? null : <Composer c={C} tags={tags} />}
+      {N.archivedMode ? null : <Composer c={C} tags={tags} onError={N.setError} />}
 
       <FilterBar
         archivedMode={N.archivedMode}

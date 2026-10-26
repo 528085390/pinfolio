@@ -1,7 +1,7 @@
 // 收集要打进备份包的内容：pinboard 库快照、当天心跳 CSV、观测项定义、kuma 全量（周日）、
 // data/*.json|txt（含 secret.key）、根目录 4 个配置文件。
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite'
 import { gzipSync } from 'node:zlib'
@@ -116,6 +116,16 @@ export async function collectEntries(opts: CollectOptions): Promise<{ entries: T
   for (const name of ROOT_CONFIGS) {
     const p = join(ROOT, name)
     if (existsSync(p) && statSync(p).isFile()) push(name, readFileSync(p))
+  }
+
+  // 7) 便签图片（data/uploads）：不带它们，恢复出来全是破图
+  const uploads = join(DATA_DIR, 'uploads')
+  if (existsSync(uploads)) {
+    for (const name of readdirSync(uploads).sort()) {
+      const p = join(uploads, name)
+      if (name.startsWith('.') || !statSync(p).isFile()) continue
+      push('data/uploads/' + name, readFileSync(p))
+    }
   }
 
   const manifest: Manifest = {

@@ -8,7 +8,7 @@
 
 ## 读之前：五条硬规则
 
-1. **只监听 127.0.0.1、没有鉴权**。只能在本机操作；数据库是明文 SQLite，**不要往里写明文口令**，`secret_at` 只写「钥匙放在哪」。
+1. **只监听 127.0.0.1，且要登录**（会话 cookie 或 `Authorization: Bearer <api token>`；邮箱密码 / Kuma 口令那类凭据另有 AES-256-GCM 加密）。数据库是明文 SQLite，**不要往里写明文口令**，`secret_at` 只写「钥匙放在哪」。
 2. **资产 `name` 必填**，其余字段全部可选。只传 `name` 也能建成（`kind` 默认 `device`、`status` 默认 `active`）。
 3. **便签 `content` 必填**，空串 / 纯空格 → `400 内容不能为空`；便签**没有 `tags` 参数**，标签只能写在正文里（见第二部分）。
 4. **想给资产加一个新字段，必须先在 `field_defs` 里定义 key**。否则值会存进 `custom` 但网页上**不显示**（卡片只显示前 2 个有值的自定义字段，详情抽屉只渲染已定义的字段）。
@@ -26,15 +26,15 @@ Invoke-RestMethod http://127.0.0.1:7788/api/health
 没跑就启动（任选其一）：
 
 ```powershell
-& D:\pinfolio\start.cmd          # 后台隐藏启动（日志 logs\pinboard.log），已在运行就只开浏览器
-& D:\pinfolio\tools\pinboard.ps1 start   # 同上，纯命令行版
-cd D:\pinfolio; pnpm start        # 手动前台跑，关掉窗口即停（调试用）
+& E:\bqj\pinboard\start.cmd          # 后台隐藏启动（日志 logs\pinboard.log），已在运行就只开浏览器
+& E:\bqj\pinboard\tools\pinboard.ps1 start   # 同上，纯命令行版
+cd E:\bqj\pinboard; pnpm start        # 手动前台跑，关掉窗口即停（调试用）
 ```
 
 端口被占（`EADDRINUSE 127.0.0.1:7788`）时先清残留进程，再启动：
 
 ```powershell
-& D:\pinfolio\tools\pinboard.ps1 stop    # 结束整条 pinboard node 链并等 7788 释放
+& E:\bqj\pinboard\tools\pinboard.ps1 stop    # 结束整条 pinboard node 链并等 7788 释放
 ```
 
 ---
@@ -386,6 +386,34 @@ Invoke-RestMethod -Method Patch -Uri "$api/notes/1" -ContentType 'application/js
 | 恢复 / 永久删除 | 只有进「已归档」视图才能做：卡片上「恢复」（回到默认列表）与「永久删除」（红色，**有确认弹窗**「永久删除这条便签？不可恢复。」）。默认视图**没有删除按钮** |
 | 搜索 | 右上搜索框，防抖 220ms，匹配正文（`content LIKE %q%`） |
 
+### 便签里放图片
+
+正文里直接写 `![](/api/attachments/<id>)` 就能显示图片。图片真身存在 `data/uploads/`，随备份包一起走；删除便签会立刻删掉它的图，正文里不再引用的图 7 天后自动清理。
+
+三条入口都在便签输入框里（卡片上的行内编辑同样支持）：
+
+| 入口 | 怎么做 |
+|---|---|
+| 粘贴 | 截图或复制图片后 `Ctrl + V` |
+| 拖入 | 把图片文件拖到输入框上，出现「松手就上传图片」再松手 |
+| 选文件 | 点输入框右下「图片」按钮，可一次多选 |
+
+规则：
+
+- 只收 **PNG / JPEG / WebP / GIF**，**SVG 一律拒**（能带脚本）；单张上限 10 MB。
+- 大于 300 KB 的先在浏览器里压成 WebP（长边 2000、质量 0.85）；GIF 不压，压完反而更大就用原图。
+- 上传成功后自动在光标处插一段 Markdown，图片跟着正文一起保存。
+
+脚本里要放图就走接口（**要登录**，用 `Authorization: Bearer <api token>` 或会话 cookie）：
+
+```powershell
+$api = 'http://127.0.0.1:7788/api'
+$r = curl.exe -s -X POST "$api/attachments?name=shot.png" -H 'Content-Type: image/png' --data-binary '@C:\path\to\shot.png' | ConvertFrom-Json
+# 返回 { id, url, mime, bytes, name }，把 "![](/api/attachments/$($r.id))" 写进便签正文即可
+```
+
+请求体是**图片原始字节**（不是 multipart）；`?name=` 只用来记原文件名，`?noteId=` 可选（**正文里的引用才是归属的真相**）。空文件 400、超限 413、不是这四种格式 415。
+
 ### 第 2 步：API 录入
 
 ```powershell
@@ -510,4 +538,4 @@ Invoke-RestMethod -Method Post -Uri "$api/notes" -ContentType 'application/json'
 Invoke-RestMethod -Method Patch -Uri "$api/notes/1" -ContentType 'application/json' -Body '{"done":true}'
 ```
 
-**数据位置**：`D:\pinfolio\data\pinboard.db`（WAL，同目录 `-wal` / `-shm`）。备份 = 停服务后复制整个 `data/`。
+**数据位置**：`E:\bqj\pinboard\data\pinboard.db`（WAL，同目录 `-wal` / `-shm`）。备份 = 停服务后复制整个 `data/`。

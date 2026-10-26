@@ -1,21 +1,32 @@
-import { Pin, Plus, Check, Tag as TagIcon } from 'lucide-react'
+import { Check, ImagePlus, Pin, Plus, Tag as TagIcon } from 'lucide-react'
 import { cx, type Tag } from '../../lib/api'
 import { Button, Spinner } from '../../components/ui'
-import type { useComposer } from './useComposer'
+import { useComposer } from './useComposer'
+import { useImageUpload } from './useImageUpload'
 
-/** 顶部输入框 + 置顶/标签两个 chip + 标签弹层。状态全在 useComposer 里。 */
-export function Composer({ c, tags }: { c: ReturnType<typeof useComposer>; tags: Tag[] }) {
+/**
+ * 顶部输入框 + 置顶 / 标签 / 图片三个 chip + 标签弹层。
+ * 草稿与标签弹层的状态在 useComposer，图片上传在 useImageUpload。
+ */
+export function Composer({ c, tags, onError }: {
+  c: ReturnType<typeof useComposer>
+  tags: Tag[]
+  onError: (msg: string) => void
+}) {
+  const img = useImageUpload({ value: c.draft, onChange: c.setDraft, taRef: c.taRef, onError })
   return (
-    <div className="composer">
+    <div className="composer" onDrop={img.onDrop} onDragOver={img.onDragOver} onDragLeave={img.onDragLeave}>
       <textarea
         ref={c.taRef}
         value={c.draft}
-        placeholder="记点什么…  用 #标签 自动归类，Ctrl/⌘ + Enter 保存"
+        placeholder="记点什么…  用 #标签 自动归类，Ctrl/⌘ + Enter 保存；图片可以直接粘贴或拖进来"
         onChange={(e) => c.setDraft(e.target.value)}
+        onPaste={img.onPaste}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) c.submit()
         }}
       />
+      {img.dragging ? <div className="composer-drop">松手就上传图片</div> : null}
       <div className="composer-foot">
         <button
           className={cx('chip', c.draftPinned && 'active')}
@@ -59,6 +70,23 @@ export function Composer({ c, tags }: { c: ReturnType<typeof useComposer>; tags:
             </div>
           ) : null}
         </div>
+        <button
+          className={cx('chip', img.pending > 0 && 'active')}
+          onClick={img.pickFiles}
+          type="button"
+          disabled={img.pending > 0}
+          title="插入图片（也可以直接粘贴或拖进来）"
+        >
+          <ImagePlus size={12} /> {img.pending > 0 ? '上传中…' : '图片'}
+        </button>
+        <input
+          ref={img.fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          multiple
+          hidden
+          onChange={img.onFileChange}
+        />
         <span className="composer-hint">
           也可以直接手打 <code>#标签</code>
         </span>

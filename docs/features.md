@@ -2,6 +2,16 @@
 
 The full behaviour of the busiest pages. For a quick overview see the [README](../README.md).
 
+## Notes
+- **Notes can hold images**: paste with **Ctrl+V** in the composer, drop an image onto it, or use the **Image** button under it — all three also work while editing a note inline (double-click the card).
+- **Only PNG / JPEG / WebP / GIF**: the type is sniffed from the leading bytes, never from the file extension or the browser's `Content-Type`; **SVG is refused outright** (a same-origin SVG can run `<script>`), and formats the browser can't decode (HEIC) are rejected with a plain-language error.
+- **Compressed in the browser first**: anything above 300 KB is scaled to 2000px on the long edge and re-encoded as WebP at quality 0.85, so a 5 MB phone photo usually lands at 200–400 KB; if the re-encode comes out bigger the original is used; **GIFs are left alone** (re-encoding would drop the animation). Hard limit: 10 MB per image.
+- **What's stored is plain Markdown** `![](/api/attachments/12)`, independent of where the app is mounted (under `/pinfolio/` the prefix is swapped at render time), so moving the database to another machine needs no rewriting. Inserts pad blank lines so the image forms its own block and **the caret ends up after that block**; inserting over a selection replaces it.
+- Images are **lazy-loaded** (`loading="lazy"`); **click one to open a lightbox** — click the backdrop, the ✕, or press Esc to close.
+- **The note body is the only source of truth for ownership**: dropping the reference makes the image an orphan (the file is kept 7 days, so an accidental delete can be undone) and orphans are swept daily; deleting the note deletes its images at once; copying a whole body into another note only rebinds, never deletes.
+- In `SNAPSHOT.md` images collapse to `[图片]` (or `[图片：alt]`) — the snapshot is for humans and grep, not for a wall of URLs.
+- Images ride along in backups: `data/uploads/` is packed into `pinfolio-*.tar.gz`.
+
 ## Monitors
 - The data source is a **local Uptime Kuma** (default `http://127.0.0.1:3001`, status page slug `obs`). Kuma is only the probing backend; the UI lives here.
 - **No Kuma? The other six pages still work.** When neither `KUMA_URL`/`KUMA_PASS` is set nor a status page is readable at the default address, this page shows a setup guide (how to run Kuma, which slug to create, which env vars to set) instead of an error or an empty screen.

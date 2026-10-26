@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { snapshotBeforeMigrate } from './backup/premigrate.js'
+import { ATTACHMENTS_SCHEMA } from './schema/attachments.js'
 import { CORE_SCHEMA } from './schema/core.js'
 import { MAIL_SCHEMA } from './schema/mail.js'
 import { METRICS_SCHEMA } from './schema/metrics.js'
@@ -10,7 +11,7 @@ import { PRESET_TAGS } from './tags.js'
 
 export type Migration = { version: number; up: (db: DatabaseSync) => void }
 
-const SCHEMA = [CORE_SCHEMA, MAIL_SCHEMA, METRICS_SCHEMA].join('\n')
+const SCHEMA = [CORE_SCHEMA, MAIL_SCHEMA, METRICS_SCHEMA, ATTACHMENTS_SCHEMA].join('\n')
 
 // 迁移前钩子：05 的自动备份注册进来，迁移前先快照一份。
 const preMigrateHooks: Array<() => void> = []
@@ -74,9 +75,16 @@ function v2(db: DatabaseSync) {
   db.exec(AUTH_SCHEMA)
 }
 
+// v3：便签图片（2026-10-26）。只新建一张表，不动旧表；真身在 data/uploads/。
+// 老库走到这里时 v1 已经跑过（那时 SCHEMA 里还没有这张表），所以单独补一步。
+function v3(db: DatabaseSync) {
+  db.exec(ATTACHMENTS_SCHEMA)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: v1 },
   { version: 2, up: v2 },
+  { version: 3, up: v3 },
 ]
 
 export type MigrateOptions = {

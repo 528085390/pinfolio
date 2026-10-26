@@ -11,7 +11,7 @@
 3. 资产「备注」字段叫 `notes`，关联便签叫 `linkedNotes`，两者不能同名（曾导致 TS 冲突 + 抽屉崩溃）。
 4. 标签正则必须包含中文标点前缀，否则「。\#整理」识别不到。
 5. 命令面板容器必须 `position: fixed`（.palette-wrap），否则会被 flex 布局挤到侧边。
-6. 无鉴权，仅限本机使用。
+6. 无鉴权，仅限本机使用。（2026-10-21 起已内置登录鉴权，但「只监听 127.0.0.1、公网必须走反代 + HTTPS」这条不变。）
 7. **搬动目录后第一次 `pnpm start` 会报 `ERR_PNPM_PACKAGE_MANAGER_REMOVE_MODULES_DIR` / `Failed to remove modules directory contents: 拒绝访问 (os error 5)`**：pnpm 发现 `node_modules` 的虚拟 store 路径变了，会尝试重装又删不掉。解法是 `Remove-Item .\node_modules -Recurse -Force` 后重新 `pnpm install`（有本地 store，1–2 秒完成）。2026-10-19 搬目录时就踩了这个；当晚再搬到 `D:\pinfolio` 时**先删 `node_modules` 再搬**（该目录里 245 个 junction 全是旧绝对路径，搬完必断），搬后 `pnpm install` 2.9 秒装回 103 个包、零下载。
 8. **观测页大片「待定」+「检查 40+ 分钟前」= Kuma 假死，不是 pinboard 的问题**：Kuma 用 SQLite 单连接池，被一条语句占住后所有接口挂起，日志刷 `KnexTimeoutError: Timeout acquiring a connection`。先看 `D:\kuma\logs\kuma.log` 尾部，有这条就 `D:\kuma\tools\kuma.ps1 restart`（细节见 `D:\kuma\OBS-NOTES.md` 坑 #9）。pinboard 侧只会如实显示旧心跳。
 9. **观测台不能每次请求都 `?fresh=1` 直捅 Kuma**：Kuma 的 `/api/status-page/obs` 在它自己 5 分钟缓存过期那一刻、又正好赶上 12 个探测在跑时，实测要 **5–30 秒**才回（心跳接口只要几十毫秒）。早期版本前端每次加载都带 `fresh=1` + 后端 8 秒超时，结果服务重启后缓存为空 → 超时 → 502 → 页面渲染成空态，看起来就是「观测页是空的」。现在的做法：清单缓存 5 分钟并预热、心跳按需取、超时 25 秒、失败沿用旧值，前端只在手动刷新时传 `fresh=1`。
@@ -90,4 +90,10 @@
 55. **列表按「有关联才显示」过滤，会把新建的和删空的条目变没**（2026-10-26 做服务页增删改时踩到）：`groupByService` 原来只给「真部署过」的服务出行，于是页面里「加服务」保存成功、抽屉一关，那个服务**在界面上根本不出现**（统计行也不涨）；更糟的是把某个服务的最后一条部署删掉，它就再也找不到了——只能手改 JSON。凡是能在页面上新建 / 删除的实体，列表必须按**清单**出（服务视角里 0 台的也出一行，写「还没部署」+ 右边 `+` 直接挑机器），统计数字也按清单算。验收时别只看「保存没报错」，要**看得见那条新数据**、并且把关联删空之后**仍然能删掉它**。
 
 56. **弹层截图要等 `pop` / `slide` 动画跑完**（同一天）：`overlay.css` 的 `.modal-card` 是 `animation: pop 0.18s`（`from { opacity: 0 }`），抽屉是 `slide 0.2s`。`waitForSelector('.modal')` 只等元素挂上 DOM，立刻 `screenshot()` 会拍到**半透明弹层 + 没压暗的背景**，看起来像「遮罩没生效」的 bug。脚本里在截图前 `waitForTimeout(300~350)`（或 `waitForFunction` 查 `getComputedStyle(el).opacity === '1'`）再拍。
+
+57. **便签图片：SVG 一律拒，`image/*` 是唯一豁免 JSON Content-Type 的写接口**（2026-10-26 做便签图片时）：两件事是一起定的。图片走不了 JSON —— 二进制塞进 JSON 要 base64，体积涨三分之一，还得整包进内存解析；所以 `POST /api/attachments` 的请求体**直接是图片字节**，`server/auth/middleware.ts` 的 CSRF 检查给它开一条口子：`method === 'POST' && path === '/api/attachments' && ct.startsWith('image/')`。**跨站表单发不出 `Content-Type: image/*`**（能发出来的只有 form-urlencoded / multipart / text-plain 三种），用 fetch 发这个头会触发 CORS 预检、我们又没放行，所以这条口子不会变成 CSRF 洞——**别为了「统一」把它改回 JSON**。另一半是类型判定：一律按魔数（`sniffImage`），**不认后缀、也不信请求头**，并且**明确拒掉 SVG**：SVG 是 XML，同源下里面的 `<script>` 会执行，跟 `data/uploads/` 同源部署等于给自己开一个 XSS 入口。WebP 要按完整魔数验（`RIFF....WEBP`，只看前 4 字节会把随便什么 RIFF 都收下）。
+
+58. **便签图片的归属只能从正文推，别加绑定列**（同一天）：`attachments.note_id` 只是「最后一次被哪条便签引用」的缓存，**唯一真相是 `notes.content` 里有没有 `/api/attachments/<id>`**。`syncNoteAttachments()` 每次正文变化都先把这条便签的图全部解绑、再按引用重绑；`referencedElsewhere()` 用 `content GLOB '*/attachments/<id>[^0-9]*'` 判断「别的便签还引用着」——glob 尾部要求非数字，所以 id 12 不会被 id 123 骗到（`LIKE '%attachments/12%'` 会）。踩到的场景：**整段正文复制到另一条便签**，若按 `note_id` 判归属，删掉原便签会把还在用的图一起删掉；所以 `deleteAttachmentsForNote()` 先查 `referencedElsewhere()`，有人引用就只解绑、不删文件。**别加 `notes.asset_id` 那种双向绑定**（工作区硬规则也禁止），多一份状态就多一处对不上。
+
+59. **单测里 import 服务端模块会顺手打开真实库**（2026-10-26 写 attachments 单测时确认）：`server/db.ts` 是模块级副作用——一 import 就 `new DatabaseSync(DATA_DIR/pinboard.db)` 并跑迁移。所以测「碰库 + 碰盘」的模块（`server/attachments/store.ts`）必须**先 `process.env.PINBOARD_DATA = mkdtempSync(...)` 再 `await import(...)`**：静态 import 会被提升到文件顶部，env 还没设库就开了；同一进程里再 import 别的库模块会拿到同一个句柄，所以这类测试一个文件只测一条路径。纯逻辑那半边（`core.ts`）刻意不碰库不碰盘，才能被普通静态 import 直接测。同理 e2e 一律走 `tests/run.mjs`（它自己把真实库快照到 `%TEMP%`、起隔离实例、跑完删目录）——**任何临时脚本都不许往 `data/pinboard.db` 写测试数据**。
 

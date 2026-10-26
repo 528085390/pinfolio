@@ -1,3 +1,4 @@
+import { imagesAsText } from '../attachments/core.js'
 import type { AssetRow, FieldRow, NoteRow, TagRow } from './rows.js'
 
 /**
@@ -147,7 +148,8 @@ export function renderSnapshot(data: SnapshotData): string {
     if (n.asset_id) flags.push('关联资产 #' + n.asset_id)
     L.push('### #' + n.id + '　' + flags.join('　') + '　' + fmt(n.created_at))
     L.push('')
-    L.push(indent(n.content.trim()))
+    // 图片引用收成 [图片]：快照是给人看 / 给 grep 用的，不刷一屏 URL
+    L.push(indent(imagesAsText(n.content.trim())))
     L.push('')
     if (n.tags) L.push('- 标签：' + n.tags)
     L.push('')

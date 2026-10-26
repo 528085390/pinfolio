@@ -3,6 +3,25 @@
 本项目的改动都记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号在 0.x 阶段只表示「大改了一轮」，不承诺向后兼容——这是自用小工具，UI 和接口随时可能变。
 
+## [未发布]
+
+### 便签图片（新）
+
+- **便签能存图片了**：输入框里 **Ctrl+V 粘贴**、把图片**拖进输入框**、或点「图片」按钮选文件，行内编辑（双击卡片）同样支持这三条。三条路共用一个上传函数，插进正文的是一行标准 Markdown `![](/api/attachments/12)`——与部署位置无关（公网挂在 `/pinfolio/` 下时前缀在渲染时替换），库换机器不用改数据。
+- **上传前先在浏览器里压一遍**：超过 300 KB 的按长边 2000px 缩放、转 WebP（质量 0.85）；GIF 跳过（压了丢动画），压完反而更大就用原图。5 MB 手机原图一般落到 200–400 KB；单张上限 10 MB。
+- **只收 PNG / JPEG / WebP / GIF**：按文件魔数判，不看后缀也不信请求头；**SVG 一律拒**（同源 SVG 里的 `<script>` 能执行）。`POST /api/attachments` 是唯一不走 JSON 的写接口（请求体就是图片字节），CSRF 检查按 `Content-Type: image/*` 单独放行这一条。
+- **点图开灯箱**（点空白 / 点 ✕ / 按 Esc 关闭），列表里的图 `loading="lazy"`。
+- **正文是图片归属的唯一真相**：从正文删掉引用 → 图变孤儿（文件留 7 天、每天清一次，误删能救回来）；删便签 → 图立刻一起删；整段正文复制到别条便签 → 只解绑、不删文件。孤儿清扫顺手清掉 `data/uploads/` 里没登记的野文件。
+- 迁移 **v3** 建 `attachments` 表（`note_id` 外键 `ON DELETE SET NULL`）；图片真身放 `data/uploads/<id>.<ext>`，**随备份包一起打进去**；`SNAPSHOT.md` 里图片收成 `[图片]`（有 alt 是 `[图片：alt]`）。
+
+### 文档
+
+- `docs/features.zh.md` / `features.md` 新增「便签」章节：粘贴 / 拖拽 / 选文件、压缩、类型限制、灯箱、孤儿回收、备份。
+- `docs/api.zh.md` / `api.md` 加 `POST /attachments` 与 `GET /attachments/:id`，并把过期的「无鉴权（只监听本机）」改成「除 `/health` 与 `/auth/*` 外都要登录；写接口只认 JSON，图片上传是唯一例外」。
+- `docs/architecture.md` 补 `server/attachments/*`、`server/schema/attachments.ts`、迁移 v3、`data/uploads/`，前端补 `useImageUpload.ts`、`Lightbox.tsx`、`web/lib/images.ts`、`web/lib/api/attachments.ts`。
+- `docs/pitfalls.md` 补坑 57（SVG 与 `image/*` 豁免）、58（图片归属只从正文推）、59（单测 import 服务端模块会打开真实库），并修掉 `server/backup/*` 里指向坑 52 的错误引用。
+- README 两版的便签小节各加一条图片。
+
 ## [0.3.0] - 2026-10-26
 
 ### 服务（新页面 · 第 8 页）

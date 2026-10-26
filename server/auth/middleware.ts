@@ -62,7 +62,13 @@ export async function authMiddleware(c: Context, next: Next) {
     const hasBody = Number(c.req.header('content-length') ?? 0) > 0 || Boolean(c.req.header('transfer-encoding'))
     const ct = (c.req.header('content-type') ?? '').toLowerCase()
     const exempt = NO_BODY_OK.some(([m, p]) => m === method && p === path)
-    if (hasBody && !exempt && !ct.includes('application/json')) return c.json({ error: 'unsupported media type' }, 415)
+    // 图片上传例外：请求体就是图片二进制，不可能带 application/json。
+    // 仍然安全 —— 跨站表单只能发 urlencoded / multipart / text-plain 三种 content-type，
+    // 想发 image/* 就得走 fetch，而 fetch 带这个 content-type 会先触发 CORS 预检，我们不放行（坑 57）。
+    const imageUpload = method === 'POST' && path === '/api/attachments' && ct.startsWith('image/')
+    if (hasBody && !exempt && !imageUpload && !ct.includes('application/json')) {
+      return c.json({ error: 'unsupported media type' }, 415)
+    }
   }
 
   const token = parseCookies(c.req.header('cookie') ?? '')[COOKIE_NAME]

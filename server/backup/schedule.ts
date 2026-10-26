@@ -3,7 +3,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { scheduledEnabled } from './core.js'
 
 // 这个模块会被 server/index.ts 在启动时 import，也会被单测 import。
-// runBackup 走动态导入：模块加载时不把 db.ts 拉进来（否则单测一 import 就打开真实库，见坑 52）。
+// runBackup 走动态导入：模块加载时不把 db.ts 拉进来（否则单测一 import 就打开真实库，见坑 59）。
 export { scheduledEnabled }
 
 /** BACKUP_HOUR 只收 0–23 的整数，写坏了退回 3（NaN 会让 setTimeout 变成立即触发、无限重排） */

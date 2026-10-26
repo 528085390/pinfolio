@@ -2,6 +2,7 @@
 // 所以页面里一直写 `import { api, cx, type Note } from '../lib/api'` 不用改。
 import { coreApi, tagsApi, fieldsApi } from './api/core'
 import { notesApi } from './api/notes'
+import { attachmentsApi } from './api/attachments'
 import { assetsApi } from './api/assets'
 import { monitorsApi } from './api/monitors'
 import { hostsApi } from './api/hosts'
@@ -15,6 +16,7 @@ import { cx } from './cx'
 export const api = {
   ...coreApi,
   notes: notesApi,
+  attachments: attachmentsApi,
   assets: assetsApi,
   monitors: monitorsApi,
   hosts: hostsApi,
@@ -39,6 +41,7 @@ export type {
 } from './api/services'
 export type { BackupStatus, BackupState, LocalFile, RemoteRow, RemoteConfigView, RemoteInput, Manifest } from './api/backup'
 export type { Note } from './api/notes'
+export type { UploadedImage } from './api/attachments'
 export type { Asset } from './api/assets'
 export type {
   Host, HostDisk, HostTop, HostSeriesPoint, HostsPayload, HostSummary,

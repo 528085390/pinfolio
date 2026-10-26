@@ -2,7 +2,7 @@
 
 Every endpoint the frontend uses. For a quick overview see the [README](../README.md).
 
-Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out, no authentication (it listens on localhost only).
+Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out. **Everything except `/health` and `/auth/*` needs a login** (session cookie, or `Authorization: Bearer <api token>`), and write endpoints with a body only accept `Content-Type: application/json` (a cross-site form can't send that header — that is the CSRF defence). **The one exception is image upload**, whose body is the image bytes.
 
 | Method | Path | Description |
 |---|---|---|
@@ -15,6 +15,8 @@ Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out, no aut
 | GET | `/notes` | List; supports `q` `tag` `pinned` `done` `archived` `assetId` |
 | GET/POST | `/notes/:id`, `/notes` | Single note / create |
 | PATCH/DELETE | `/notes/:id` | Update (`content` `pinned` `done` `archived` `assetId`) / delete |
+| POST | `/attachments` | Upload one image: **the request body is the image bytes**, `Content-Type: image/*` (the only write endpoint that isn't JSON). `?name=` keeps the original filename, `?noteId=` binds it to a note up front. Sniffed from the bytes: PNG / JPEG / WebP / GIF only (SVG → 415), empty body → 400, over 10 MB → 413. Returns 201 `{ id, url, mime, bytes, name }`; `url` is `/api/attachments/<id>` |
+| GET | `/attachments/:id` | Serve the image. `Content-Type` as stored, `Cache-Control: private, max-age=31536000, immutable` (an id's bytes never change — replacing an image mints a new id), `Content-Disposition: inline`. Missing row, or a file someone deleted under `data/uploads/` → 404 |
 | GET | `/assets` | List; supports `q` `kind` `status` `tag` |
 | GET | `/assets/:id` | Detail, with `linkedNotes` (already tagged) |
 | POST/PATCH/DELETE | `/assets`, `/assets/:id` | Create / update / delete |

@@ -1,0 +1,23 @@
+/* 图片灯箱 —— 便签里的图点开看大图（web/components/Lightbox.tsx）
+   z-index 60：在抽屉(41)/弹窗(50)之上，在通知(80)/异常栈(90)之下。 */
+.lightbox {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 22px; background: rgba(16, 12, 8, 0.88);
+  backdrop-filter: blur(3px); cursor: zoom-out;
+  animation: lightbox-fade 0.14s ease-out;
+}
+.lightbox img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  border-radius: 10px; box-shadow: 0 26px 70px rgba(0, 0, 0, 0.5);
+  cursor: default; background: var(--surface);
+}
+.lightbox-close {
+  position: absolute; top: 14px; right: 16px;
+  width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.24); background: rgba(0, 0, 0, 0.35);
+  color: #fff; font-size: 15px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.18); }
+@keyframes lightbox-fade { from { opacity: 0 } to { opacity: 1 } }

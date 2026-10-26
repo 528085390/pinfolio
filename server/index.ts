@@ -15,6 +15,8 @@ import { mailRoute, shutdownMail } from './mail/routes.js'
 import { hostsRoute } from './metrics/routes.js'
 import { servicesRoute } from './services/routes.js'
 import { tunnelRoute } from './routes/tunnel.js'
+import { attachmentsRoute } from './routes/attachments.js'
+import { startAttachmentSweep } from './attachments/store.js'
 import { backupRoute } from './routes/backup.js'
 import { runBackup } from './backup/run.js'
 import { startBackupScheduler } from './backup/schedule.js'
@@ -64,6 +66,7 @@ api.route('/hosts', hostsRoute)
 api.route('/services', servicesRoute)
 api.route('/tunnel', tunnelRoute)
 api.route('/backup', backupRoute)
+api.route('/attachments', attachmentsRoute)
 app.route('/api', api)
 
 mountStatic(app)
@@ -129,6 +132,8 @@ serve({ fetch: app.fetch, port, hostname }, (info) => {
   startTunnelProbe()
   // 每天 03:00 自动备份（见 server/backup/schedule.ts）
   startBackupScheduler(db)
+  // 每天扫一次没人引用的图片（见 server/attachments/store.ts）
+  startAttachmentSweep()
 })
 
 // 退出时断开 IMAP 连接（IMAP 是长连接，进程被 Ctrl+C / SIGTERM 时礼貌收尾）

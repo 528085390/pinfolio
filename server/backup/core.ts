@@ -1,7 +1,7 @@
 // 备份的纯逻辑：文件名、保留策略、心跳 CSV、定时开关。不碰磁盘、不碰数据库，方便单测。
 //
 // scheduledEnabled() 放在这里而不是 schedule.ts：schedule.ts 会 import runBackup → db.ts，
-// 单测只要碰一下它就等于打开真实数据库，CI 上并行跑测试直接 "database is locked"（坑 52）。
+// 单测只要碰一下它就等于打开真实数据库，CI 上并行跑测试直接 "database is locked"（坑 59）。
 
 export type HeartbeatRow = {
   time: string

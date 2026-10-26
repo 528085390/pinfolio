@@ -38,6 +38,7 @@ const CORE = [
   ['e2e-tagbar', 'e2e-tagbar.mjs'],
   ['e2e-router', 'e2e-router.mjs'],
   ['e2e-tagpop', 'e2e-tagpop.mjs'],
+  ['e2e-image', 'e2e-image.mjs'],
   ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
 ]
 
