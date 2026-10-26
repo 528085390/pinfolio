@@ -3,6 +3,16 @@
 本项目的改动都记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号在 0.x 阶段只表示「大改了一轮」，不承诺向后兼容——这是自用小工具，UI 和接口随时可能变。
 
+## [未发布]
+
+### 依赖
+
+- 前端构建升到 **Vite 8**（Rolldown 内核）+ `@vitejs/plugin-react` 6：构建从约 1.4 秒降到 0.4 秒，
+  产物 `index.js` 475 kB / `index.css` 58 kB，体积与之前基本一致。
+  `@vitejs/plugin-react` 的大版本必须跟 vite 配对，所以这两个要一起升。
+- `@types/node` 继续留在 24.x，跟 `engines.node >= 24` 对齐；Node 26 已实测兼容
+  （`node:sqlite` 的 `backup` 仍是模块级函数），等它进 LTS 再一起切。
+
 ## [0.2.0] - 2026-10-26
 
 ### 备份（新页面 · 第 7 页）
