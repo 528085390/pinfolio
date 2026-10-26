@@ -49,6 +49,7 @@ PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d
 - Only 80 / 443 are opened; HSTS and certificate renewal are Caddy's job.
 - The proxy passes `X-Forwarded-For` / `X-Forwarded-Proto` in, and the compose file already sets `TRUST_PROXY=1` (without it every session's device IP is the container gateway address).
 - Your own nginx / Traefik works too, just remember: `proxy_set_header X-Forwarded-Proto $scheme;`, `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`, and set `TRUST_PROXY=1`.
+- **If nginx on the host already serves other sites, do one more step**: a new vhost joins the race for the default server. Without an explicit `default_server`, nginx takes the first 443 block in configuration order as the default, so requests that arrive **by IP** get routed to the new block — the old site suddenly 404s on some path or returns the pinfolio page. Run `grep -rn default_server /etc/nginx/` before adding anything, give the existing site an explicit `default_server`, and after reloading check the old site both by IP and by hostname.
 
 ### Put the data in a host directory instead
 

@@ -49,6 +49,7 @@ PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d
 - 只开 80 / 443；HSTS、证书续期都由 Caddy 负责。
 - 反代会把 `X-Forwarded-For` / `X-Forwarded-Proto` 传进来，compose 里已设 `TRUST_PROXY=1`（不设的话所有会话的设备 IP 都是容器网关地址）。
 - 用自己的 nginx / Traefik 也行，记得：`proxy_set_header X-Forwarded-Proto $scheme;`、`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`，并设 `TRUST_PROXY=1`。
+- **宿主机上已经有 nginx 在跑别的站点时多留一步**：新加的 vhost 会参与「默认 server」的争夺 —— nginx 在没有显式 `default_server` 时，取配置顺序里第一个 443 块当默认，于是**按 IP 访问的老站点会被这个新块接走**（表现为老站点某个路径突然 404、或直接返回 pinfolio 的页面）。加之前先 `grep -rn default_server /etc/nginx/`，给原来的站点显式写上 `default_server`；reload 之后老站点按 IP、按域名各访问一次确认没断。
 
 ### 想让数据落在宿主机目录
 
