@@ -3,7 +3,7 @@
 [![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-412%20passing-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/unit%20tests-422%20passing-brightgreen)](#development)
 [![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **English** · [中文](README.zh.md)
@@ -171,7 +171,7 @@ pnpm dev        # API on 7788 (tsx watch) + Vite on 5273, /api proxied
 pnpm build      # rebuild the frontend into dist/web — required after frontend changes
 pnpm typecheck  # tsc --noEmit
 pnpm start      # production mode, not watch: restart after backend changes
-pnpm test       # typecheck + 412 unit tests (no running service needed)
+pnpm test       # typecheck + 422 unit tests (no running service needed)
 pnpm test:e2e   # core + monitor suites (needs 7788 and Kuma on 3001)
 node tests/run.mjs --only=ci   # what CI runs: no Kuma, no mail server, no metrics endpoint
 pnpm test:mail  # mail suite, against an isolated instance
