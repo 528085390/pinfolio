@@ -3,7 +3,7 @@
 //
 //   node tools/i18n-scan.mjs            # 列出待翻译的行（文件:行 + 片段）
 //   node tools/i18n-scan.mjs --missing  # 列出字典缺失的中文字面量（去重）
-//   node tools/i18n-scan.mjs --check    # 还有未包装的中文就 exit 1（提交前跑）
+//   node tools/i18n-scan.mjs --check    # 还有未包装的中文就 exit 1（提交前跑；下面 KNOWN_TODO 里的已知例外不算）
 //   node tools/i18n-scan.mjs --files    # 只按文件汇总条数，按数量降序（排工期用）
 //
 // 判定规则（够用就好，不做完整 AST）：
@@ -28,6 +28,18 @@ const SKIP_FILES = new Set([
   'server/snapshot/markdown.ts',
 ])
 const isDict = (rel) => rel.startsWith('shared/i18n/en/')
+
+// 已知例外：这些中文是数据、协议常量或扫描器的误报，本来就不该翻（见 docs/i18n.md「已知边界」）。
+// 按文件给上限而不是给行号：改了行号不影响，但往这些文件里加新的未包装中文会让计数超上限，--check 照样失败。
+const KNOWN_TODO = new Map([
+  ['server/kuma/provision.ts', { max: 3, why: '写进 Kuma 的观测项名字＝数据' }],
+  ['server/kuma/recipe.ts', { max: 3, why: 'STEP_LABEL 常量值，消费处再 t()' }],
+  ['server/metrics/onboard.ts', { max: 2, why: '正则里带引号，扫描器误报' }],
+  ['web/lib/images.ts', { max: 2, why: '正则里带引号，扫描器误报' }],
+  ['server/kuma/redact.ts', { max: 1, why: '正则里带引号，扫描器误报' }],
+  ['web/pages/settings/TunnelCard.tsx', { max: 1, why: 'FRPC 模板，给用户复制的配置片段' }],
+  ['server/kuma/beat.ts', { max: 1, why: '心跳状态前缀，协议常量' }],
+])
 
 const mode = process.argv.find((a) => a.startsWith('--')) || '--todo'
 const checkMode = mode === '--check'
@@ -179,5 +191,14 @@ if (mode === '--files') {
 } else {
   for (const r of rows) for (const t of r.todo) console.log(r.rel + ':' + t.line + '\t' + t.snippet)
 }
-console.log('\n待翻译 ' + total + ' 处 / ' + rows.length + ' 个文件；字典 ' + dictKeys.size + ' 条')
-if (checkMode) process.exit(total ? 1 : 0)
+// 扣掉已知例外，剩下的才是真正待翻译的
+let known = 0
+let unknown = 0
+for (const r of rows) {
+  const allowed = Math.min(KNOWN_TODO.get(r.rel)?.max ?? 0, r.todo.length)
+  known += allowed
+  unknown += r.todo.length - allowed
+}
+const knownNote = known ? '，其中已知例外 ' + known + ' 处（数据 / 常量 / 误报）' : ''
+console.log('\n待翻译 ' + total + ' 处 / ' + rows.length + ' 个文件' + knownNote + '；字典 ' + dictKeys.size + ' 条')
+if (checkMode) process.exit(unknown ? 1 : 0)
