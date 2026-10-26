@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useRef, useState } from 'react'
-import { Activity, ArrowLeftRight, Boxes, LayoutGrid, List, Search, Server } from 'lucide-react'
+import { ArrowLeftRight, Boxes, LayoutGrid, List, Search, Server } from 'lucide-react'
 import { Button, Empty } from '../components/ui'
 import { cx } from '../lib/cx'
 import {
@@ -51,7 +51,6 @@ function MonChips({ ids, onOpen }: { ids?: number[]; onOpen?: (id: number) => vo
           title={'去观测台看「' + monitorName(id) + '」'}
           onClick={() => onOpen?.(id)}
         >
-          <Activity size={11} />
           <span>{monitorName(id)}</span>
         </button>
       ))}
@@ -97,15 +96,15 @@ function ServerDeployRow({ row, onOpen, onService }: {
       <RunCell row={row} />
       <span className="svc-mons">
         <MonChips ids={row.monitor} onOpen={onOpen} />
-        <button
-          type="button"
-          className="svc-swap"
-          title={'换到服务视角：看「' + row.svc.name + '」都部署在哪几台'}
-          onClick={() => onService('svc-card-svc-' + row.service)}
-        >
-          <ArrowLeftRight size={12} />
-        </button>
       </span>
+      <button
+        type="button"
+        className="svc-swap"
+        title={'换到服务视角：看「' + row.svc.name + '」都部署在哪几台'}
+        onClick={() => onService('svc-card-svc-' + row.service)}
+      >
+        <ArrowLeftRight size={12} />
+      </button>
     </li>
   )
 }
@@ -137,15 +136,15 @@ function ServiceDeployRow({ row, onOpen, onServer }: {
       <RunCell row={row} />
       <span className="svc-mons">
         <MonChips ids={row.monitor} onOpen={onOpen} />
-        <button
-          type="button"
-          className="svc-swap"
-          title={'换到服务器视角：看「' + row.srv.name + '」上都部署了什么'}
-          onClick={() => onServer('svc-card-srv-' + row.server)}
-        >
-          <ArrowLeftRight size={12} />
-        </button>
       </span>
+      <button
+        type="button"
+        className="svc-swap"
+        title={'换到服务器视角：看「' + row.srv.name + '」上都部署了什么'}
+        onClick={() => onServer('svc-card-srv-' + row.server)}
+      >
+        <ArrowLeftRight size={12} />
+      </button>
     </li>
   )
 }
@@ -190,13 +189,8 @@ function MiniRow({
       } : undefined}
     >
       {dot ? <span className={cx('svc-dot', dot)} /> : null}
-      <span className="svc-mini-name" title={labelTitle}>{label}</span>
+      <span className={cx('svc-mini-name', linked ? 'is-link' : 'is-static')} title={labelTitle}>{label}</span>
       {port ? <span className="svc-mini-port">{port}</span> : null}
-      {linked ? (
-        <span className="svc-mini-mon is-mark" title={'观测：' + mons.map(monitorName).join('、')}>
-          <Activity size={12} />
-        </span>
-      ) : null}
     </li>
   )
 }
@@ -239,7 +233,6 @@ function MiniServerCard({ g, flash, onOpen }: {
               title={'服务器观测：去观测台看「' + monitorName(id) + '」'}
               onClick={() => onOpen?.(id)}
             >
-              <Activity size={10} />
               <span>{monitorName(id)}</span>
             </button>
           ))}
@@ -294,11 +287,6 @@ function ServiceListRow({ g, flash, onOpen, onJump }: {
           </Fragment>
         ))}
       </span>
-      {linked ? (
-        <span className="svc-mini-mon is-mark" title={'观测：' + g.rows.flatMap((r) => r.monitor ?? []).map(monitorName).join('、')}>
-          <Activity size={12} />
-        </span>
-      ) : null}
     </li>
   )
 }
@@ -454,7 +442,16 @@ export function ServicesPage({ onOpenMonitor }: {
                     {g.rows.length === 0 ? (
                       <p className="svc-sub">这台机还没登记部署。</p>
                     ) : (
-                      <ul className="svc-rows">
+                      <>
+                        <div className="svc-rows-head">
+                          <span>种类</span>
+                          <span>服务</span>
+                          <span>路径</span>
+                          <span>启动 · 端口</span>
+                          <span>观测</span>
+                          <span />
+                        </div>
+                        <ul className="svc-rows">
                         {g.rows.map((row) => (
                           <ServerDeployRow
                             key={row.server + ':' + row.service}
@@ -463,7 +460,8 @@ export function ServicesPage({ onOpenMonitor }: {
                             onService={(id) => jump('service', id)}
                           />
                         ))}
-                      </ul>
+                        </ul>
+                      </>
                     )}
                     <footer className="svc-foot">
                       <span className="svc-foot-label">服务器观测</span>
@@ -476,7 +474,7 @@ export function ServicesPage({ onOpenMonitor }: {
             : services.map((g) => {
                 const cardId = 'svc-card-svc-' + g.service.id
                 return (
-                  <article key={g.service.id} id={cardId} className={cx('svc-card', flash === cardId && 'is-flash')}>
+                  <article key={g.service.id} id={cardId} className={cx('svc-card', 'is-svc', flash === cardId && 'is-flash')}>
                     <header className="svc-head">
                       <h3 className="svc-title is-static">{g.service.name}</h3>
                       <span className={cx('svc-kind', 'is-chip', 'kind-' + g.service.kind)}>
@@ -485,6 +483,13 @@ export function ServicesPage({ onOpenMonitor }: {
                       <span className="svc-count">{g.rows.length} 台服务器</span>
                     </header>
                     <p className="svc-sub">{g.service.summary}</p>
+                    <div className="svc-rows-head is-srv">
+                      <span>服务器</span>
+                      <span>路径</span>
+                      <span>启动 · 端口</span>
+                      <span>观测</span>
+                      <span />
+                    </div>
                     <ul className="svc-rows">
                       {g.rows.map((row) => (
                         <ServiceDeployRow
