@@ -3,15 +3,6 @@
 本项目的改动都记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号在 0.x 阶段只表示「大改了一轮」，不承诺向后兼容——这是自用小工具，UI 和接口随时可能变。
 
-## [未发布]
-
-### 配置
-
-- **支持项目根的 `.env`**：`pnpm start` / `pnpm start:dist` 用 `node --env-file-if-exists=.env` 自动读；
-  仓库带 `.env.example`（全量环境变量带注释），`.env` / `.env.local` 已进 `.gitignore`。
-- **`TRUST_PROXY=1` 后设备 IP 会自己纠正**：`touchSession()` 发现 IP 变了立刻写库（不受 60 秒续期节流限制），
-  之前经反代 / 隧道来的会话永远停在 `127.0.0.1`，现在下一次访问就更新成真实地址。
-
 ## [0.2.0] - 2026-10-26
 
 ### 备份（新页面 · 第 7 页）
@@ -39,6 +30,13 @@
 - **新增 `HOST` 环境变量**（默认仍是 `127.0.0.1`，容器里设 `0.0.0.0`）；`engines: node >= 24`、`packageManager: pnpm@12.3.4` 写进 `package.json`。
 - **迁移前自动快照**：有 pending 迁移时先 `VACUUM INTO data/backups/pre-migrate-v<版本>-<时间戳>.db`（保留 5 份），快照失败就中止升级——宁可停在旧版本，也不留一个没有退路的半迁移库。
 - 部署手册 `docs/deploy.md`（Docker / 裸机 / Windows / 环境变量全表 / 接不接 Kuma / 验收清单）。
+
+### 配置
+
+- **支持项目根的 `.env`**：`pnpm start` / `pnpm start:dist` 用 `node --env-file-if-exists=.env` 自动读；
+  仓库带 `.env.example`（全量环境变量带注释），`.env` / `.env.local` 已进 `.gitignore`。
+- **`TRUST_PROXY=1` 后设备 IP 会自己纠正**：`touchSession()` 发现 IP 变了立刻写库（不受 60 秒续期节流限制），
+  之前经反代 / 隧道来的会话永远停在 `127.0.0.1`，现在下一次访问就更新成真实地址。
 
 ### 安全
 
