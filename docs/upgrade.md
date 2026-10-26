@@ -1,49 +1,47 @@
-# 升级
+# Upgrading and rolling back
 
-一句话：**Docker 就 `pull` + `up -d`，裸机就 `pnpm install && pnpm build` 再重启**。数据库迁移由程序自己做，
-迁移前会自动拍一张快照；迁移失败就中止启动，不会留一个半迁移的库。
+In one line: **Docker is `pull` + `up -d`, bare metal is `pnpm install && pnpm build` and then a restart**. The database migration is the app's own job, and it takes a snapshot automatically before migrating; a failed migration aborts startup, so you are never left with a half-migrated database.
 
-## 升级前
+## Before you upgrade
 
-1. 确认最近的备份是好的：备份页能看到「上次备份时间」和份数；不确定就点一次「立即备份」。
-   备份包里有 `data/secret.key`，恢复时要用（见 [`backup-restore.md`](backup-restore.md)）。
-2. 看一眼 [`CHANGELOG.md`](../CHANGELOG.md) 里目标版本那段，尤其是带「破坏性」字样的条目。
-3. 记下当前版本（`package.json` 的 `version`，或镜像 tag），回滚时要指定它。
+1. Make sure the most recent backup is good: the backup page shows the "last backup time" and the copy count; if you are not sure, click "Back up now" once. The backup pack contains `data/secret.key`, which restoring needs (see [`backup-restore.md`](backup-restore.md)).
+2. Read the section for the target version in [`CHANGELOG.md`](../CHANGELOG.md), especially entries with the word "breaking" in them.
+3. Write down the current version (the `version` in `package.json`, or the image tag) — a rollback has to name it.
 
 ## Docker Compose
 
 ```bash
-cd <你的 compose 目录>
-docker compose pull          # 拉新镜像（默认 latest）
-docker compose up -d         # 重建容器，/data 卷原样保留
-docker compose logs -f pinfolio   # 看启动日志：迁移前快照 / 凭据加密 / 端口
+cd <your compose directory>
+docker compose pull          # pull the new image (latest by default)
+docker compose up -d         # recreate the container, the /data volume is kept as is
+docker compose logs -f pinfolio   # watch the startup log: pre-migration snapshot / credential encryption / port
 ```
 
-固定版本而不是跟 latest：
+Pin a version instead of following latest:
 
 ```bash
 PINBOARD_TAG=v0.2.0 docker compose up -d
 ```
 
-回滚（数据也一起回滚，见下面的「迁移与回滚」）：
+Rollback (the data rolls back with it, see "Migrations and rollback" below):
 
 ```bash
 PINBOARD_TAG=v0.1.0 docker compose up -d
 ```
 
-## 裸机（Linux / macOS）
+## Bare metal (Linux / macOS)
 
 ```bash
-cd <pinfolio 目录>
-git fetch --tags && git checkout v0.2.0    # 或者解压新版本的压缩包
+cd <pinfolio directory>
+git fetch --tags && git checkout v0.2.0    # or unpack the new version's archive
 pnpm install --frozen-lockfile
-pnpm build                                  # 前端 dist/web + 服务端 dist/server.js
-systemctl restart pinfolio                  # 或者你自己用的进程管理器
+pnpm build                                  # frontend dist/web + server dist/server.js
+systemctl restart pinfolio                  # or whichever process manager you use
 ```
 
-只想跑源码、不打包也行：`pnpm install` 之后用 `pnpm start`（tsx 直接跑 `server/index.ts`）。
+Only want to run the source without building? That works too: after `pnpm install`, use `pnpm start` (tsx runs `server/index.ts` directly).
 
-## Windows（start.cmd）
+## Windows (start.cmd)
 
 ```powershell
 cd E:\bqj\pinboard
@@ -52,39 +50,35 @@ git pull; pnpm install; pnpm build
 powershell -File tools\pinboard.ps1 start
 ```
 
-`tools\pinboard.ps1` 必须保持 UTF-8 **带 BOM**，`run-pinboard.vbs` 必须 CRLF，否则双击静默不执行（坑 10）。
+`tools\pinboard.ps1` must stay UTF-8 **with a BOM**, and `run-pinboard.vbs` must be CRLF, or double-clicking silently does nothing (pitfall 10).
 
-## 迁移与回滚
+## Migrations and rollback
 
-- 版本号存在 SQLite 的 `PRAGMA user_version` 里，每个迁移步骤一个事务，失败就回滚并抛错。
-- 有 pending 迁移时，启动过程会先把当前库 `VACUUM INTO` 到 `data/backups/pre-migrate-v<旧版本>-<时间戳>.db`，
-  **保留最近 5 份**。为什么用 `VACUUM INTO` 而不是拷文件：WAL 模式下直接拷 `.db` 会漏掉还在 `-wal` 里的事务（坑 46）。
-- 快照失败 → 迁移不执行，进程退出并打印「迁移前备份失败，已中止升级」。宁可起不来，也不留没有退路的库。
-- 迁移成功后旧快照仍留在 `data/backups/`，可以随时手动回退：停服务 → 用快照覆盖 `data/pinboard.db`
-  （**同时删掉 `pinboard.db-wal` 和 `pinboard.db-shm`**）→ 换回旧版本代码 → 启动。
+- The version number lives in SQLite's `PRAGMA user_version`; each migration step is one transaction, and a failure rolls it back and throws.
+- When there are pending migrations, startup first makes a `VACUUM INTO` copy of the current database to `data/backups/pre-migrate-v<old version>-<timestamp>.db`, **keeping the newest 5**. Why `VACUUM INTO` rather than copying the file: in WAL mode a plain copy of the `.db` misses transactions still in `-wal` (pitfall 46).
+- Snapshot fails → the migration does not run, the process exits and prints "迁移前备份失败，已中止升级". Better not to start at all than to leave a database with no way back.
+- After a successful migration the old snapshot stays in `data/backups/`, and you can fall back by hand at any time: stop the service → overwrite `data/pinboard.db` with the snapshot (**delete `pinboard.db-wal` and `pinboard.db-shm` at the same time**) → put the old version's code back → start.
 
-⚠️ 回滚代码而不回滚数据通常是不安全的：新版本可能已经写入老代码不认识的列或表。要回滚就连数据一起回滚。
+⚠️ Rolling the code back without rolling the data back is usually unsafe: the new version may already have written columns or tables the old code does not know. If you roll back, roll the data back with it.
 
-## 升级后验收
+## Acceptance checks after upgrading
 
 ```bash
 curl -s http://127.0.0.1:7788/api/health      # {"ok":true,"id":"..."}
 ```
 
-1. 打开首页能登录（升级不踢会话，除非改过密码）。
-2. 八页都能打开：便签 / 邮件 / 资产 / 观测 / 主机 / 服务 / 备份 / 设置。
-3. 备份页的「上次备份」时间正常，远端数据库（如果配了）能点「测试连接」。
-4. 观测页有数据（说明 Kuma 口令仍能解密）——若变成引导卡，多半是 `data/secret.key` 丢了或被换了。
-5. 日志里没有 `凭据已就地加密` 之外的报错。
+1. The home page opens and you can log in (an upgrade does not drop your session, unless the password was changed).
+2. All eight pages open: Notes / Mail / Assets / Monitors / Hosts / Services / Backup / Settings.
+3. The backup page's "last backup" time is normal, and the remote database (if configured) answers "Test connection".
+4. The monitors page has data (which means the Kuma password can still be decrypted) — if it turned into the setup card, `data/secret.key` was most likely lost or replaced.
+5. The log has no errors other than `凭据已就地加密`.
 
-## 常见问题
+## FAQ
 
-**升级后要求重新设置密码？** 只有库被换掉才会这样（`password_hash` 在 `settings` 表里）。真忘了密码：
-停服务 → `node --import tsx server/index.ts --reset-password` → 启动 → 访问 `/setup` 重新设。
+**Asked to set a password again after upgrading?** That only happens if the database was replaced (`password_hash` lives in the `settings` table). Really forgot the password: stop the service → `node --import tsx server/index.ts --reset-password` → start → visit `/setup` and set a new one.
 
-**`EADDRINUSE 127.0.0.1:7788`** 多半是旧进程没退干净。Windows 用 `stop.cmd`（它会连 tsx 子进程一起结束）；
-Linux 用 `systemctl stop`，或 `ss -ltnp | grep 7788` 找 PID。
+**`EADDRINUSE 127.0.0.1:7788`** is usually an old process that did not exit cleanly. On Windows use `stop.cmd` (it ends the tsx child process too); on Linux use `systemctl stop`, or `ss -ltnp | grep 7788` to find the PID.
 
-**迁移报错退出** 把日志里的 SQL 报错连同 `pre-migrate-*.db` 一起留好，那是最有价值的复现材料。
+**The migration errors out and exits** keep the SQL error from the log together with the `pre-migrate-*.db` — that is the most valuable reproduction material.
 
-**Docker 里 `/data` 权限报错** 命名卷没问题；如果用 bind mount，先 `chown -R 1000:1000 <目录>`（容器里是 `node` 用户）。
+**`/data` permission errors inside Docker** a named volume is fine; with a bind mount, `chown -R 1000:1000 <directory>` first (the container runs as the `node` user).

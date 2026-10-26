@@ -1,75 +1,75 @@
-# 常见问题
+# FAQ
 
-## 这是个什么东西
+## What is this
 
-**一句话**：自托管的「便签 + 资产台账 + 观测台 + 只读邮件 + 主机指标 + 备份」六合一，一个 Node 进程、
-一个 SQLite 文件、单用户。
+**In one sentence**: a self-hosted six-in-one — "notes + asset inventory + uptime dashboard + read-only mail + host metrics + backups" — one Node process,
+one SQLite file, single user.
 
-**它和 Memos / HomeBox 有什么区别？** 那两个各自只做一半（时间线便签 / 资产台账），pinfolio 是两者的缝合，
-再加上观测与邮件。设计参考了它们，但没有拷贝代码。
+**How is it different from Memos / HomeBox?** Those two each do only half (timeline notes / asset inventory); pinfolio is the two stitched together,
+plus monitoring and mail. Their design was a reference, but no code was copied.
 
-## 部署
+## Deployment
 
-**必须用 Docker 吗？** 不必须。三种跑法等价：`docker compose up -d`、裸机 `pnpm build && node dist/server.js`、
-Windows 双击 `start.cmd`。见 [`deploy.md`](deploy.md)。
+**Do I have to use Docker?** No. Three ways to run it are equivalent: `docker compose up -d`, bare metal `pnpm build && node dist/server.js`,
+or double-clicking `start.cmd` on Windows. See [`deploy.md`](deploy.md).
 
-**能装在群晖 / 树莓派 / ARM 小主机上吗？** 能。镜像有 `linux/amd64` 和 `linux/arm64` 两份，
-内存 256 MB 左右够用（单进程 + SQLite）。
+**Can it run on a Synology / Raspberry Pi / small ARM box?** Yes. The image comes in `linux/amd64` and `linux/arm64`, and
+about 256 MB of RAM is enough (one process + SQLite).
 
-**要额外的数据库吗？** 不要。数据在 `data/pinboard.db`（SQLite，WAL）。MySQL / PostgreSQL 只是**备份的目的地**，
-不是运行依赖。
+**Does it need an extra database?** No. The data lives in `data/pinboard.db` (SQLite, WAL). MySQL / PostgreSQL are only a **backup destination**,
+not a runtime dependency.
 
-**端口 / 数据目录能改吗？** 能：`PORT`、`HOST`、`PINBOARD_DATA`。改了 `PINBOARD_DATA` 记得把旧数据搬过去。
+**Can the port / data directory be changed?** Yes: `PORT`, `HOST`, `PINBOARD_DATA`. If you change `PINBOARD_DATA`, remember to move the old data over.
 
-**支持多用户吗？** 不支持，也不打算支持。设计上就是「一个人的实例」：一个密码、一份数据。
-多用户要加 `user_id` 到十来张表并做隔离，等于另一个产品。
+**Does it support multiple users?** No, and there are no plans to. By design it is "one person's instance": one password, one set of data.
+Multi-user would mean adding `user_id` to a dozen or so tables and isolating them; that is another product.
 
-**手机上能用吗？** 能。界面在 390px 宽度下是底部标签栏布局，可以「添加到主屏幕」当应用打开（PWA）。
-前提是能从手机访问到：要么内网直连，要么挂 HTTPS 反代，要么用 frp 之类的隧道（设置页有「公网访问」卡片）。
+**Does it work on a phone?** Yes. At 390 px wide the UI is a bottom tab bar layout, and you can "add to home screen" and open it as an app (PWA).
+The prerequisite is being able to reach it from the phone: a direct LAN connection, an HTTPS reverse proxy, or a tunnel such as frp (the settings page has a "public access" card).
 
-## 功能
+## Features
 
-**没装 Uptime Kuma 会怎样？** 只有「观测」这一页显示一张三步引导卡，其余七页完全正常。
-探测本身是 Kuma 在跑，pinfolio 只是它的界面。
+**What happens if Uptime Kuma is not installed?** Only the monitors page shows a three-step setup card; the other seven pages are entirely normal.
+The probing itself is run by Kuma — pinfolio is only its interface.
 
-**能连上游原版 Kuma 吗？** 能。程序按 `policyJson` 字段识别是不是改造版 fork；上游原版只是不显示
-「立即观测」这类 fork 专属入口。要强制指定用 `KUMA_FLAVOR=fork|upstream`。
+**Can it connect to stock upstream Kuma?** Yes. It detects whether this is the modified fork from the `policyJson` field; on stock upstream it merely does not show
+fork-only entry points such as "check now". To force it, use `KUMA_FLAVOR=fork|upstream`.
 
-**邮件为什么是只读的？** 这是刻意的：取信一律 `BODY.PEEK`，永远不会把邮件标成已读、也不会删信、移动。
-「本页已读」只记在本地数据库里。想看别的文件夹就在下拉里切。
+**Why is mail read-only?** It is deliberate: fetching always uses `BODY.PEEK`, so mail is never marked read, deleted or moved.
+"Read on this page" is recorded only in the local database. To see another folder, switch in the dropdown.
 
-**便签和资产能互相关联吗？** 有一条可选的「便签钉到资产」（`notes.asset_id`），但两个页面是独立的，
-不打算做更多联动。
+**Can notes and assets be linked to each other?** There is one optional "pin a note to an asset" (`notes.asset_id`), but the two pages are independent,
+and no more cross-linking is planned.
 
-## 数据与安全
+## Data and security
 
-**数据存在哪？** 全在 `PINBOARD_DATA`（默认 `data/`）：`pinboard.db` 是主库，`secret.key` 是加密主密钥，
-`backups/` 是备份包，`audit/` 是每天的观测心跳 CSV。
+**Where does the data live?** All of it is under `PINBOARD_DATA` (default `data/`): `pinboard.db` is the main database, `secret.key` is the encryption master key,
+`backups/` holds the backup packs, and `audit/` the daily monitor heartbeat CSVs.
 
-**密码是明文存吗？** 登录密码是 scrypt 哈希；邮箱密码 / Kuma 口令 / 指标 token 用 AES-256-GCM 加密
-（`enc:v1:…`），主密钥在 `data/secret.key` 或 `PINBOARD_SECRET`。
+**Are passwords stored in plain text?** The login password is a scrypt hash; mailbox passwords / the Kuma password / the metrics token are encrypted with AES-256-GCM
+(`enc:v1:…`), and the master key is in `data/secret.key` or `PINBOARD_SECRET`.
 
-**`secret.key` 丢了怎么办？** 那些加密字段就解不开了：邮件账号要重新填密码，Kuma 口令要重新配，
-指标源地址要重新填。其余数据（便签、资产、观测历史）不受影响。所以**备份要连 `secret.key` 一起**，
-并且别把它和备份放在同一台机器上（两边一起丢就白加密了）。
+**What if `secret.key` is lost?** Those encrypted fields can no longer be decrypted: mailbox accounts need their passwords entered again, the Kuma password needs re-configuring,
+and the metrics source address needs entering again. The rest of the data (notes, assets, monitor history) is unaffected. So **a backup has to include `secret.key`**,
+and do not put it on the same machine as the backup (losing both at once makes the encryption pointless).
 
-**忘了登录密码？** 停服务，跑 `node --import tsx server/index.ts --reset-password`（或容器里同样的命令），
-再启动，访问 `/setup` 重新设。
+**Forgot the login password?** Stop the service, run `node --import tsx server/index.ts --reset-password` (or the same command inside the container),
+start it again and visit `/setup` to set a new one.
 
-**能暴露到公网吗？** 能，但必须挂 HTTPS 反代，并且只用密码登录。它默认只听 `127.0.0.1`，
-容器里设 `HOST=0.0.0.0`，反代后设 `TRUST_PROXY=1` 才能拿到真实 IP（登录限流按 IP 算）。
+**Can it be exposed to the public internet?** Yes, but it has to sit behind an HTTPS reverse proxy, and log in with the password only. It listens on `127.0.0.1` by default;
+in a container set `HOST=0.0.0.0`, and behind a reverse proxy set `TRUST_PROXY=1` to get the real IP (login rate limiting counts by IP).
 
-**为什么是 AGPL-3.0？** 这是一个可以整站跑起来的网络应用：如果谁改了它再当服务卖，改动应该回到社区。
-自己用、自己改、自己部署都不受限制。
+**Why AGPL-3.0?** This is a network application that can run as a whole site: if someone modifies it and sells it as a service, the changes should go back to the community.
+Using it yourself, modifying it yourself and deploying it yourself are all unrestricted.
 
-## 备份与升级
+## Backup and upgrade
 
-**备份怎么开？** 默认就开着：每天 03:00 打包到 `data/backups/`，保留 14 份。`BACKUP=0` 关掉，
-`BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` 可调。也可以配 MySQL / PostgreSQL 当远端目的地。
+**How do I turn backups on?** They are on by default: every day at 03:00 it packs everything into `data/backups/`, keeping 14 copies. `BACKUP=0` turns it off,
+`BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` are adjustable. MySQL / PostgreSQL can also be configured as a remote destination.
 
-**怎么恢复？** 见 [`backup-restore.md`](backup-restore.md)：整机换、只回滚库、从远端取回、只恢复 Kuma 四种场景。
+**How do I restore?** See [`backup-restore.md`](backup-restore.md): four scenarios — a whole-machine move, rolling back only the database, fetching back from the remote, and restoring only Kuma.
 
-**升级会丢数据吗？** 不会。迁移前会自动拍快照（保留 5 份），迁移失败就中止启动。步骤见 [`upgrade.md`](upgrade.md)。
+**Will upgrading lose data?** No. A snapshot is taken automatically before migrating (5 kept), and a failed migration aborts startup. Steps are in [`upgrade.md`](upgrade.md).
 
-**为什么观测历史还要单独归档？** Kuma 自己只留 365 天（`keepDataPeriodDays`），删了就没了。
-`data/audit/heartbeats-YYYYMMDD.csv.gz` 是每天一份的原始心跳，不受备份保留策略限制，用来做长期审计。
+**Why does monitor history need a separate archive?** Kuma itself keeps only 365 days (`keepDataPeriodDays`); once deleted, it is gone.
+`data/audit/heartbeats-YYYYMMDD.csv.gz` is one file of raw heartbeats per day, not subject to the backup retention policy, and is what long-term auditing uses.

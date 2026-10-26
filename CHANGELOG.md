@@ -19,6 +19,16 @@
 - **服务视角也列出「登记了但还没部署」的服务**（显示「还没部署」，右边 `+` 直接挑机器部署）：
   按「有部署才显示」过滤的话，新建完的服务看不见、把最后一条部署删掉后那服务就再也删不掉了。
 - 校验逻辑在 `server/services/edit.ts`（纯函数，`tests/unit/services-edit.test.mts` 10 例）。
+
+### 文档
+
+- **四篇自部署文档有了英文版**：`docs/deploy.md`、`docs/upgrade.md`、`docs/faq.md`、`docs/backup-restore.md`
+  （中文原版改名为 `*.zh.md`；两份对不上时以中文为准）。README 的中英文版各指向自己那份。
+- **`docs/deploy.md` / `docs/deploy.zh.md` 的环境变量表补齐**：`KUMA_SLUG`、`KUMA_DIR`、`KUMA_FLAVOR`、
+  `PINBOARD_METRICS_BASE`、`PINBOARD_MAIL_PROXY` 之前只出现在代码里，现在表里都有。
+- 顺手改掉两处说错的：`deploy/Caddyfile` 不是「三行」而是四行配置 + 两行注释；
+  README 里「47 条 / 51 条坑」统一成 `docs/pitfalls.md` 实际的 56 条。
+
 ## [0.3.0] - 2026-10-26
 
 ### 服务（新页面 · 第 8 页）

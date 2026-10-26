@@ -51,7 +51,8 @@ back to X" notes. Two rules matter most:
 - One topic per PR. Describe what changed, why, and the commands you ran.
 - CI must be green: typecheck, unit tests, build and the `ci` e2e group.
 - New behaviour needs a test; a bug fix needs a test that fails before it and passes after.
-- Commit messages: Chinese or English, both are fine. Keep the first line under ~70 characters.
+- Commit messages: **English**, conventional-commit prefix when it fits (`fix:`, `feat:`, `docs:`, `chore:`).
+  Keep the first line under ~70 characters; put the reasoning in the body.
 - Large formatting-only diffs make review harder — split them out.
 
 ## Reporting bugs

@@ -15,7 +15,7 @@
 - 仓库：<https://github.com/528085390/pinfolio> —— 自用小工具，公开出来给需要的人参考，没发布到 npm。
 - 运行方式：`docker compose up -d`（镜像 `ghcr.io/528085390/pinfolio`，amd64 + arm64），或裸机 `pnpm install && pnpm build && node dist/server.js`
 - 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 8 + React 19 + 手写 CSS
-- 数据：`data/pinboard.db` 加 `data/secret.key` —— 备份就是这一个目录（[怎么恢复](docs/backup-restore.md)）
+- 数据：`data/pinboard.db` 加 `data/secret.key` —— 备份就是这一个目录（[怎么恢复](docs/backup-restore.zh.md)）
 
 ## 截图
 
@@ -82,7 +82,7 @@
 - **比 Kuma 活得久的审计**：每天的 CSV 同时在 `data/audit/` 留一份，**不受 14 份限制**（Kuma 自己只留 365 天）。
 - **第二个目的地：远程数据库**（MySQL / PostgreSQL）：同一个包写进远端库的一行，上传后回读 sha256 校验，密码跟其它凭据一样加密落盘；页面里能测试连接、上传、取回、删除。
 - **备份页**（侧栏第 7 项、手机底部第 7 个图标）：两个目的地各显示份数 / 上次时间 / 上次结果，可「立即备份」、下载、看清单、删除单份。
-- 恢复步骤、`secret.key` 丢了怎么办、审计 CSV 怎么用：[`docs/backup-restore.md`](docs/backup-restore.md)。
+- 恢复步骤、`secret.key` 丢了怎么办、审计 CSV 怎么用：[`docs/backup-restore.zh.md`](docs/backup-restore.zh.md)。
 
 ### 全局
 - **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/hosts` `/backup` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
@@ -113,7 +113,7 @@ docker compose up -d     # http://127.0.0.1:7788，数据在命名卷 pinfolio-d
 PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d   # 顺带起 Caddy，自动 HTTPS
 ```
 
-镜像 `ghcr.io/528085390/pinfolio`（amd64 + arm64）。数据全在容器的 `/data`（库、`secret.key`、备份）。反代、升级、回滚、环境变量、验收清单都在 [`docs/deploy.md`](docs/deploy.md)。
+镜像 `ghcr.io/528085390/pinfolio`（amd64 + arm64）。数据全在容器的 `/data`（库、`secret.key`、备份）。反代、升级、回滚、环境变量、验收清单都在 [`docs/deploy.zh.md`](docs/deploy.zh.md)。
 
 ## 部署
 
@@ -123,14 +123,14 @@ PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d   # 顺带起
 | 裸机（Linux / macOS） | 不想装 Docker | `pnpm install && pnpm build && node dist/server.js` |
 | 裸机（Windows） | 作者本机 | `start.cmd` |
 
-三种都只监听回环地址，对外一律前置 HTTPS。应用自带单用户密码登录（首次访问进 `/setup`），但那不能替代 TLS。详见 [`docs/deploy.md`](docs/deploy.md)。
+三种都只监听回环地址，对外一律前置 HTTPS。应用自带单用户密码登录（首次访问进 `/setup`），但那不能替代 TLS。详见 [`docs/deploy.zh.md`](docs/deploy.zh.md)。
 
 ## 数据与备份
 
 | 项目 | 说明 |
 |---|---|
 | 数据库 | `data/pinboard.db`（SQLite，WAL）—— 便签、标签、资产、自定义字段、关联、邮箱设置全在里面 |
-| 备份 | 自动：每天 03:00 在 `data/backups/` 打一个包（保留 14 份），可另配 MySQL / PostgreSQL 远端库镜像。手动：备份页「立即备份」或 `node dist/server.js --backup`。恢复见 [`docs/backup-restore.md`](docs/backup-restore.md) |
+| 备份 | 自动：每天 03:00 在 `data/backups/` 打一个包（保留 14 份），可另配 MySQL / PostgreSQL 远端库镜像。手动：备份页「立即备份」或 `node dist/server.js --backup`。恢复见 [`docs/backup-restore.zh.md`](docs/backup-restore.zh.md) |
 | 审计归档 | `data/audit/heartbeats-YYYYMMDD.csv.gz` —— 每天一份观测心跳 CSV，长期保留（不受 14 份限制） |
 | 备份环境变量 | `BACKUP=0` 关、`BACKUP_HOUR=3`、`BACKUP_KEEP=14`、`BACKUP_DIR=<data>/backups`、`KUMA_DB` 指定心跳来源 |
 | 换位置 | 启动前把 `PINBOARD_DATA` 指到别的目录 |
@@ -198,13 +198,13 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 
 ## 文档
 
-- [`docs/deploy.md`](docs/deploy.md)：Docker / 裸机 / 反代 / 环境变量 / 验收清单。
-- [`docs/upgrade.md`](docs/upgrade.md) 与 [`docs/backup-restore.md`](docs/backup-restore.md)：升级、回滚、恢复。
-- [`docs/faq.md`](docs/faq.md)：这份 README 没回答的问题。
+- [`docs/deploy.zh.md`](docs/deploy.zh.md)：Docker / 裸机 / 反代 / 环境变量 / 验收清单。
+- [`docs/upgrade.zh.md`](docs/upgrade.zh.md) 与 [`docs/backup-restore.zh.md`](docs/backup-restore.zh.md)：升级、回滚、恢复。
+- [`docs/faq.zh.md`](docs/faq.zh.md)：这份 README 没回答的问题。
 - [`docs/features.zh.md`](docs/features.zh.md)：各页完整行为（中文）；英文版见 [`docs/features.md`](docs/features.md)。
 - [`docs/api.zh.md`](docs/api.zh.md)：完整 HTTP API（中文；英文 [`docs/api.md`](docs/api.md)）。
 - [`CHANGELOG.md`](CHANGELOG.md)：改了什么、哪个版本改的。
-- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 51 条踩过的坑，**改代码前先读**。
+- [`AGENTS.md`](AGENTS.md)：工程约定、模块职责和 56 条踩过的坑，**改代码前先读**。
 - [`docs/adding-assets.md`](docs/adding-assets.md)：加资产 / 加便签的唯一手册。
 - [`SNAPSHOT.md`](SNAPSHOT.md)：自动生成的数据快照，任何写入后 1.5 秒重写（不要手改）。
 - `docs/` 其余（`architecture.md`、`pitfalls.md`、`status-history.md`、`mail-page-requirements.md`）是内部文档。

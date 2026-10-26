@@ -203,7 +203,7 @@ E2E suites drive the real UI through `playwright-core` with the Chromium already
 - [`docs/features.md`](docs/features.md): every page in full (English); [`docs/features.zh.md`](docs/features.zh.md) is the same in Chinese.
 - [`docs/api.md`](docs/api.md): the complete HTTP API (English; [`docs/api.zh.md`](docs/api.zh.md) 中文).
 - [`CHANGELOG.md`](CHANGELOG.md): what changed, and in which version.
-- [`AGENTS.md`](AGENTS.md): engineering conventions, module responsibilities and 47 hard-won pitfalls — **read this before changing code** (Chinese).
+- [`AGENTS.md`](AGENTS.md): engineering conventions, module responsibilities and 56 hard-won pitfalls — **read this before changing code** (Chinese).
 - [`docs/adding-assets.md`](docs/adding-assets.md): the one page to read before adding an asset or note (Chinese).
 - [`SNAPSHOT.md`](SNAPSHOT.md): auto-generated dump of the current data, rewritten 1.5 seconds after any write (do not edit).
 - The rest of `docs/` (`architecture.md`, `pitfalls.md`, `status-history.md`, `mail-page-requirements.md`) is internal documentation, in Chinese.
