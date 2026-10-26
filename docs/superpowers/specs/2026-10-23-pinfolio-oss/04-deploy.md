@@ -96,7 +96,17 @@ docker compose pull && docker compose up -d
 4. **compose 的端口默认绑 `127.0.0.1:7788`**（不是 `7788:7788`）：想让 Caddy 或外部反代接，就走 compose 内网；要给局域网直连再自己改绑定。
 5. **Caddy 用 profile 而不是默认起**：`docker compose --profile tls up -d`，避免不需要 TLS 的人多拉一个镜像。
 
-验收状态：本机 `pnpm build` + `node dist/server.js` 通过、`--prod` 依赖目录跑通；Linux（my-server）上 `pnpm install` / `pnpm build` / `--prod` 启动都通过，产物字节数与本机一致。**镜像没 build 过**——本机与服务器都没有 Docker，Dockerfile 属「按官方多阶段写法写好、待有 Docker 的机器首次验证」。
+验收状态：本机 `pnpm build` + `node dist/server.js` 通过、`--prod` 依赖目录跑通；Linux（my-server）上 `pnpm install` / `pnpm build` / `--prod` 启动都通过，产物字节数与本机一致。
+
+**镜像已在真机验证**（2026-10-26，Oracle 东京 `os`，aarch64，Docker 29.9.2）：
+`docker pull ghcr.io/528085390/pinfolio:v0.3.0` → 写一份 `compose-smoke.yml`（端口改 `127.0.0.1:7799`、`restart: "no"`、独立命名卷）→ `docker compose up -d`。
+结果：容器 6 秒后 `Up (healthy)`（HEALTHCHECK 生效）；`/api/health` 200、`/` 200、`/api/notes` 401、`/api/auth/state` `setupRequired:true`；
+`POST /api/auth/setup` 后带 cookie 取 `/api/notes` 200、`/api/auth/sessions` 能列出当前设备（到期时间 +30 天）；
+`POST /api/backup/run` 生成 `pinfolio-20261026-1747.tar.gz`（4459 B，成员 `manifest.json` / `pinboard.db` / `data/secret.key`）；
+`POST /api/backup/remote/config` 存下的口令是 `enc:v1:<iv>:<tag>:<ct>`，同时 `/data/secret.key` 自动生成且权限 `-rw-------`；
+`docker compose restart` 后实例 id 不变、旧 cookie 仍有效、备份文件还在。
+验证完 `down -v` + `rmi` 清理，服务器磁盘占用回到验证前。
+**仍未验证的**：`--profile tls` 的 Caddy 路径（需要域名）。
 
 ## 不做
 

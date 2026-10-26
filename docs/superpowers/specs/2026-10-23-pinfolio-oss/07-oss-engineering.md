@@ -94,7 +94,12 @@ Description、Topics（已配好）、About 挂截图、Discussions 先不开、
 7. **发布脚本拆成 `tools/release-notes.mjs`**：`extractSection(text, tag)` 是纯函数（可单测），workflow 里只负责把它接到 `action-gh-release`。
    tag 名含 `-` 时自动标 prerelease。
 
-**验收状态**：CI 的三个 job 是照着「本机能跑通」写的（`pnpm test`、`node tests/run.mjs --only=ci`、全量 e2e 都已在本机验证），
-但 GitHub 上第一次实际跑还没发生（workflow 文件这次才进仓库）。`docker` job 是镜像的**第一次真实构建**。
-1.0.0 门槛（鉴权 + 部署 + 备份齐全 + `docker compose up` 一把通）里，前三条已达成，最后一条等镜像构建验证过再算。
+**验收状态**（2026-10-26 补齐）：CI 的三个 job 已在 GitHub 上真跑过并全绿——`master` 与 `dev` 在同一个提交
+`3352880` 上 `test` / `e2e` / `docker` 三件套都是 success（`docker` job 是镜像的第一次真实构建）。
+两个 tag 都走完了 `release.yml`：`v0.2.0`、`v0.3.0`，Release 正文由 `tools/release-notes.mjs` 从 CHANGELOG 抽出，
+`ghcr.io/528085390/pinfolio` 的 `v0.3.0` 与 `latest` 都是 `linux/amd64` + `linux/arm64` 双架构。
+`docker compose up` 一把通已在真机验过（见 [04](04-deploy.md) 的验收状态）。
+
+1.0.0 门槛（鉴权 + 部署 + 备份齐全、文档齐、`docker compose up` 一把通）**四条现在都达成**，
+版本号停在 0.3.0 只是发版节奏的选择，不是能力缺口。
 

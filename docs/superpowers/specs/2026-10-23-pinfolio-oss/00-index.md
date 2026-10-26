@@ -1,7 +1,7 @@
 # pinfolio 开源化改造 · 总览
 
 - 日期：2026-10-23
-- 状态：分块设计，一块一 spec，按依赖顺序逐块实施
+- 状态：**八块全部实施完毕**（2026-10-26），v0.3.0 已发布
 - 分支：`feat/oss-architecture`
 - 说明：原先的单文件设计 `2026-10-23-pinfolio-oss-design.md` 已删除，内容拆成 8 个独立 spec；本文件只放全局信息与索引。
 
@@ -58,14 +58,14 @@
 
 | 编号 | 文件 | 内容 | 状态 | 依赖 |
 |---|---|---|---|---|
-| 01 | [01-migrations.md](01-migrations.md) | 迁移机制收敛 + `busy_timeout` | 待实施 | — |
-| 02 | [02-auth.md](02-auth.md) | 鉴权、会话、设备管理、防爆破、API token | 待实施 | 01 |
-| 03 | [03-secrets.md](03-secrets.md) | 静态加密（密钥落库、明文懒迁移） | 待实施 | 01、02 |
-| 04 | [04-deploy.md](04-deploy.md) | `HOST`、服务端打包、Docker、Caddy、升级 | 待实施 | 01、02、03、05 |
-| 05 | [05-backup.md](05-backup.md) | 自动备份、恢复、迁移前快照 | 待实施 | 01 |
-| 06 | [06-kuma-integration.md](06-kuma-integration.md) | Kuma 风味探测、未配置引导 | 待实施 | — |
-| 07 | [07-oss-engineering.md](07-oss-engineering.md) | CI、发布、文档、社区文件 | 待实施 | 02–06 |
-| 08 | [08-mobile.md](08-mobile.md) | 移动端适配 | **已实现** | — |
+| 01 | [01-migrations.md](01-migrations.md) | 迁移机制收敛 + `busy_timeout` | 已实施 | — |
+| 02 | [02-auth.md](02-auth.md) | 鉴权、会话、设备管理、防爆破、API token | 已实施 | 01 |
+| 03 | [03-secrets.md](03-secrets.md) | 静态加密（密钥落库、明文懒迁移） | 已实施 | 01、02 |
+| 04 | [04-deploy.md](04-deploy.md) | `HOST`、服务端打包、Docker、Caddy、升级 | 已实施 | 01、02、03、05 |
+| 05 | [05-backup.md](05-backup.md) | 自动备份、恢复、迁移前快照 | 已实施 | 01 |
+| 06 | [06-kuma-integration.md](06-kuma-integration.md) | Kuma 风味探测、未配置引导 | 已实施 | — |
+| 07 | [07-oss-engineering.md](07-oss-engineering.md) | CI、发布、文档、社区文件 | 已实施 | 02–06 |
+| 08 | [08-mobile.md](08-mobile.md) | 移动端适配 | 已实施 | — |
 
 ## 实施顺序
 
@@ -87,6 +87,13 @@
 
 ## 已完成项
 
-- **移动端适配**（08）：底部标签栏、溢出修复、iOS 输入框 16px、`100dvh`、safe-area；15/15 e2e 绿。
+- **01 迁移**：`user_version` 有序迁移（v1 基线 + v2 鉴权表），每步一个事务，`busy_timeout=5000`。
+- **02 鉴权**：`/setup` 首启设密码、scrypt、30 天滑动会话、设备列表与踢下线、防爆破、API token、`HOST` 变量。
+- **03 静态加密**：`PINBOARD_SECRET` 或 `data/secret.key` → HKDF → AES-256-GCM，`enc:v1:` 格式，明文懒迁移。
+- **04 部署**：esbuild 单文件 `dist/server.js`、多阶段 Dockerfile、`docker compose` + Caddy profile、升级文档。
+- **05 备份**：默认每天 03:00，本机 tar.gz + 远程 MySQL/PG 双目的地，迁移前快照，备份页第 7 页。
+- **06 观测**：Kuma 风味探测（fork / upstream）与「没配 Kuma」引导卡。
+- **07 工程化**：CI 三 job、`release.yml` 双架构镜像、AGPL-3.0、社区文件、中英双语文档、`v0.2.0` / `v0.3.0` 两次发布。
+- **08 移动端**：底部标签栏、溢出修复、iOS 输入框 16px、`100dvh`、safe-area；15/15 e2e 绿。
 - **仓库痕迹清理**：真实 IP / 主机名 / 用户名 / 本机路径全部换成占位符；`git filter-repo` 重写 63 个提交；删库重建后强推，旧对象已 422/404。
 - **仓库 About**：英文 description + 11 个 topics。
