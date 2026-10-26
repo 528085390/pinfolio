@@ -48,6 +48,9 @@ test('pickLocale：没有请求头就是中文（源码语言）', () => {
   assert.equal(pickLocale(), 'zh')
   assert.equal(pickLocale(null), 'zh')
   assert.equal(pickLocale(''), 'zh')
+  // Node 的 fetch（undici）默认就发 `accept-language: *`，那是「随便」，不是英文
+  assert.equal(pickLocale('*'), 'zh')
+  assert.equal(pickLocale('en-US, *;q=0.5'), 'en')
 })
 
 test('pickLocale：zh / en 基本判定', () => {

@@ -33,7 +33,8 @@ export function pickLocale(header?: string | null): Locale {
   let picked: Locale = 'zh'
   for (const part of header.split(',')) {
     const [tag, ...params] = part.trim().split(';')
-    if (!tag) continue
+    // `*` 是「随便什么语言」，Node 的 fetch 默认就发这个 —— 当成没偏好，回落源码语言
+    if (!tag || tag === '*') continue
     const qp = params.map((s) => s.trim()).find((s) => s.startsWith('q='))
     const q = qp ? Number(qp.slice(2)) : 1
     if (Number.isNaN(q)) continue

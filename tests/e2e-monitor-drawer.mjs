@@ -408,7 +408,8 @@ try {
     // ---- 暂停的观测项不给立即观测 ----
     await jcall('POST', '/monitors/' + mD.id + '/pause', {})
     const cPaused = await jcall('POST', '/monitors/' + mD.id + '/check', {})
-    ok('已暂停的观测项拒绝立即观测', cPaused.status === 400 && /暂停/.test(String(cPaused.data?.error)), cPaused.status + ' ' + cPaused.text.slice(0, 120))
+    // 服务端文案跟 Accept-Language 走，断言只看「拒绝了、理由跟暂停有关」，不锁语言
+    ok('已暂停的观测项拒绝立即观测', cPaused.status === 400 && /暂停|paused/i.test(String(cPaused.data?.error)), cPaused.status + ' ' + cPaused.text.slice(0, 120))
     await jcall('POST', '/monitors/' + mD.id + '/resume', {})
   }
 
