@@ -92,7 +92,7 @@
 - `server/kuma/beat.ts` —— 心跳纯函数：`toneChar()` 解析 `[绿|黄|红|灰]` 前缀、`toIso()` 把 Kuma 无时区 UTC 串转 ISO、`mapBeat()` 归一单条心跳；feed.ts 再导出。
 - `server/kuma/backup.ts` —— `refreshSnapshot()`（防抖 1.5 秒 spawn `kuma/tools/snapshot.cjs`）与 `backupDb()`（`VACUUM INTO`，留最近 5 份）。
 - `server/services/{parse,store,routes}.ts` —— **服务页的数据面**（2026-10-26 加，只读）：`parse.ts` 是纯函数 `parseServices()`（`DEPLOY_KINDS` 五类、`MAX_SERVERS` / `MAX_DEPLOYS` 上限、坏条目跳过、部署指向没登记的服务器或服务就丢、`url` 只认 http(s)、`monitors` 表只留正整数键 + 非空名字），`store.ts` 的 `loadServices()` 每次请求热读 `data/services.json`（`SERVICES_FILE` 可换路径，读不到就回四段空数据、不抛错），`routes.ts` 只有 `GET /api/services` 一个接口，**服务端不做过滤与探测**（两种视角都在前端本地聚合）。单测在 `tests/unit/services-parse.test.mts`。
-前端（Vite 7 + React 19 + 手写 CSS，无 UI 框架）：
+前端（Vite 8 + React 19 + 手写 CSS，无 UI 框架）：
 - `web/App.tsx` —— 组合层（2026-10-21 拆开）：`const s = useShell()` 拿外壳状态，渲染 `Sidebar` + `Topbar` + 按 `s.page` 选页面 + `AlertStack` + `CommandPalette`。**页面状态不在这里用 `useState`，而是 `useShell()` 内部的 `const [page, setPage] = usePage()` 从 URL 取**（2026-10-20 起）。
 - `web/app/` —— 应用外壳四件：
   - `useShell.ts` —— 全部外壳状态与副作用：页面（`usePage()`）、tags/fields/stats/mon/mailSum、`ready`/error、`refreshMeta()`、主题（localStorage `pinboard-theme` + `prefers-color-scheme` 监听 → `<html data-theme>`）、Ctrl/⌘+K 命令面板开关、`openAsset()`/`openMonitor()`（点异常通知：关通知 + 切观测台 + 定位 id）、`useMonitorAlerts()`。

@@ -5,9 +5,9 @@
       "name": "本机",
       "vendor": "Windows · 本机",
       "ip": "127.0.0.1",
-      "user": "huang",
+      "user": "you",
       "note": "127.0.0.1 上的服务都在这台",
-      "doc": "C:\\Users\\huang\\.dsh\\memory\\services.md",
+      "doc": "/srv/notes/services.md",
       "monitors": [
         1,
         2
@@ -19,7 +19,7 @@
       "vendor": "阿里云 · 北京",
       "ip": "203.0.113.10",
       "user": "admin",
-      "doc": "E:\\services\\srv1",
+      "doc": "/srv/srv1",
       "monitors": [
         5
       ]
@@ -85,8 +85,8 @@
     }
   ],
   "monitors": {
-    "1": "WorkBuddy 网关 API（7863）",
-    "2": "WorkBuddy 管理端（7864）",
+    "1": "示例网关 API（7863）",
+    "2": "示例管理端（7864）",
     "5": "srv1 / Nginx 站点",
     "6": "srv1 / 公网入口（443）"
   }

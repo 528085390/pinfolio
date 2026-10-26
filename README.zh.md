@@ -3,7 +3,7 @@
 [![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-395%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+[![Tests](https://img.shields.io/badge/unit%20tests-412%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
 [![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **中文** · [English](README.md)
@@ -14,18 +14,29 @@
 
 - 仓库：<https://github.com/528085390/pinfolio> —— 自用小工具，公开出来给需要的人参考，没发布到 npm。
 - 运行方式：`docker compose up -d`（镜像 `ghcr.io/528085390/pinfolio`，amd64 + arm64），或裸机 `pnpm install && pnpm build && node dist/server.js`
-- 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 7 + React 19 + 手写 CSS
+- 技术栈：Node 24 + TypeScript + Hono + `node:sqlite`；前端 Vite 8 + React 19 + 手写 CSS
 - 数据：`data/pinboard.db` 加 `data/secret.key` —— 备份就是这一个目录（[怎么恢复](docs/backup-restore.md)）
 
 ## 截图
 
-不随仓库发布：每张图都会带上作者真实的便签、邮箱和机器名。自己跑起来拍：
+下面全是**内置的示例数据**（设置页 → 「写入示例数据」，空库时也可以 `POST /api/seed`），没有作者的真实便签、邮箱和机器名：
 
-```powershell
-node tools/screenshots/shots.mjs      # 便签 / 资产 / 设置 / 命令面板 / 暗色
-```
+| 便签 | 资产台账 |
+|---|---|
+| ![便签](docs/screenshots/notes.png) | ![资产台账](docs/screenshots/assets.png) |
 
-产物写 `tmp/shot-*.png`（已 gitignore）。
+| 服务（服务器 ↔ 部署关系） | 命令面板（Ctrl / ⌘ + K） |
+|---|---|
+| ![服务](docs/screenshots/services.png) | ![命令面板](docs/screenshots/palette.png) |
+
+暗色模式，以及 390 px 宽的手机屏：
+
+| 便签（暗色） | 手机上 |
+|---|---|
+| ![暗色便签](docs/screenshots/notes-dark.png) | ![手机上的便签](docs/screenshots/notes-mobile.png) |
+
+想拍自己那份：`node tools/screenshots/shots.mjs` 写 `tmp/shot-*.png`（已 gitignore）；
+上面这几张由 `tools/screenshots/demo-shots.mjs` 在灌了示例数据的临时实例上重新生成。
 
 ## 功能
 
@@ -161,7 +172,7 @@ pnpm dev        # 7788 跑 API（tsx watch）+ 5273 跑 Vite，/api 走代理
 pnpm build      # 重新构建前端到 dist/web —— 改完前端必须跑
 pnpm typecheck  # tsc --noEmit
 pnpm start      # 生产模式，不是 watch：改完后端要重启
-pnpm test       # typecheck + 395 条单测（不需要服务在跑）
+pnpm test       # typecheck + 412 条单测（不需要服务在跑）
 pnpm test:e2e   # core + monitor 套件（需要 7788 和 Kuma 3001）
 node tests/run.mjs --only=ci   # CI 跑的就是这个：不需要 Kuma / 邮箱 / 采集端
 pnpm test:mail  # 邮件套件，对着隔离实例跑

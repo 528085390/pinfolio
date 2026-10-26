@@ -3,7 +3,7 @@
 [![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-395%20passing-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/unit%20tests-412%20passing-brightgreen)](#development)
 [![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **English** · [中文](README.zh.md)
@@ -14,18 +14,28 @@ One Node process, one SQLite file, one password. No cloud, no external services:
 
 - Repo: <https://github.com/528085390/pinfolio> — a personal tool, published in case someone finds it useful. Not on npm.
 - Run it: `docker compose up -d` (image `ghcr.io/528085390/pinfolio`, amd64 + arm64), or bare metal with `pnpm install && pnpm build && node dist/server.js`
-- Stack: Node 24 + TypeScript + Hono + `node:sqlite`; Vite 7 + React 19 + hand-written CSS
+- Stack: Node 24 + TypeScript + Hono + `node:sqlite`; Vite 8 + React 19 + hand-written CSS
 - Data: `data/pinboard.db` plus `data/secret.key` — one directory to back up ([restoring](docs/backup-restore.md))
 
 ## Screenshots
 
-Not shipped with the repo: every page would show the author's real notes, mailboxes and hostnames. Run it yourself and take your own:
+Everything below is the built-in sample data (**Settings → Write sample data**, also `POST /api/seed` on an empty database) — no real notes, mailboxes or hostnames:
 
-```powershell
-node tools/screenshots/shots.mjs      # notes / assets / settings / command palette / dark mode
-```
+| Notes | Asset inventory |
+|---|---|
+| ![Notes](docs/screenshots/notes.png) | ![Assets](docs/screenshots/assets.png) |
 
-Output goes to `tmp/shot-*.png` (gitignored).
+| Service map (server ↔ deployment) | Command palette (Ctrl / ⌘ + K) |
+|---|---|
+| ![Service map](docs/screenshots/services.png) | ![Command palette](docs/screenshots/palette.png) |
+
+Dark mode, and the same app at 390 px:
+
+| Notes, dark | On a phone |
+|---|---|
+| ![Notes in dark mode](docs/screenshots/notes-dark.png) | ![Notes on a phone](docs/screenshots/notes-mobile.png) |
+
+Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `tmp/shot-*.png` (gitignored); `tools/screenshots/demo-shots.mjs` regenerates the images above from a seeded throwaway instance.
 
 ## Features
 
@@ -161,7 +171,7 @@ pnpm dev        # API on 7788 (tsx watch) + Vite on 5273, /api proxied
 pnpm build      # rebuild the frontend into dist/web — required after frontend changes
 pnpm typecheck  # tsc --noEmit
 pnpm start      # production mode, not watch: restart after backend changes
-pnpm test       # typecheck + 395 unit tests (no running service needed)
+pnpm test       # typecheck + 412 unit tests (no running service needed)
 pnpm test:e2e   # core + monitor suites (needs 7788 and Kuma on 3001)
 node tests/run.mjs --only=ci   # what CI runs: no Kuma, no mail server, no metrics endpoint
 pnpm test:mail  # mail suite, against an isolated instance

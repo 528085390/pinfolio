@@ -434,3 +434,15 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 ② **Immich 挪家**：`quick-links.json` 改成空数组 `[]`（`QuickLinks.tsx` 空数组直接 `return null`，观测页整块消失），Immich 作为 os 上的一条部署写进 `data/services.json`（`/srv/immich`、docker compose 4 个容器、2283、`url: http://168.110.34.103:2283`、`note` 写明不参与观测）。
 
 验证：`pnpm typecheck` 0 错误、`pnpm test:unit` **412/412**（新增 `tests/unit/services-parse.test.mts` 6 例、删掉两个样例自洽用例、加 `monitorLabel` 1 例）、`pnpm build` 通过（dist/web JS 492.29 kB / CSS 68.93 kB、dist/server.js 209.5 kB）。隔离实例（`tmp/svc-preview.mjs`，7791）实测 `GET /api/services` = servers 7 / services 24 / deploys 38 / monitors 24；Playwright：统计行「7 台服务器 · 24 个服务 · 38 条部署 · 16 条挂了观测（共 24 项） · 7 条能打开管理页」、点「Immich 图库」→ `window.open('http://168.110.34.103:2283')`、两视角 `.content` 都是 842px 一屏、`/monitors` 的 `.quick-card` 与 `.quick-head` 计数 0、控制台 0 报错。文档同步：`api.md` / `api.zh.md` 加 `GET /services`，`architecture.md` 加 `data/services.json` 与 `server/services/*`、改写 `web/pages/services/` 与 `ServicesPage.tsx`，`deploy.md` 与 `.env.example` 加 `SERVICES_FILE`，`features.zh.md` / `features.md` 新增「服务」章节并把主机 chip 段改写成「主机页只讲主机」，`CHANGELOG.md` 补「服务（新页面 · 第 8 页）」并把「当前放了一条 Immich 图库」改掉，`AGENTS.md` 摘要改八页、纯函数 / 路由 / 页面 / 前端数据 / 单测计数一并更新。
+
+**已完成（2026-10-26，v0.3.0 发版：README 截图 + 去个人痕迹）**：用户选「发 v0.3.0 + 把截图放进 README」。此前 README 明说「截图不随仓库发布」，因为每页都带作者真实数据。
+
+① **截图全部改成示例数据出的**：临时实例（`PORT=7799` + `PINBOARD_DATA=tmp/demo/data` + `PINBOARD_PASSWORD` + `SERVICES_FILE=services.example.json`）→ `POST /api/seed` 灌内置示例（4 条便签 + 4 件资产）→ 新脚本 `tools/screenshots/demo-shots.mjs` 截 8 张（1440×900 @2x；手机那页 390×844 @3x）→ PowerShell System.Drawing 降采样到 1x → `docs/screenshots/` 共 8 张、111K–259K。**seed 代码一个字没改**（怕动 e2e-tagbar 依赖的标签集合）。
+
+② **README 两版换掉 Screenshots 段**：3 张 markdown 表格每行两图（notes|assets、services|palette、notes-dark|notes-mobile），表下写明「来自内置示例数据、没有真实便签/邮箱/机器名」，以及想拍自己的跑哪个脚本。
+
+③ **去个人痕迹**：`services.example.json` 的 `huang`→`you`、`C:\\Users\\huang\\.dsh\\memory\\services.md`→`/srv/notes/services.md`、`E:\\services\\srv1`→`/srv/srv1`、WorkBuddy 两个服务名→「示例网关 API / 示例管理端」。
+
+④ **版本与文档**：`package.json` 0.2.0→0.3.0；`CHANGELOG.md` 的 `[未发布]` 落成 `[0.3.0] - 2026-10-26` 并加 `### 文档` 段；顺手修掉过期事实——徽章单测 395→412（两份 README）、`Vite 7`→`Vite 8`（README ×2 + `docs/architecture.md:95`）、`pnpm test` 注释 395→412；`AGENTS.md:45`/`:105` 的「截图不随仓库发布」改成两个脚本各拍各的。
+
+验证：`pnpm test` typecheck 0 错误 + **412/412** 单测 + 7 片段全过；`node tests/run.mjs` **15/15 套 e2e 通过，用时 166s**（monitor-drawer 88 条、e2e-alert ALL PASSED；mail 套件未跑，本版没动邮件代码）；`pnpm build` 通过（dist/server.js 227.0 kB、dist/web JS 508.86 kB / CSS 68.93 kB，rolldown 提示 >500 kB 仅警告）。

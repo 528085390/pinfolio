@@ -42,7 +42,7 @@ updated: 2026-10-26
 | 样式 | `web/styles/`（14 片，`index.css` 定层叠顺序） | 改样式先看 `index.css` 的 `@import` 顺序 |
 | 测试 | `tests/`（`unit/` 412 条单测 + 15 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md`；`node tests/run.mjs --only=ci` 是 CI 那一档（core + 引导卡，**不需要 Kuma / 邮箱 / 采集端**） |
 | 工程化 | `LICENSE`（AGPL-3.0-or-later）/ `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `SECURITY.md` / `.github/`（CI、release、dependabot、issue 与 PR 模板）/ `tools/ci-chrome-path.mjs` + `tools/release-notes.mjs` / `docs/{deploy,upgrade,faq,release,backup-restore}.md` | CI 三个 job（test / e2e `--only=ci` / docker 只构建不推）；推 `v*.*.*` tag 出双架构镜像并建 Release（正文从 CHANGELOG 抽） |
-| 工具 | `tools/screenshots/`、`tools/node-metrics/`（另有本地私有的 `seed-assets.mjs`、`streak-panel-trigger.cjs`，不进版本库） | 截图脚本（须在项目根跑，产物进 `tmp/`）、**服务器的采集端**（`build-install.mjs` 打成单文件安装器，托管在 `<站点根>/nm/`；安装/排错/回滚见该目录 `README.md`） |
+| 工具 | `tools/screenshots/`、`tools/node-metrics/`（另有本地私有的 `seed-assets.mjs`、`streak-panel-trigger.cjs`，不进版本库） | 两个截图脚本（都须在项目根跑）：`shots.mjs` 拍本机真实数据 → `tmp/`；`demo-shots.mjs` 拍灌了示例数据的隔离实例 → `docs/screenshots/`（README 那 7 张就是它出的，`BASE`/`PASSWORD` 环境变量指定目标，只许 127.0.0.1）。另含**服务器的采集端**（`build-install.mjs` 打成单文件安装器，托管在 `<站点根>/nm/`；安装/排错/回滚见该目录 `README.md`） |
 
 ## 怎么用
 双击 `start.cmd`（后台隐藏启动；已在运行就只开浏览器），停止双击 `stop.cmd`；或手动：
@@ -102,7 +102,7 @@ pnpm typecheck        # tsc --noEmit
 「接入这台机器」的命令由 `GET /api/hosts/:id/onboard` 生成（**token 只在这一个接口出现**，`/hosts` 列表与 `SNAPSHOT.md` 里都没有）；安装器托管地址优先读 `METRICS_INSTALL_URL`，其次 `PUBLIC_URL`，都没有就按请求来源推 `<origin>/nm/node-metrics-install.sh`；换托管机改环境变量即可。加主机时顺带建的观测项走 kuma 仓库的 CLI（`KUMA_CLI` 可覆盖路径，默认 `../kuma/tools/kuma-monitor.cjs`），所以 pinboard 与 kuma 的相对位置变了要设这个环境变量，否则观测项建不出来（主机照样能加）。
 
 ## 可清理项
-- `tmp/` —— 只剩运行期日志与截图，可整目录删。测试在 `tests/`（用法见 `tests/README.md`），截图脚本在 `tools/screenshots/`，一次性数据脚本 `tools/seed-assets.mjs`；截图不随仓库发布（页面里是本机真实数据）。
+- `tmp/` —— 只剩运行期日志与截图，可整目录删。测试在 `tests/`（用法见 `tests/README.md`），截图脚本在 `tools/screenshots/`（`shots.mjs` 拍真实数据进 `tmp/`，不进版本库；`demo-shots.mjs` 拍示例数据进 `docs/screenshots/`，随仓库发布），一次性数据脚本 `tools/seed-assets.mjs`。
 - `logs/` —— 运行日志，可随时清空；已进 `.gitignore`（`*.log`）。
 - `dist/` —— 构建产物，`pnpm build` 可重建。
 - `data/` —— 个人数据，删掉等于清库（谨慎）。
