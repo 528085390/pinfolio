@@ -75,7 +75,7 @@ The hosts page shows resource usage and service state for six servers. **The dat
 
 **Relationships only — nothing is probed here**: no status, no heartbeats, no uptime, and no Kuma monitor is created. The page answers two questions — what runs on this machine, and which machines does this service live on.
 
-- **The data lives in `data/services.json`** (`SERVICES_FILE` overrides the path) and is re-read on every request, so an edit shows up on reload with no restart. A missing or broken file renders an empty page saying nothing is registered yet instead of an error. The repo ships `services.example.json`; **copy it to `data/services.json` and edit that**:
+- **The data lives in `data/services.json`** (`SERVICES_FILE` overrides the path) and is re-read on every request, so an edit shows up on reload with no restart. A missing or broken file renders an empty page saying nothing is registered yet instead of an error. The repo ships `services.example.json`; **copy it to `data/services.json` and edit that** (or add entries from the page — see below):
 
   ```json
   {
@@ -87,6 +87,7 @@ The hosts page shows resource usage and service state for six servers. **The dat
   ```
 
   Four sections, one job each: `servers` are the machines (`monitors` are host-level monitor ids shown at the foot of the card), `services` are projects / services / sites / scripts / tasks (`kind` is one of `project` / `service` / `site` / `script` / `task`), `deploys` say what runs where (`path` / `runtime` / `port` / `monitor` / `url` / `note` are all optional), and `monitors` is only a monitor id → short-name table for display (unknown ids fall back to `观测项 N`; nothing is fetched from Kuma).
+- **Add / edit / delete from the page** (added 2026-10-26): the `+` / pencil / bin at the top right of a machine card, the same three on every row of the by-service view, and pencil / bin on every row of the detailed view all open a form drawer (id typed by hand, monitors picked from the existing set, management `url` must be `http(s)://`). Before each write the previous file is copied to `data/services-backups/services-YYYYMMDD-HHMMSS.json` (last 10 kept). Deleting a machine or a service requires typing its id and is **refused while it still has deployments** — the dialog lists them so you delete those first. Services that are registered but not deployed yet still show up (labelled "还没部署"); hit `+` on the row to place them on a machine.
 - **Two views**: "by server" is one card per machine listing that machine's deployments; "by service" is one row per service with the machines it lives on (clicking a machine jumps back and flashes that card). The stats line reads N servers · N services · N deploys · N monitored · N with a management page.
 - **Compact / detailed**: compact is the default and fits every deployment on one screen (paths and start commands live in the tooltip); "detailed" is a table with a header row and fixed column widths (columns never drift). The choice is remembered in the browser.
 - **Clicking a name does one of three things**: it has a monitor → jump to the observatory and flash that card; no monitor but a `url` → open the management page in a new tab; neither → dimmed text that does nothing. Search covers service name, server name, path, port, note and management URL.

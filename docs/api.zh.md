@@ -44,6 +44,12 @@
 | DELETE | `/hosts/:id?confirm=<id>&purge=1` | 删一台机 —— id 必须原样输对。`purge=1` 连带删掉它的 `host_metrics` 历史、加主机时顺带建的观测项（记在 `data/metrics.json` 的 `monitors` 里）、空出来的分组，以及 `host-services.json` 里它的映射；回包加 `{ purged, monitorsDeleted, monitorsFailed }`。没有这台机回 404 |
 | POST | `/hosts/refresh` | 立刻把六台机拉一遍（绕过 4 分钟最小间隔）；要求 `Content-Type: application/json`，否则 415 |
 | GET | `/services` | 服务页的部署关系：`{ servers, services, deploys, monitors, file }`，读 `data/services.json`（`SERVICES_FILE` 可换路径），**每次请求热读**，改完刷新页面即生效。`servers` 哪几台机、`services` 哪些项目 / 服务 / 站点 / 脚本 / 任务、`deploys` 谁部署在谁上面（路径、启动方式、端口、`monitor` 观测项 id、可选 `url` 管理页）、`monitors` 是观测项 id → 短名（只用于显示，没登记的退回「观测项 N」）。坏条目跳过、指向没登记的服务器或服务的部署丢掉；`file` 回实际读的路径。**只登记关系，不探测、不产生任何 Kuma 检查** |
+| POST | `/services/servers` | 加一台服务器：`{ id, name, vendor?, ip?, user?, note?, doc?, monitors?: [id] }`，可另带 `monitorNames`（`{ "24": "抖音续火花（每日打卡）" }`，一并写进文件的 `monitors` 表，文件自己就能说明 id 是啥）。`id` 限 1–32 位 `[a-z0-9._-]`、以字母或数字开头，不分大小写去重（重名 409）；校验不过 400。**回整份 payload**，页面拿到直接替换，不用再拉一次 |
+| PATCH/DELETE | `/services/servers/:id` | 改（只改传进来的字段；改 id 会连带改 `deploys` 里的引用）/ 删（`?confirm=<id>` 手输确认）。**这台机上还有部署就拒绝**，错误里列出挡着的部署 |
+| POST | `/services/catalog` | 加一个服务（JSON 里的 `services` 段，路径用 `catalog` 避开 `/services/services`）：`{ id, name, kind?, summary?, doc? }`。`kind` 只能是 `project` / `service` / `site` / `script` / `task`，不写按 `service` |
+| PATCH/DELETE | `/services/catalog/:id` | 改 / 删一个服务（删除同样要 `?confirm=<id>`）。改 id 会连带改部署引用；**还有部署挂着就拒绝删除** |
+| POST | `/services/deploys` | 加一条部署：`{ server, service, path, runtime?, port?, monitor?: [id], url?, note? }`。`server` / `service` 必须已登记，同一对 `server+service` 只能有一条（重复 409）；`path` 必填，`url` 只收 `http(s)://`。同样可带 `monitorNames` |
+| PATCH/DELETE | `/services/deploys/:key` | 改 / 删一条部署，`:key` 是 `server:service`（`%3A` 也认）。删除要 `?confirm=<key>`。改到一对已经存在的组合会被拒。**写接口都要求 `Content-Type: application/json`（否则 415）；每次写盘前先把旧文件备份到 `data/services-backups/services-YYYYMMDD-HHMMSS.json`（留最近 10 份），写回按解析规则规整一遍（坏条目会被清掉），全程不碰 Kuma** |
 | GET | `/backup` | 备份状态：`{ local: { dir, keep, files: [{ name, size, mtime }], last, lastOkAt, lastError }, remote: { type, host, port, database, user, table, hasPassword, rows, last, lastError } }` |
 | GET | `/backup/local/:name/manifest` | 读包里的 `manifest.json`（成员名 / 大小 / sha256 / 生成时间 / 实例 id） |
 | GET | `/backup/local/:name/download` | 下载一个包（`Content-Disposition` 带文件名） |

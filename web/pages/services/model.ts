@@ -101,7 +101,10 @@ export function groupByServer(servers: ServerRec[], services: ServiceRec[], depl
   }))
 }
 
-/** 服务视角：每个服务一张卡，行 = 它部署在哪几台机上。没有部署的服务不出现。 */
+/**
+ * 服务视角：一行一个服务，行 = 它部署在哪几台机上。
+ * 服务清单里登记过但还没部署的也要列出来（0 台），否则新建完就找不到了。
+ */
 export function groupByService(services: ServiceRec[], servers: ServerRec[], deploys: DeployRec[]): ServiceGroup[] {
   const srvById = new Map(servers.map((s) => [s.id, s]))
   const byService = new Map<string, ServiceRow[]>()
@@ -114,8 +117,7 @@ export function groupByService(services: ServiceRec[], servers: ServerRec[], dep
   }
   const out: ServiceGroup[] = []
   for (const service of services) {
-    const rows = byService.get(service.id)
-    if (!rows || rows.length === 0) continue
+    const rows = byService.get(service.id) ?? []
     out.push({ service, rows: rows.slice().sort((a, b) => a.srv.name.localeCompare(b.srv.name, 'zh')) })
   }
   return out
@@ -178,14 +180,12 @@ export function deployTitle(rec: DeployRec, monitorLabels: string[] = []): strin
   return lines.join('\n')
 }
 
-/** 页头那行数字。服务数只算「真的部署过」的。 */
+/** 页头那行数字。服务数 = 服务清单里的条数（含还没部署的）。 */
 export function summaryOf(servers: ServerRec[], services: ServiceRec[], deploys: DeployRec[]): Summary {
   const ids = new Set<number>()
-  const deployed = new Set<string>()
   let linked = 0
   let manage = 0
   for (const d of deploys) {
-    deployed.add(d.service)
     const list = d.monitor ?? []
     if (list.length) linked++
     if (d.url) manage++
@@ -194,7 +194,7 @@ export function summaryOf(servers: ServerRec[], services: ServiceRec[], deploys:
   for (const s of servers) for (const id of s.monitors ?? []) ids.add(id)
   return {
     servers: servers.length,
-    services: services.filter((s) => deployed.has(s.id)).length,
+    services: services.length,
     deploys: deploys.length,
     linked,
     manage,

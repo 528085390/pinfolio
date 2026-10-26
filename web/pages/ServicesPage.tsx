@@ -1,8 +1,8 @@
-import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeftRight, Boxes, ExternalLink, LayoutGrid, List, Search, Server } from 'lucide-react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ArrowLeftRight, Boxes, ExternalLink, LayoutGrid, List, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react'
 import { Button, Empty, Spinner } from '../components/ui'
 import { cx } from '../lib/cx'
-import { api, type ServicesPayload } from '../lib/api'
+import { api, type DeployRec, type ServerRec, type ServiceRec, type ServicesPayload } from '../lib/api'
 import {
   KIND_LABEL,
   deployTarget,
@@ -19,8 +19,26 @@ import {
   type ServiceGroup,
   type ServiceRow,
 } from './services/model'
+import { DeleteDialog, DeployDrawer, ServerDrawer, ServiceDrawer } from './services/drawers'
 
 type View = 'server' | 'service'
+
+/** 增删改的入口：这一页就是 data/services.json 的编辑器，所有按钮都从这里走 */
+export type OpsCtx = {
+  addDeploy: (preset: { server?: string; service?: string }) => void
+  editDeploy: (rec: DeployRec) => void
+  delDeploy: (rec: DeployRec) => void
+  editServer: (rec: ServerRec) => void
+  delServer: (rec: ServerRec) => void
+  editService: (rec: ServiceRec) => void
+  delService: (rec: ServiceRec) => void
+}
+
+/** 删除确认框当前要删的那一条 */
+type DelTarget =
+  | { kind: 'server'; id: string }
+  | { kind: 'service'; id: string }
+  | { kind: 'deploy'; server: string; service: string }
 
 /** 观测项显示名：页面从 data/services.json 的 monitors 表建一个查表函数，子组件用 context 取。 */
 const MonNames = createContext<(id: number) => string>((id) => '观测项 ' + id)
@@ -117,8 +135,9 @@ function RunCell({ row }: { row: ServerRow | ServiceRow }) {
 }
 
 /** 详细视图的一行（服务器视角）：种类 / 服务名 / 路径 / 启动 · 端口 / 观测 + 换视角 */
-function ServerDeployRow({ row, onOpen, onService }: {
+function ServerDeployRow({ row, ops, onOpen, onService }: {
   row: ServerRow
+  ops: OpsCtx
   onOpen?: (id: number) => void
   onService: (cardId: string) => void
 }) {
@@ -132,21 +151,30 @@ function ServerDeployRow({ row, onOpen, onService }: {
         <MonChips ids={row.monitor} onOpen={onOpen} quiet={!!row.url} />
         {row.url ? <ManageLink url={row.url} /> : null}
       </span>
-      <button
-        type="button"
-        className="svc-swap"
-        title={'换到服务视角：看「' + row.svc.name + '」都部署在哪几台'}
-        onClick={() => onService('svc-card-svc-' + row.service)}
-      >
-        <ArrowLeftRight size={12} />
-      </button>
+      <span className="svc-row-ops">
+        <button type="button" className="svc-op" title="改这条部署" onClick={() => ops.editDeploy(row)}>
+          <Pencil size={11} />
+        </button>
+        <button type="button" className="svc-op" title="删这条部署" onClick={() => ops.delDeploy(row)}>
+          <Trash2 size={11} />
+        </button>
+        <button
+          type="button"
+          className="svc-swap"
+          title={'换到服务视角：看「' + row.svc.name + '」都部署在哪几台'}
+          onClick={() => onService('svc-card-svc-' + row.service)}
+        >
+          <ArrowLeftRight size={12} />
+        </button>
+      </span>
     </li>
   )
 }
 
 /** 详细视图的一行（服务视角）：服务器名 / 路径 / 启动 · 端口 / 观测 */
-function ServiceDeployRow({ row, onOpen, onServer }: {
+function ServiceDeployRow({ row, ops, onOpen, onServer }: {
   row: ServiceRow
+  ops: OpsCtx
   onOpen?: (id: number) => void
   onServer: (cardId: string) => void
 }) {
@@ -164,14 +192,22 @@ function ServiceDeployRow({ row, onOpen, onServer }: {
         <MonChips ids={row.monitor} onOpen={onOpen} quiet={!!row.url} />
         {row.url ? <ManageLink url={row.url} /> : null}
       </span>
-      <button
-        type="button"
-        className="svc-swap"
-        title={'换到服务器视角：看「' + row.srv.name + '」上都部署了什么'}
-        onClick={() => onServer('svc-card-srv-' + row.server)}
-      >
-        <ArrowLeftRight size={12} />
-      </button>
+      <span className="svc-row-ops">
+        <button type="button" className="svc-op" title="改这条部署" onClick={() => ops.editDeploy(row)}>
+          <Pencil size={11} />
+        </button>
+        <button type="button" className="svc-op" title="删这条部署" onClick={() => ops.delDeploy(row)}>
+          <Trash2 size={11} />
+        </button>
+        <button
+          type="button"
+          className="svc-swap"
+          title={'换到服务器视角：看「' + row.srv.name + '」上都部署了什么'}
+          onClick={() => onServer('svc-card-srv-' + row.server)}
+        >
+          <ArrowLeftRight size={12} />
+        </button>
+      </span>
     </li>
   )
 }
@@ -186,6 +222,7 @@ function MiniRow({
   port,
   target,
   detail,
+  ops,
   onOpen,
 }: {
   dot?: string
@@ -194,6 +231,8 @@ function MiniRow({
   port?: string
   target: DeployTarget | null
   detail: string
+  /** 行尾的改 / 删按钮（悬停才显形） */
+  ops?: ReactNode
   onOpen?: (id: number) => void
 }) {
   const mon = useContext(MonNames)
@@ -225,13 +264,15 @@ function MiniRow({
       {dot ? <span className={cx('svc-dot', dot)} /> : null}
       <span className={cx('svc-mini-name', linked ? 'is-link' : 'is-static')} title={labelTitle}>{label}</span>
       {port ? <span className="svc-mini-port">{port}</span> : null}
+      {ops ? <span className="svc-mini-ops">{ops}</span> : null}
     </li>
   )
 }
 
-function MiniServerCard({ g, flash, onOpen }: {
+function MiniServerCard({ g, flash, ops, onOpen }: {
   g: ServerGroup
   flash: string
+  ops: OpsCtx
   onOpen?: (id: number) => void
 }) {
   const cardId = 'svc-card-srv-' + g.server.id
@@ -242,6 +283,22 @@ function MiniServerCard({ g, flash, onOpen }: {
         <h3 className="svc-mini-title">{g.server.name}</h3>
         <span className="svc-mini-ip">{g.server.ip}</span>
         <span className="svc-mini-count">{g.rows.length}</span>
+        <span className="svc-mini-ops">
+          <button
+            type="button"
+            className="svc-op"
+            title={'在「' + g.server.name + '」上加一条部署'}
+            onClick={() => ops.addDeploy({ server: g.server.id })}
+          >
+            <Plus size={12} />
+          </button>
+          <button type="button" className="svc-op" title="改这台服务器" onClick={() => ops.editServer(g.server)}>
+            <Pencil size={11} />
+          </button>
+          <button type="button" className="svc-op" title="删这台服务器" onClick={() => ops.delServer(g.server)}>
+            <Trash2 size={11} />
+          </button>
+        </span>
       </header>
       {g.rows.length === 0 ? <p className="svc-mini-empty">还没登记部署</p> : null}
       <ul className="svc-mini-rows">
@@ -255,6 +312,32 @@ function MiniServerCard({ g, flash, onOpen }: {
             target={deployTarget(row)}
             detail={deployTitle(row, (row.monitor ?? []).map(mon))}
             onOpen={onOpen}
+            ops={
+              <>
+                <button
+                  type="button"
+                  className="svc-op"
+                  title="改这条部署"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    ops.editDeploy(row)
+                  }}
+                >
+                  <Pencil size={11} />
+                </button>
+                <button
+                  type="button"
+                  className="svc-op"
+                  title="删这条部署"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    ops.delDeploy(row)
+                  }}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </>
+            }
           />
         ))}
       </ul>
@@ -279,9 +362,10 @@ function MiniServerCard({ g, flash, onOpen }: {
 
 /** 服务视角的一行：一个服务一行，右边直接排出它部署在哪几台机上（带端口）。
     服务名 → 观测；机名小标签 → 换到服务器视角闪那台机。23 个服务一屏排得下，字还能放大。 */
-function ServiceListRow({ g, flash, onOpen, onJump }: {
+function ServiceListRow({ g, flash, ops, onOpen, onJump }: {
   g: ServiceGroup
   flash: string
+  ops: OpsCtx
   onOpen?: (id: number) => void
   onJump: (view: View, cardId: string) => void
 }) {
@@ -290,7 +374,7 @@ function ServiceListRow({ g, flash, onOpen, onJump }: {
   // 服务视角的名字只有一个入口：优先取第一条挂了观测/有管理页的部署
   const target = g.rows.map(deployTarget).find((t) => t !== null) ?? null
   const tip = !target
-    ? g.service.summary + '（没挂观测也没有管理页，点了不跳）'
+    ? g.service.summary + (g.rows.length ? '（没挂观测也没有管理页，点了不跳）' : '（还没部署到任何服务器）')
     : target.kind === 'monitor'
       ? g.service.summary + '（点一下去观测台看「' + mon(target.id) + '」）'
       : g.service.summary + '（点一下打开管理页 ' + target.url + '）'
@@ -311,8 +395,9 @@ function ServiceListRow({ g, flash, onOpen, onJump }: {
           {g.service.name}
         </span>
       )}
-      <span className="svc-srow-count">{g.rows.length} 台</span>
+      <span className="svc-srow-count">{g.rows.length ? g.rows.length + ' 台' : '还没部署'}</span>
       <span className="svc-srow-srvs">
+        {g.rows.length === 0 ? <span className="svc-srow-none">点右边 + 挑一台服务器</span> : null}
         {g.rows.map((row, i) => (
           <Fragment key={row.server}>
             {i > 0 ? <span className="svc-srow-sep">·</span> : null}
@@ -327,6 +412,17 @@ function ServiceListRow({ g, flash, onOpen, onJump }: {
             </button>
           </Fragment>
         ))}
+      </span>
+      <span className="svc-row-ops">
+        <button type="button" className="svc-op" title={'给「' + g.service.name + '」再加一条部署'} onClick={() => ops.addDeploy({ service: g.service.id })}>
+          <Plus size={12} />
+        </button>
+        <button type="button" className="svc-op" title="改这个服务" onClick={() => ops.editService(g.service)}>
+          <Pencil size={11} />
+        </button>
+        <button type="button" className="svc-op" title="删这个服务" onClick={() => ops.delService(g.service)}>
+          <Trash2 size={11} />
+        </button>
       </span>
     </li>
   )
@@ -344,6 +440,15 @@ export function ServicesPage({ onOpenMonitor }: {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const timer = useRef<number | undefined>(undefined)
+  // 三个抽屉 + 一个删除确认框：这一页就是 data/services.json 的编辑器
+  const [srvEdit, setSrvEdit] = useState<{ open: boolean; rec: ServerRec | null }>({ open: false, rec: null })
+  const [svcEdit, setSvcEdit] = useState<{ open: boolean; rec: ServiceRec | null }>({ open: false, rec: null })
+  const [depEdit, setDepEdit] = useState<{
+    open: boolean
+    rec: DeployRec | null
+    preset: { server?: string; service?: string } | null
+  }>({ open: false, rec: null, preset: null })
+  const [del, setDel] = useState<DelTarget | null>(null)
 
   // 数据只有一个来源：data/services.json（GET /api/services 每次热读）。进页面拉一次，改完刷新页面即生效。
   const load = useCallback(async () => {
@@ -391,6 +496,65 @@ export function ServicesPage({ onOpenMonitor }: {
     saveDense(next)
   }
 
+  // 所有编辑入口：每个抽屉 / 确认框都只改自己的 state，保存时服务端回整份 payload 直接覆盖
+  const ops = useMemo<OpsCtx>(
+    () => ({
+      addDeploy: (preset) => setDepEdit({ open: true, rec: null, preset }),
+      editDeploy: (rec) => setDepEdit({ open: true, rec, preset: null }),
+      delDeploy: (rec) => setDel({ kind: 'deploy', server: rec.server, service: rec.service }),
+      editServer: (rec) => setSrvEdit({ open: true, rec }),
+      delServer: (rec) => setDel({ kind: 'server', id: rec.id }),
+      editService: (rec) => setSvcEdit({ open: true, rec }),
+      delService: (rec) => setDel({ kind: 'service', id: rec.id }),
+    }),
+    [],
+  )
+
+  // 删除确认框要显示什么、挡不挡（有部署挂在下面就不许删，先删部署）
+  const delInfo = useMemo(() => {
+    if (!del) return null
+    if (del.kind === 'server') {
+      const s = srvRecs.find((x) => x.id === del.id)
+      if (!s) return null
+      const on = deploys.filter((d) => d.server === del.id)
+      return {
+        title: '删除服务器：' + s.name,
+        need: s.id,
+        warning: '「' + s.name + '」会从 data/services.json 里删掉（写回前自动备份一份到 data/services-backups/）。',
+        blockers: on.length
+          ? on.map((d) => (svcRecs.find((x) => x.id === d.service)?.name ?? d.service) + ' · ' + d.path)
+          : undefined,
+        run: () => api.services.removeServer(s.id).then(setData),
+      }
+    }
+    if (del.kind === 'service') {
+      const v = svcRecs.find((x) => x.id === del.id)
+      if (!v) return null
+      const on = deploys.filter((d) => d.service === del.id)
+      return {
+        title: '删除服务：' + v.name,
+        need: v.id,
+        warning: '「' + v.name + '」会从 data/services.json 里删掉（写回前自动备份一份到 data/services-backups/）。',
+        blockers: on.length
+          ? on.map((d) => (srvRecs.find((x) => x.id === d.server)?.name ?? d.server) + ' · ' + d.path)
+          : undefined,
+        run: () => api.services.removeService(v.id).then(setData),
+      }
+    }
+    const d = deploys.find((x) => x.server === del.server && x.service === del.service)
+    const sName = srvRecs.find((x) => x.id === del.server)?.name ?? del.server
+    const vName = svcRecs.find((x) => x.id === del.service)?.name ?? del.service
+    return {
+      title: '删除部署：' + vName,
+      need: del.server + ':' + del.service,
+      warning:
+        '把「' + vName + '」从「' + sName + '」上移除' + (d ? '（' + d.path + '）' : '') +
+        '。只删这条登记，不动服务器上的文件。',
+      blockers: undefined,
+      run: () => api.services.removeDeploy(del.server + ':' + del.service).then(setData),
+    }
+  }, [del, srvRecs, svcRecs, deploys])
+
   const total = view === 'server' ? servers.length : services.length
 
   return (
@@ -411,6 +575,18 @@ export function ServicesPage({ onOpenMonitor }: {
             <span className="svc-sum-dim">{sum.manage} 条能打开管理页</span>
           </div>
           <div className="svc-actions">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() =>
+                view === 'server'
+                  ? setSrvEdit({ open: true, rec: null })
+                  : setSvcEdit({ open: true, rec: null })
+              }
+            >
+              <Plus size={13} />
+              {view === 'server' ? '加服务器' : '加服务'}
+            </Button>
             <div className="svc-tabs">
               <button
                 type="button"
@@ -505,13 +681,13 @@ export function ServicesPage({ onOpenMonitor }: {
         ) : dense && view === 'server' ? (
           <div className="svc-board">
             {servers.map((g) => (
-              <MiniServerCard key={g.server.id} g={g} flash={flash} onOpen={onOpenMonitor} />
+              <MiniServerCard key={g.server.id} g={g} flash={flash} ops={ops} onOpen={onOpenMonitor} />
             ))}
           </div>
         ) : dense ? (
           <ul className="svc-slist">
             {services.map((g) => (
-              <ServiceListRow key={g.service.id} g={g} flash={flash} onOpen={onOpenMonitor} onJump={jump} />
+              <ServiceListRow key={g.service.id} g={g} flash={flash} ops={ops} onOpen={onOpenMonitor} onJump={jump} />
             ))}
           </ul>
         ) : (
@@ -525,6 +701,22 @@ export function ServicesPage({ onOpenMonitor }: {
                         <h3 className="svc-title is-static">{g.server.name}</h3>
                         <span className="svc-meta">{g.server.vendor} · {g.server.ip} · {g.server.user}</span>
                         <span className="svc-count">{g.rows.length} 项部署</span>
+                        <span className="svc-row-ops">
+                          <button
+                            type="button"
+                            className="svc-op"
+                            title={'在「' + g.server.name + '」上加一条部署'}
+                            onClick={() => ops.addDeploy({ server: g.server.id })}
+                          >
+                            <Plus size={12} />
+                          </button>
+                          <button type="button" className="svc-op" title="改这台服务器" onClick={() => ops.editServer(g.server)}>
+                            <Pencil size={11} />
+                          </button>
+                          <button type="button" className="svc-op" title="删这台服务器" onClick={() => ops.delServer(g.server)}>
+                            <Trash2 size={11} />
+                          </button>
+                        </span>
                       </header>
                       {g.server.note ? <p className="svc-sub">{g.server.note}</p> : null}
                       {g.rows.length === 0 ? (
@@ -544,6 +736,7 @@ export function ServicesPage({ onOpenMonitor }: {
                             <ServerDeployRow
                               key={row.server + ':' + row.service}
                               row={row}
+                              ops={ops}
                               onOpen={onOpenMonitor}
                               onService={(id) => jump('service', id)}
                             />
@@ -569,6 +762,22 @@ export function ServicesPage({ onOpenMonitor }: {
                           {KIND_LABEL[g.service.kind]}
                         </span>
                         <span className="svc-count">{g.rows.length} 台服务器</span>
+                        <span className="svc-row-ops">
+                          <button
+                            type="button"
+                            className="svc-op"
+                            title={'给「' + g.service.name + '」再加一条部署'}
+                            onClick={() => ops.addDeploy({ service: g.service.id })}
+                          >
+                            <Plus size={12} />
+                          </button>
+                          <button type="button" className="svc-op" title="改这个服务" onClick={() => ops.editService(g.service)}>
+                            <Pencil size={11} />
+                          </button>
+                          <button type="button" className="svc-op" title="删这个服务" onClick={() => ops.delService(g.service)}>
+                            <Trash2 size={11} />
+                          </button>
+                        </span>
                       </header>
                       <p className="svc-sub">{g.service.summary}</p>
                       <div className="svc-rows-head is-srv">
@@ -583,6 +792,7 @@ export function ServicesPage({ onOpenMonitor }: {
                           <ServiceDeployRow
                             key={row.server + ':' + row.service}
                             row={row}
+                            ops={ops}
                             onOpen={onOpenMonitor}
                             onServer={(id) => jump('server', id)}
                           />
@@ -600,6 +810,41 @@ export function ServicesPage({ onOpenMonitor }: {
           </div>
         )}
       </div>
+
+      <ServerDrawer
+        open={srvEdit.open}
+        editing={srvEdit.rec}
+        monitors={data?.monitors}
+        onClose={() => setSrvEdit({ open: false, rec: null })}
+        onSaved={setData}
+      />
+      <ServiceDrawer
+        open={svcEdit.open}
+        editing={svcEdit.rec}
+        onClose={() => setSvcEdit({ open: false, rec: null })}
+        onSaved={setData}
+      />
+      <DeployDrawer
+        open={depEdit.open}
+        editing={depEdit.rec}
+        preset={depEdit.preset}
+        servers={srvRecs}
+        services={svcRecs}
+        monitors={data?.monitors}
+        onClose={() => setDepEdit({ open: false, rec: null, preset: null })}
+        onSaved={setData}
+      />
+      {delInfo ? (
+        <DeleteDialog
+          open
+          title={delInfo.title}
+          need={delInfo.need}
+          warning={delInfo.warning}
+          blockers={delInfo.blockers}
+          onClose={() => setDel(null)}
+          onConfirm={delInfo.run}
+        />
+      ) : null}
     </MonNames.Provider>
   )
 }

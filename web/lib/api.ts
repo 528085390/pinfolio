@@ -33,7 +33,10 @@ export { request } from './api/http'
 export type { Tag, FieldDef, Stats } from './api/types'
 export type { SessionInfo, ApiToken } from './api/auth'
 export type { TunnelStatus } from './api/tunnel'
-export type { DeployKind, DeployRec, ServerRec, ServiceRec, ServicesPayload } from './api/services'
+export type {
+  DeployKind, DeployRec, ServerRec, ServiceRec, ServicesPayload,
+  ServerInput, ServiceInput, DeployInput,
+} from './api/services'
 export type { BackupStatus, BackupState, LocalFile, RemoteRow, RemoteConfigView, RemoteInput, Manifest } from './api/backup'
 export type { Note } from './api/notes'
 export type { Asset } from './api/assets'

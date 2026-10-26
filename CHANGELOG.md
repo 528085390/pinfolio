@@ -3,6 +3,22 @@
 本项目的改动都记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号在 0.x 阶段只表示「大改了一轮」，不承诺向后兼容——这是自用小工具，UI 和接口随时可能变。
 
+## [未发布]
+
+### 服务（页面里增删改）
+
+- **服务页现在能直接改**，不用再手编 `data/services.json`：服务器卡右上角与详细视图每行的 `+` / 铅笔 / 垃圾桶、
+  服务视角每行右侧的三颗按钮，点开是表单抽屉（id 手填、观测项从现有 24 个里勾、管理页只收 `http(s)://`）。
+  三个抽屉复用 `FormDrawer`，服务端的中文报错直接显示在抽屉里，保存成功即拿整份 payload 刷新页面状态。
+- **九个写接口**：`POST /api/services/servers` + `PATCH|DELETE /servers/:id`、`/catalog` 与 `/catalog/:id`（服务清单，
+  路径叫 `catalog` 避开 `/services/services`）、`/deploys` 与 `/deploys/:key`（`:key` = `server:service`）。
+  删除要 `?confirm=` 手输确认，写接口都要 `application/json`；状态码按错误文案分（没有…404 / 已经有…409 / 其余 400）。
+- **改 id 会连带改部署引用**；**还挂着部署的服务器 / 服务删不掉**，确认框会列出挡着的部署并禁用删除按钮。
+- **每次写盘前先备份**到 `data/services-backups/services-YYYYMMDD-HHMMSS.json`（只留最近 10 份，同一秒连写加序号），
+  写入走 tmp + rename，写完读回一遍再返回。
+- **服务视角也列出「登记了但还没部署」的服务**（显示「还没部署」，右边 `+` 直接挑机器部署）：
+  按「有部署才显示」过滤的话，新建完的服务看不见、把最后一条部署删掉后那服务就再也删不掉了。
+- 校验逻辑在 `server/services/edit.ts`（纯函数，`tests/unit/services-edit.test.mts` 10 例）。
 ## [0.3.0] - 2026-10-26
 
 ### 服务（新页面 · 第 8 页）

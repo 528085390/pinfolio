@@ -58,11 +58,13 @@ test('groupByServer：每台机一张卡，行按种类再按名字排，坏数�
   assert.deepEqual(groups[1].monitors, [])
 })
 
-test('groupByService：只有真部署过的服务才出卡，行按服务器名排', () => {
+test('groupByService：登记过的服务都出一行（没部署的 0 台），行按服务器名排', () => {
   const groups = groupByService(services, servers, deploys)
-  assert.deepEqual(groups.map((g) => g.service.name), ['Xray', 'Nginx'])
+  assert.deepEqual(groups.map((g) => g.service.name), ['Xray', 'Nginx', 'Zzz'])
   assert.deepEqual(groups[0].rows.map((r) => r.srv.name), ['a机', 'b机'])
   assert.equal(groups[0].rows[0].server, 'a')
+  // 登记了但没部署：行是空的，别把整条服务藏起来（否则新建完就找不到了）
+  assert.deepEqual(groups[2].rows, [])
 })
 
 test('搜索：服务器自己命中留整张卡，否则只留命中的行', () => {
@@ -103,10 +105,10 @@ test('搜索：服务视角同理（服务名命中留整卡，服务器名命�
   assert.deepEqual(byKind.map((g) => g.service.name), ['Nginx'])
 })
 
-test('summaryOf：服务数只算部署过的，观测项按 id 去重', () => {
+test('summaryOf：服务数按服务清单算，观测项按 id 去重', () => {
   const s = summaryOf(servers, services, deploys)
   assert.equal(s.servers, 2)
-  assert.equal(s.services, 2) // Zzz 没部署，不算
+  assert.equal(s.services, 3) // 含没部署的 Zzz
   assert.equal(s.deploys, 5)
   assert.equal(s.linked, 2) // 只有前两条挂了观测
   assert.equal(s.manage, 1) // 只有 b 机那条填了管理页

