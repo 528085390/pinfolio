@@ -110,17 +110,17 @@ importers:
   .:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.19.0
-        version: 1.19.17(hono@4.13.13)
+        specifier: ^2.1.5
+        version: 2.1.5(hono@4.13.13)
       hono:
         specifier: ^4.9.0
         version: 4.13.13
       imapflow:
-        specifier: ^2.5.7
-        version: 2.5.7
+        specifier: ^2.9.1
+        version: 2.9.1
       mailparser:
-        specifier: ^3.9.47
-        version: 3.9.47
+        specifier: ^3.12.4
+        version: 3.12.4
       mysql2:
         specifier: ^3.24.6
         version: 3.24.6(@types/node@24.19.2)
@@ -580,11 +580,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@hono/node-server@1.19.17':
-    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
-    engines: {node: '>=18.14.1'}
+  '@hono/node-server@2.1.5':
+    resolution: {integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==}
+    engines: {node: '>=20'}
     peerDependencies:
-      hono: ^4
+      hono: ^4 || ^5.0.0-0
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -802,8 +802,8 @@ packages:
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
-  '@zone-eu/mailsplit@5.4.27':
-    resolution: {integrity: sha512-9008ddFqqKk7lMF2S1sLU7ExfJZP9zPw5tkZy24EVt45Ryme2x85f/5vJZZqQ+vCJkKcCY78dJ5yuEVG3ZrVZA==}
+  '@zone-eu/mailsplit@5.4.29':
+    resolution: {integrity: sha512-CCUNycmUjrV5M0wNf23waWAt9eOHczhjLbUQS7k0FNJvR0py9VSqHFt+tSl/D0+XI73VLG0U+PwYtq9R0zsm9Q==}
     engines: {node: '>=20.0.0'}
 
   ansi-regex@5.0.1:
@@ -981,8 +981,8 @@ packages:
     resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
     engines: {node: '>=0.10.0'}
 
-  imapflow@2.5.7:
-    resolution: {integrity: sha512-wqWldvGJ9iVpusM9YI61AWotsLx22oQToLQHcuk8SRvfGUiqqW2wH5S6S3C9RXZHUcHPw6QZhaQOYTnuQxBZ3A==}
+  imapflow@2.9.1:
+    resolution: {integrity: sha512-hOq2/+T+WnQzRy7D40gYlio25nG+c9bhtrxowokOQM57SwZFqRbqAtxFQcIpx82lhYBPQEEVVjmkYpd9Fplj7g==}
     engines: {node: '>=20.0.0'}
 
   ip-address@10.7.4:
@@ -1016,8 +1016,8 @@ packages:
     resolution: {integrity: sha512-Nyh3H90B3gRtrcxIe56Ayy7635J0jmh6AbxbQgQae8wrSPQMH5wFqJChiMTB13yKG512L3YspbA5DzumhFTITA==}
     engines: {node: '>=20.0.0'}
 
-  libmime@5.5.2:
-    resolution: {integrity: sha512-Byw3CchK4eSqbgzpttsUoC4hx2VPP+hnveAuYAYZNipEc+0WlDFjVb1ISNscjq/idvyDP/Xjg8mnBcdgbsgvzg==}
+  libmime@5.6.3:
+    resolution: {integrity: sha512-cuTUW/Jybvh5O4/U9p61gyutHOjDtZyGQYuY99+bfnaFwqcDf2Nb+R6hMHY6DDen2H9wLKQSMpofWUgn2TI5JQ==}
     engines: {node: '>=20.0.0'}
 
   libqp@3.0.1:
@@ -1042,8 +1042,8 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc
 
-  mailparser@3.9.47:
-    resolution: {integrity: sha512-ASLA6qFqknd6w9ehxE444B+qiT57yn41sIzUarj6D1HBwNDb0vHIEHtzWOeSOL2MBY+6L8rCePpbZATO7GBg8w==}
+  mailparser@3.12.4:
+    resolution: {integrity: sha512-FdoMF+S89/AQaJHY7StwTfABPHZ8Vey+CDyUno5j+TO0jF0UxM+la4Pe9MeqKqBO4Y9ZMB2eomdyg5i+jzpfZw==}
     engines: {node: '>=20.0.0'}
 
   marked@15.0.12:
@@ -1073,8 +1073,8 @@ packages:
     resolution: {integrity: sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA==}
     engines: {node: '>=18'}
 
-  nodemailer@10.1.7:
-    resolution: {integrity: sha512-OQa6FDln5fLttmqSbjDiRYvFDOFNrBqfiOwHPlEbURil3b+vPB1v8xpi+Sp46drzNDlsTnNsS502vthmz56r4w==}
+  nodemailer@10.2.1:
+    resolution: {integrity: sha512-ZrDNsPFoDMwefNs7sJwrYiEJ/CG4ClJWDZv05iNJsEBWa8GRDry1QJHTJxsuTAY9eDDKjX4k+q3SxslXJOao7w==}
     engines: {node: '>=20.0.0'}
 
   on-exit-leak-free@2.1.2:
@@ -1663,7 +1663,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@hono/node-server@1.19.17(hono@4.13.13)':
+  '@hono/node-server@2.1.5(hono@4.13.13)':
     dependencies:
       hono: 4.13.13
 
@@ -1837,10 +1837,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@zone-eu/mailsplit@5.4.27':
+  '@zone-eu/mailsplit@5.4.29':
     dependencies:
       libbase64: 1.4.1
-      libmime: 5.5.2
+      libmime: 5.6.3
       libqp: 3.0.1
 
   ansi-regex@5.0.1: {}
@@ -2053,13 +2053,13 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  imapflow@2.5.7:
+  imapflow@2.9.1:
     dependencies:
-      '@zone-eu/mailsplit': 5.4.27
+      '@zone-eu/mailsplit': 5.4.29
       encoding-japanese: 2.4.0
       iconv-lite: 0.7.3
       libbase64: 1.4.1
-      libmime: 5.5.2
+      libmime: 5.6.3
       libqp: 3.0.1
       pino: 10.3.1
       socks: 2.8.10
@@ -2080,7 +2080,7 @@ snapshots:
 
   libbase64@1.4.1: {}
 
-  libmime@5.5.2:
+  libmime@5.6.3:
     dependencies:
       encoding-japanese: 2.4.0
       iconv-lite: 0.7.3
@@ -2105,16 +2105,14 @@ snapshots:
     dependencies:
       react: 19.3.1
 
-  mailparser@3.9.47:
+  mailparser@3.12.4:
     dependencies:
-      '@zone-eu/mailsplit': 5.4.27
-      encoding-japanese: 2.4.0
+      '@zone-eu/mailsplit': 5.4.29
       he: 1.2.0
       html-to-text: 10.0.1
-      iconv-lite: 0.7.3
-      libmime: 5.5.2
+      libmime: 5.6.3
       linkify-it: 5.0.2
-      nodemailer: 10.1.7
+      nodemailer: 10.2.1
       punycode.js: 2.3.1
       tlds: 1.261.0
 
@@ -2141,7 +2139,7 @@ snapshots:
 
   node-releases@2.0.59: {}
 
-  nodemailer@10.1.7: {}
+  nodemailer@10.2.1: {}
 
   on-exit-leak-free@2.1.2: {}
 
