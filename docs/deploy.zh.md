@@ -27,6 +27,13 @@ docker compose up -d
 - 日志：`docker compose logs -f pinfolio`。
 - 停止：`docker compose down`（**不会**删数据卷）；`docker compose down -v` 才会连数据一起删。
 
+### 镜像 tag
+
+| Tag | 是什么 |
+|---|---|
+| `:latest`、`:vX.Y.Z` | 发版镜像，`linux/amd64` + `linux/arm64`。生产用这个。 |
+| `:edge` | 当前 `dev` 分支的代码，**要等 CI 全部通过才会重建**。在线演示站跑的就是它；适合尝鲜、不适合存真数据。 |
+
 ### 不设密码，用环境变量初始化
 
 想跳过网页设密码（自动化部署常用），在 `docker-compose.yml` 的 `environment` 里放开：

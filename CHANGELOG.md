@@ -3,7 +3,7 @@
 本项目的改动都记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号在 0.x 阶段只表示「大改了一轮」，不承诺向后兼容——这是自用小工具，UI 和接口随时可能变。
 
-## [未发布]
+## [0.4.0] - 2026-10-26
 
 ### 便签列表排成多列瀑布流（改）
 
@@ -29,6 +29,13 @@
 - **卡片密度收紧**：内边距 15/17 → 12/14px、正文 14.5 → 14px（行高 1.78 → 1.7）、头尾间距各减 2px。实测同一屏（1440×900，6 条便签其中 3 条带图）：列表总高 3447px → 1379px，双图便签 1245px → 288px，竖屏图便签 963px → 288px。
 - 只改展示样式，数据与接口没动。
 
+### 页面留白（修）
+
+- **设置页与备份页的卡片不再贴边**：`.card` 本身只是块背景、不带内边距，六张设置卡里有四张从没加过，小节标题离边框只剩 3px、字段表的 1px 边框和卡片边框叠成一条；两张备份卡是 14px，比页面自己的 24px 还紧，「立即备份」那行按钮直接贴着下面的文件表。
+- 改成**由容器统一给**：`.page > .card` 带 18/20/20 的内边距、`.page > .card + .card` 带 18px 间距，以后新加卡片自动继承，不用每处记得写。
+- 顺带修三处：卡片内的 `.section-title` 去掉 2px 侧边距（与下方内容左对齐）；`.sec-hint` 以前**没有规则**，段落吃浏览器默认的 16px 字号和边距、比卡里其他文字大一圈，现在固定 13px / 1.65；「立即备份」行与文件表之间补 14px。
+- 手机（≤560px）内边距收到 16/14，390px 宽度不掉内容。
+
 ### 界面中英双语（新）
 
 - **整个界面支持中文 / 英文**，默认跟随浏览器语言（`Accept-Language` 里 `zh*` 就是中文，其余英文），在「设置 → 外观 → 语言」里手动选过之后记在 `localStorage` 的 `pinboard-locale`，刷新不丢。
@@ -37,14 +44,27 @@
 - **数字与日期跟着语言走**：`toLocaleString` / `toLocaleTimeString` / `localeCompare` 里写死的 `'zh-CN'` 全换成 `localeTag()`（`zh-CN` / `en`）。
 - **英文复数用函数条目**：`'{n} 条便签': (v) => `${v.n} ${Number(v.n) === 1 ? 'note' : 'notes'}``，占位符缺变量不抛错。
 - **巡检脚本 `tools/i18n-scan.mjs`**：列出没包 `t()` 的中文、字典里缺的条目、按文件汇总；`--check` 可以进 CI。**数据不翻**（便签正文、标签名、资产名、服务名、Kuma 里的观测项名字与描述），日志也不翻（`console.*` 的参数扫描器直接忽略）。
+- 没带 `Accept-Language`、或者只写了 `*`（Node 的 `fetch` 默认就发这个）都按中文处理——否则用脚本调接口会莫名其妙收到英文。
 - 已知边界：IMAP 信箱名（`草稿` / `已发送` …）是服务器给的，原样显示；`SNAPSHOT.md` 是仓库文档，不随界面语言变。
 
 ### 文档
+
 - `docs/features.zh.md` / `features.md` 新增「便签」章节：粘贴 / 拖拽 / 选文件、压缩、类型限制、灯箱、孤儿回收、备份。
 - `docs/api.zh.md` / `api.md` 加 `POST /attachments` 与 `GET /attachments/:id`，并把过期的「无鉴权（只监听本机）」改成「除 `/health` 与 `/auth/*` 外都要登录；写接口只认 JSON，图片上传是唯一例外」。
 - `docs/architecture.md` 补 `server/attachments/*`、`server/schema/attachments.ts`、迁移 v3、`data/uploads/`，前端补 `useImageUpload.ts`、`Lightbox.tsx`、`web/lib/images.ts`、`web/lib/api/attachments.ts`。
 - `docs/pitfalls.md` 补坑 57（SVG 与 `image/*` 豁免）、58（图片归属只从正文推）、59（单测 import 服务端模块会打开真实库），并修掉 `server/backup/*` 里指向坑 52 的错误引用。
 - README 两版的便签小节各加一条图片。
+- **README 首屏重写**（中英两版）：删掉「自用小工具，公开出来给需要的人参考」这类自我贬低的开场，第一句直接说清「便签 + 资产台账 + 观测台 + 只读收件箱，一个进程、一个 SQLite 文件、一个密码」，并加一段「为什么还要再做一个」。
+- **新增 `docs/alternatives.md` / `alternatives.zh.md`**：与 Memos、HomeBox、Uptime Kuma、linkding 逐项对照（便签 / 资产 / 到期 / 探测 / 主机指标 / 邮件 / 书签 / 多用户 / 许可），并写明「pinfolio 不做的事」与「什么时候该用别的」。
+- README 两版加了**在线演示**链接（`https://raylxpj.us.ci`，口令 `pinfolio-demo`，每天 04:00 UTC+8 重置）。
+- `docs/deploy.zh.md` / `deploy.md` 加一条告示：**宿主机已有 nginx 时，新增 vhost 会静默改掉 443 的默认 server**，务必给兜底那个块写 `default_server` 并在改完后回归按 IP 访问的入口。
+
+### 工程化
+
+- **修掉 CI 从 `00a44db` 起一直红的问题**（两个 job：`typecheck + unit tests + build` 与 `docker build`）：
+  ① `web/lib/i18n/index.ts` 的 `detectLocale()` 在模块加载时读 `navigator.languages`，而 Node 24 也提供 `navigator.language` 且跟随 `LANG`——本机 zh-CN、CI en-US，同一份单测得出 `'便签'` 与 `'Notes'` 两种结果；现在没有 `window` 时固定回落源码语言 `zh`。
+  ② `Dockerfile` 的 build 阶段只 `COPY server` / `COPY web`，漏了 `shared/`，镜像里 `pnpm build` 报 `Module not found`；补 `COPY shared ./shared`。
+- `tools/i18n-scan.mjs` 支持 `--check` 进 CI，并加了已知例外清单（`d93f7bf`）。
 
 ## [0.3.0] - 2026-10-26
 

@@ -48,6 +48,17 @@
 2. 用 `tools/release-notes.mjs` 从 CHANGELOG 抽本版本段落，建一个 GitHub Release
    （tag 名里带 `-` 的，例如 `v0.3.0-rc1`，自动标成 prerelease）。
 
+## 另外一条流水线：edge 镜像
+
+`.github/workflows/ci.yml` 里还有一个 `edge` job，**只在 push 到 `dev` 时跑**，而且要等
+`test` / `e2e` / `docker` 三个 job 全绿才动手，推两个 tag：
+
+- `ghcr.io/528085390/pinfolio:edge` —— 跟着 dev 走的最新代码；
+- `ghcr.io/528085390/pinfolio:sha-<完整 commit>` —— 某个提交的固定镜像，方便回滚。
+
+只构建 `linux/amd64`（演示机是 x86；双架构留给正式发版）。**在线演示站 `https://raylxpj.us.ci`
+跑的就是 `:edge`**，所以 `:edge` 一旦是坏的，演示站就是坏的——这也是它必须等三个 job 全绿的原因。
+
 ## 发版后检查
 
 1. Actions 两个 job 都绿；`ghcr.io/528085390/pinfolio` 的 tag 列表里新版本与 `latest` 都在，
