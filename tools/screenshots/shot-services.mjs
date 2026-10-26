@@ -1,4 +1,4 @@
-// 服务栏截图：两种视角 + 深色。需要实例已登录（PINBOARD_PASSWORD），
+// 服务栏截图：紧凑（默认）/ 详细 / 两种视角 / 深色 / 窄屏，外加「一屏能不能看全」的高度统计。
 //   SHOT_BASE=http://127.0.0.1:7791 PINBOARD_PASSWORD=e2e-password node tools/screenshots/shot-services.mjs
 import { CHROME as exe } from '../chrome-path.mjs'
 import { chromium } from 'playwright-core'
@@ -13,63 +13,94 @@ const errors = []
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
-await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' })
-if (!(await page.locator('.nav-item').count())) {
-  if (!PW) throw new Error('实例要登录：设 PINBOARD_PASSWORD')
-  await page.fill('input[type=password]', PW)
-  await page.click('button[type=submit]')
-  await page.waitForSelector('.nav-item', { timeout: 30000 })
+async function open(density, view) {
+  await page.goto(BASE + '/services', { waitUntil: 'domcontentloaded' })
+  if (!(await page.locator('.nav-item').count())) {
+    if (!PW) throw new Error('实例要登录：设 PINBOARD_PASSWORD')
+    await page.fill('input[type=password]', PW)
+    await page.click('button[type=submit]')
+    await page.waitForSelector('.nav-item', { timeout: 30000 })
+  }
+  await page.evaluate((d) => localStorage.setItem('pinboard-svc-density', d), density)
+  await page.goto(BASE + '/services', { waitUntil: 'networkidle' })
+  await page.waitForSelector('.svc-mini, .svc-card', { timeout: 20000 })
+  if (view === 'service') {
+    await page.locator('.svc-tab', { hasText: '服务视角' }).click()
+    await page.waitForTimeout(300)
+  }
+  await page.waitForTimeout(300)
 }
 
-await page.goto(BASE + '/services', { waitUntil: 'networkidle' })
-await page.waitForSelector('.svc-card', { timeout: 20000 })
-await page.waitForTimeout(400)
-await page.screenshot({ path: 'tmp/shot-services-server.png', fullPage: true })
+// 滚动的是 .content（shell.css:49 overflow-y:auto），量它才准
+const metrics = async () => page.evaluate(() => {
+  const el = document.querySelector('.content')
+  const h = el ? el.scrollHeight : 0
+  return {
+    contentHeight: h,
+    visibleHeight: el ? el.clientHeight : 0,
+    fitsOneScreen: h <= (el ? el.clientHeight + 1 : 0),
+    // 部署板底边到内容区顶边的距离 → 一屏还剩多少余量
+    usedHeight: (() => {
+      const b = document.querySelector('.svc-board')
+      return b ? Math.round(b.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0
+    })(),
+    cards: document.querySelectorAll('.svc-mini').length,
+    rows: document.querySelectorAll('.svc-mini-row').length,
+    cardHeights: [...document.querySelectorAll('.svc-mini')]
+      .slice(0, 8)
+      .map(c => Math.round(c.getBoundingClientRect().height)),
+    alignItems: (() => {
+      const b = document.querySelector('.svc-board')
+      return b ? getComputedStyle(b).alignItems : null
+    })(),
+  }
+})
 
-// 点第一张卡里的服务名 → 换到服务视角并闪一下那张卡
-const firstSvc = page.locator('.svc-card .svc-name').first()
-const svcName = (await firstSvc.innerText()).trim()
-await firstSvc.click()
-await page.waitForTimeout(700)
-const view2 = await page.locator('.svc-tab.is-on').innerText()
-await page.screenshot({ path: 'tmp/shot-services-service.png', fullPage: true })
+await open('compact', 'server')
+const mServer = await metrics()
+await page.screenshot({ path: 'tmp/shot-services-server.png' })
 
-// 点观测标签 → 应该跳到观测台（Kuma 没起时页面会报错，这里只看 URL）
-const chip = page.locator('.svc-card .svc-mon').first()
-const chipLabel = await chip.innerText()
-await chip.click()
+await open('compact', 'service')
+const mService = await metrics()
+await page.screenshot({ path: 'tmp/shot-services-service.png' })
+
+// 点第一条部署的名字 → 换到服务器视角并闪一下
+const first = page.locator('.svc-mini-name').first()
+const name = (await first.innerText()).trim()
+await first.click()
 await page.waitForTimeout(600)
+const viewAfter = (await page.locator('.svc-tab.is-on').first().innerText()).trim()
+
+// 点观测图标 → 观测台
+const chip = page.locator('.svc-mini-mon').first()
+const chipTitle = await chip.getAttribute('title')
+await chip.click()
+await page.waitForTimeout(500)
 const url = page.url()
 
-// 深色：服务器视角
-await page.goto(BASE + '/services', { waitUntil: 'networkidle' })
+await open('detail', 'server')
+const mDetail = await metrics()
+await page.screenshot({ path: 'tmp/shot-services-detail.png', fullPage: true })
+
+await open('compact', 'server')
 await page.evaluate(() => localStorage.setItem('pinboard-theme', 'dark'))
 await page.reload({ waitUntil: 'networkidle' })
-await page.waitForSelector('.svc-card', { timeout: 20000 })
-await page.waitForTimeout(400)
-await page.screenshot({ path: 'tmp/shot-services-dark.png', fullPage: true })
+await page.waitForSelector('.svc-mini', { timeout: 20000 })
+await page.waitForTimeout(300)
+await page.screenshot({ path: 'tmp/shot-services-dark.png' })
 await page.evaluate(() => localStorage.setItem('pinboard-theme', 'system'))
 
-// 搜索：只留命中的卡/行
-await page.goto(BASE + '/services', { waitUntil: 'networkidle' })
-await page.waitForSelector('.svc-card', { timeout: 20000 })
-await page.fill('.svc-search input', 'kuma')
-await page.waitForTimeout(500)
-const hits = await page.locator('.svc-card').count()
-await page.screenshot({ path: 'tmp/shot-services-search.png', fullPage: true })
-await page.fill('.svc-search input', '')
-
-// 窄屏：行改成两行
-await page.setViewportSize({ width: 1024, height: 900 })
-await page.waitForTimeout(300)
+await page.setViewportSize({ width: 1024, height: 800 })
+await page.waitForTimeout(400)
+const mNarrow = await metrics()
 await page.screenshot({ path: 'tmp/shot-services-narrow.png' })
 
 console.log(JSON.stringify({
-  clickedService: svcName,
-  viewAfterClick: view2.trim(),
-  chipLabel: chipLabel.trim(),
+  clickedRow: name,
+  viewAfterClick: viewAfter,
+  chipTitle,
   urlAfterChip: url,
-  searchKumaCards: hits,
+  heights: { compactServer: mServer, compactService: mService, detailServer: mDetail, narrow: mNarrow },
   errors,
 }, null, 1))
 await browser.close()

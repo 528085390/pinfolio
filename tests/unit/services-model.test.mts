@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   KIND_LABEL,
+  deployTitle,
   filterServerGroups,
   filterServiceGroups,
   groupByServer,
@@ -116,6 +117,15 @@ test('样例数据：部署都指向真实存在的服务器与服务', () => {
   // 每个服务至少被部署一次（否则服务视角里看不到它，等于白登记）
   const used = new Set(DEPLOYS.map((d) => d.service))
   for (const s of SERVICES) assert.ok(used.has(s.id), '没有任何部署：' + s.name)
+})
+
+test('deployTitle：紧凑视图的悬停提示——路径 / 启动·端口 / 观测 / 备注各占一行', () => {
+  const base: DeployRec = { server: 'a', service: 'x', path: '/etc/xray', runtime: 'systemd xray' }
+  assert.equal(deployTitle(base), '/etc/xray\nsystemd xray')
+  assert.equal(
+    deployTitle({ ...base, port: '443', note: '主用' }, ['Xray 代理服务', '代理端口 443（TCP）']),
+    '/etc/xray\nsystemd xray · 443\n观测：Xray 代理服务、代理端口 443（TCP）\n主用',
+  )
 })
 
 test('样例数据：挂的观测项 id 都能对上名字', () => {

@@ -141,9 +141,9 @@ export const DEPLOYS: DeployRec[] = [
   { server: 'oj', service: 'nodemetrics', path: '/opt/node-metrics', runtime: 'node-metrics.timer（5 分钟）' },
 
   // os / ox
-  { server: 'os', service: 'singbox', path: '/etc/sing-box/config.json', runtime: 'systemd sing-box', port: ':443 + hy2 udp', monitor: [125], note: '节点 os-tokyo' },
+  { server: 'os', service: 'singbox', path: '/etc/sing-box/config.json', runtime: 'systemd sing-box', port: '443/tcp + 443/udp', monitor: [125], note: '节点 os-tokyo' },
   { server: 'os', service: 'nodemetrics', path: '/opt/node-metrics', runtime: 'node-metrics.timer（5 分钟）' },
-  { server: 'ox', service: 'singbox', path: '/etc/sing-box/config.json', runtime: 'systemd sing-box', port: ':443 + hy2 udp', monitor: [127], note: '节点 ox-tokyo' },
+  { server: 'ox', service: 'singbox', path: '/etc/sing-box/config.json', runtime: 'systemd sing-box', port: '443/tcp + 443/udp', monitor: [127], note: '节点 ox-tokyo' },
   { server: 'ox', service: 'nodemetrics', path: '/opt/node-metrics', runtime: 'node-metrics.timer（5 分钟）' },
 
   // aws

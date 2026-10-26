@@ -294,3 +294,81 @@
   .svc-run { grid-area: run; text-align: right; }
   .svc-doc { display: none; }
 }
+/* ── 紧凑视图：一屏看全的「部署板」 ───────────────────────────────
+   每台服务器 / 每个服务一张小卡，卡里一行一条部署（种类点 + 名字 + 端口 + 观测图标），
+   路径 / 启动方式 / 备注走悬停提示。多列自动排（column-width），37 条部署一屏能看全。 */
+.svc-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(266px, 1fr));
+  align-items: start;
+  gap: 12px;
+  margin-top: 12px;
+}
+.svc-mini {
+  min-width: 0;
+  padding: 9px 11px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.svc-mini:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.svc-mini.is-flash { animation: svcJump 1.7s ease-out; }
+
+.svc-mini-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.svc-mini-title {
+  margin: 0; flex: none; max-width: 64%;
+  font-size: 12.5px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.svc-mini-ip {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.svc-mini-count { flex: none; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.svc-mini-empty { margin: 6px 0 2px; font-size: 11.5px; color: var(--muted); }
+
+.svc-mini-rows { list-style: none; margin: 5px 0 0; padding: 0; }
+.svc-mini-row { display: flex; align-items: center; gap: 6px; min-height: 21px; padding: 0 3px; border-radius: 5px; }
+.svc-mini-row:hover { background: var(--surface-2); }
+
+/* 种类用一个小圆点表示：实心 = 项目/服务/站点，空心 = 脚本/任务 */
+.svc-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--muted); }
+.svc-dot.kind-project { background: var(--accent); }
+.svc-dot.kind-service { background: var(--ok); }
+.svc-dot.kind-site { background: var(--ink-2); }
+.svc-dot.kind-script { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.svc-dot.kind-task { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
+
+.svc-mini-name {
+  flex: 1 1 auto; min-width: 0; padding: 0; border: 0; background: none;
+  text-align: left; font-size: 12px; color: var(--ink); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.svc-mini-name:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; }
+
+.svc-mini-port {
+  flex: none; max-width: 42%;
+  font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.svc-mini-mon {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  width: 17px; height: 17px; padding: 0; border: 0; border-radius: 4px;
+  background: none; color: var(--accent-strong); cursor: pointer; opacity: 0.8;
+}
+.svc-mini-mon:hover { opacity: 1; background: var(--accent-soft); }
+
+.svc-mini-foot {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line);
+}
+.svc-mini-mon.is-foot { width: auto; max-width: 100%; height: auto; padding: 1px 4px; font-size: 10px; color: var(--muted); }
+.svc-mini-mon.is-foot:hover { color: var(--accent-strong); }
+.svc-mini-mon.is-foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.svc-hint-ico { vertical-align: -2px; color: var(--accent-strong); }
+

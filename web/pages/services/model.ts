@@ -176,6 +176,17 @@ export function filterServiceGroups(groups: ServiceGroup[], q: string): ServiceG
   return out
 }
 
+/**
+ * 紧凑视图里一行的悬停提示：路径 / 启动方式 · 端口 / 观测 / 备注，各占一行。
+ * 紧凑视图只显示名字，细节全在这条 title 里，鼠标停一下就能看到。
+ */
+export function deployTitle(rec: DeployRec, monitorLabels: string[] = []): string {
+  const lines = [rec.path, rec.runtime + (rec.port ? ' · ' + rec.port : '')]
+  if (monitorLabels.length) lines.push('观测：' + monitorLabels.join('、'))
+  if (rec.note) lines.push(rec.note)
+  return lines.join('\n')
+}
+
 /** 页头那行数字。服务数只算「真的部署过」的。 */
 export function summaryOf(servers: ServerRec[], services: ServiceRec[], deploys: DeployRec[]): Summary {
   const ids = new Set<number>()
