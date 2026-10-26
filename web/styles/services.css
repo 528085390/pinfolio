@@ -1,0 +1,296 @@
+/* 服务栏：只登记「哪台服务器上部署了什么」，不做任何探测。
+   两种视角共用一套卡片：服务器视角一行 = 一个部署，服务视角一行 = 一台服务器。 */
+
+.svc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.svc-sum {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  row-gap: 2px;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 0;
+}
+.svc-sum > span { white-space: nowrap; }
+.svc-sum-num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.svc-sum-label { color: var(--ink-2); }
+.svc-sum-sep { color: var(--line-strong); }
+.svc-sum-dim { color: var(--muted); }
+
+.svc-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* 视角切换：两段式，跟主机页的自动刷新开关同一档高度 */
+.svc-tabs {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.svc-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.svc-tab:hover { color: var(--ink-2); }
+.svc-tab.is-on {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.svc-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.svc-search:focus-within { border-color: var(--accent-ring); }
+.svc-search input {
+  width: 150px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.svc-search input::placeholder { color: var(--muted); }
+
+.svc-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.svc-hint b { font-weight: 600; color: var(--ink-2); }
+
+.svc-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+
+.svc-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 13px 15px 12px;
+  min-width: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.svc-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+/* 从另一个视角点过来时，目标卡片闪一下（1.7 秒后由 ServicesPage 摘掉 .is-flash）。
+   这里用 accent 而不是观测台的 danger 红：它表示「就是这张」，不是告警。 */
+.svc-card.is-flash { animation: svcJump 1.7s ease-out; }
+@keyframes svcJump {
+  0%, 100% { border-color: var(--line); box-shadow: var(--shadow-sm); }
+  12%, 62% { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+}
+
+.svc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.svc-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.svc-title.is-static { cursor: default; }
+.svc-title:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+.svc-title.is-static:hover { color: var(--ink); text-decoration: none; }
+.svc-meta {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.svc-count { margin-left: auto; font-size: 11.5px; color: var(--muted); flex: none; }
+.svc-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.svc-rows {
+  list-style: none;
+  margin: 11px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.svc-row {
+  display: grid;
+  grid-template-columns: 40px minmax(110px, 1fr) minmax(150px, 1.5fr) minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.svc-row:last-child { border-bottom: 0; }
+/* 服务视角的行没有「种类」那一列，第一格直接是服务器名 */
+.svc-row.is-srv {
+  grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.5fr) minmax(120px, 1fr) auto;
+}
+
+.svc-kind {
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 4px 0;
+  border-radius: 6px;
+  text-align: center;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.svc-kind.kind-project { color: var(--accent-strong); border-color: var(--accent-ring); background: var(--accent-soft); }
+.svc-kind.kind-service { color: var(--ok); border-color: rgba(21, 128, 61, 0.25); background: transparent; }
+.svc-kind.kind-site { color: var(--ink-2); }
+.svc-kind.kind-script { color: var(--ink-2); border-style: dashed; }
+.svc-kind.kind-task { color: var(--muted); border-style: dashed; background: transparent; }
+/* 卡片标题旁的种类标签：行内那个只有 40px 宽，标题旁这个要左右留白 */
+.svc-kind.is-chip { padding: 4px 7px; flex: none; }
+
+.svc-name {
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.svc-name:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
+
+.svc-path {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.svc-run {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.svc-run em { font-style: normal; color: var(--ink-2); }
+
+.svc-mons { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.svc-mon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.svc-mon:hover { border-color: var(--accent-ring); color: var(--accent-strong); background: var(--accent-soft); }
+.svc-mon svg { flex: none; opacity: 0.7; }
+.svc-mon { max-width: 160px; }
+.svc-mon span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svc-nomon { font-size: 11px; color: var(--line-strong); }
+
+.svc-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.svc-foot-label { flex: none; }
+.svc-doc {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+}
+
+/* 窗口窄到放不下五列（≈1080px 以下，含侧栏）就换成两行：种类+名字+观测 / 路径+启动 */
+@media (max-width: 1080px) {
+  .svc-row {
+    grid-template-columns: 40px 1fr auto;
+    grid-template-areas:
+      'kind name mons'
+      '. path run';
+    row-gap: 4px;
+  }
+  .svc-row.is-srv {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'name mons'
+      'path run';
+  }
+  .svc-kind { grid-area: kind; }
+  .svc-name { grid-area: name; }
+  .svc-mons { grid-area: mons; }
+  .svc-path { grid-area: path; }
+  .svc-run { grid-area: run; text-align: right; }
+  .svc-doc { display: none; }
+}

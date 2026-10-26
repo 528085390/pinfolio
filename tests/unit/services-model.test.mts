@@ -1,0 +1,130 @@
+// 服务栏的纯逻辑（web/pages/services/model.ts）+ 样例数据自洽性
+// 运行：pnpm test:unit
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  KIND_LABEL,
+  filterServerGroups,
+  filterServiceGroups,
+  groupByServer,
+  groupByService,
+  kindRank,
+  summaryOf,
+  type DeployRec,
+  type ServerRec,
+  type ServiceRec,
+} from '../../web/pages/services/model.js'
+import { DEPLOYS, SERVERS, SERVICES, monitorName } from '../../web/pages/services/sample.js'
+
+const servers: ServerRec[] = [
+  { id: 'a', name: 'a机', vendor: '某云 · 北京', ip: '1.1.1.1', user: 'root', monitors: [9, 3] },
+  { id: 'b', name: 'b机', vendor: '某云 · 东京', ip: '2.2.2.2', user: 'root' },
+]
+const services: ServiceRec[] = [
+  { id: 'x', name: 'Xray', kind: 'service', summary: '代理' },
+  { id: 'n', name: 'Nginx', kind: 'site', summary: '站点' },
+  { id: 'z', name: 'Zzz', kind: 'project', summary: '登记了但没部署' },
+]
+const deploys: DeployRec[] = [
+  { server: 'a', service: 'x', path: '/etc/xray', runtime: 'systemd xray', port: '443', monitor: [7] },
+  { server: 'a', service: 'n', path: '/etc/nginx', runtime: 'systemd nginx', monitor: [5, 6] },
+  { server: 'b', service: 'x', path: '/usr/local/etc/xray', runtime: 'systemd xray' },
+  { server: 'b', service: 'ghost', path: '/x', runtime: 'x' }, // 指向不存在的服务
+  { server: 'ghost', service: 'x', path: '/y', runtime: 'y' }, // 指向不存在的服务器
+]
+
+test('kindRank：按 项目 → 服务 → 站点 → 脚本 → 任务 排，未知种类垫底', () => {
+  assert.equal(kindRank('project'), 0)
+  assert.equal(kindRank('service'), 1)
+  assert.equal(kindRank('site'), 2)
+  assert.equal(kindRank('script'), 3)
+  assert.equal(kindRank('task'), 4)
+  assert.equal(kindRank('nope' as any), 5)
+  assert.equal(KIND_LABEL.script, '脚本')
+})
+
+test('groupByServer：每台机一张卡，行按种类再按名字排，坏数据不抛错', () => {
+  const groups = groupByServer(servers, services, deploys)
+  assert.equal(groups.length, 2)
+  assert.deepEqual(groups[0].rows.map((r) => r.svc.name), ['Xray', 'Nginx'])
+  assert.equal(groups[0].rows[0].path, '/etc/xray')
+  // 服务器级观测去重排序后单独给，不与行里的混在一起
+  assert.deepEqual(groups[0].monitors, [3, 9])
+  // 指向不存在的服务那条被丢掉，这台机只剩一条真部署
+  assert.equal(groups[1].rows.length, 1)
+  assert.deepEqual(groups[1].monitors, [])
+})
+
+test('groupByService：只有真部署过的服务才出卡，行按服务器名排', () => {
+  const groups = groupByService(services, servers, deploys)
+  assert.deepEqual(groups.map((g) => g.service.name), ['Xray', 'Nginx'])
+  assert.deepEqual(groups[0].rows.map((r) => r.srv.name), ['a机', 'b机'])
+  assert.equal(groups[0].rows[0].server, 'a')
+})
+
+test('搜索：服务器自己命中留整张卡，否则只留命中的行', () => {
+  const groups = groupByServer(servers, services, deploys)
+  const byServer = filterServerGroups(groups, 'b机')
+  assert.equal(byServer.length, 1)
+  assert.equal(byServer[0].rows.length, 1)
+
+  const byRow = filterServerGroups(groups, 'nginx')
+  assert.equal(byRow.length, 1)
+  assert.deepEqual(byRow[0].rows.map((r) => r.svc.name), ['Nginx'])
+
+  const byPort = filterServerGroups(groups, '443')
+  assert.equal(byPort.length, 1)
+  assert.deepEqual(byPort[0].rows.map((r) => r.svc.name), ['Xray'])
+
+  assert.deepEqual(filterServerGroups(groups, '  '), groups)
+  assert.deepEqual(filterServerGroups(groups, '不存在'), [])
+})
+
+test('搜索：服务视角同理（服务名命中留整卡，服务器名命中只留那台）', () => {
+  const groups = groupByService(services, servers, deploys)
+  const bySvc = filterServiceGroups(groups, 'xray')
+  assert.equal(bySvc.length, 1)
+  assert.equal(bySvc[0].rows.length, 2)
+
+  const bySrv = filterServiceGroups(groups, 'b机')
+  assert.equal(bySrv.length, 1)
+  assert.equal(bySrv[0].service.id, 'x')
+  assert.deepEqual(bySrv[0].rows.map((r) => r.srv.name), ['b机'])
+
+  const byKind = filterServiceGroups(groups, '站点')
+  assert.deepEqual(byKind.map((g) => g.service.name), ['Nginx'])
+})
+
+test('summaryOf：服务数只算部署过的，观测项按 id 去重', () => {
+  const s = summaryOf(servers, services, deploys)
+  assert.equal(s.servers, 2)
+  assert.equal(s.services, 2) // Zzz 没部署，不算
+  assert.equal(s.deploys, 5)
+  assert.equal(s.linked, 2) // 只有前两条挂了观测
+  assert.equal(s.monitors, 5) // 7 / 5 / 6 + 服务器级 3 / 9
+})
+
+test('样例数据：部署都指向真实存在的服务器与服务', () => {
+  const srvIds = new Set(SERVERS.map((s) => s.id))
+  const svcIds = new Set(SERVICES.map((s) => s.id))
+  for (const d of DEPLOYS) {
+    assert.ok(srvIds.has(d.server), '未知服务器：' + d.server)
+    assert.ok(svcIds.has(d.service), '未知服务：' + d.service)
+    assert.ok(d.path.length > 0, '缺路径：' + d.server + '/' + d.service)
+    assert.ok(d.runtime.length > 0, '缺启动方式：' + d.server + '/' + d.service)
+  }
+  // 每个服务至少被部署一次（否则服务视角里看不到它，等于白登记）
+  const used = new Set(DEPLOYS.map((d) => d.service))
+  for (const s of SERVICES) assert.ok(used.has(s.id), '没有任何部署：' + s.name)
+})
+
+test('样例数据：挂的观测项 id 都能对上名字', () => {
+  const ids: number[] = []
+  for (const d of DEPLOYS) for (const id of d.monitor ?? []) ids.push(id)
+  for (const s of SERVERS) for (const id of s.monitors ?? []) ids.push(id)
+  assert.ok(ids.length > 0)
+  for (const id of ids) {
+    assert.ok(!monitorName(id).startsWith('观测项 '), '没有名字的观测项：' + id)
+  }
+  assert.equal(monitorName(999), '观测项 999')
+})

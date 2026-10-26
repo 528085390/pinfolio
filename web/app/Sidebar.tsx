@@ -1,4 +1,4 @@
-import { Activity, Archive, LogOut, Mail as MailIcon, Moon, Package, Pin, Server, Settings, StickyNote, Sun } from 'lucide-react'
+import { Activity, Archive, Boxes, LogOut, Mail as MailIcon, Moon, Package, Pin, Server, Settings, StickyNote, Sun } from 'lucide-react'
 import { cx, type HostSummary, type MonitorSummary, type Stats } from '../lib/api'
 import { API_BASE } from '../lib/api/http'
 import { Button } from '../components/ui'
@@ -50,6 +50,11 @@ export function Sidebar({ page, setPage, stats, mailSum, mon, host, dark, onTogg
           <Server size={17} />
           <span className="nav-label">主机</span>
           <span className="nav-badge">{host ? host.online + '/' + host.total : ''}</span>
+        </button>
+        <button className={cx('nav-item', page === 'services' && 'active')} onClick={() => setPage('services')} title="服务器 ↔ 服务部署关系">
+          <Boxes size={17} />
+          <span className="nav-label">服务</span>
+          <span className="nav-badge" />
         </button>
         <button className={cx('nav-item', page === 'backup' && 'active')} onClick={() => setPage('backup')} title="备份">
           <Archive size={17} />
