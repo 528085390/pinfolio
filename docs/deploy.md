@@ -32,7 +32,7 @@ Once it is up:
 | Tag | What it is |
 |---|---|
 | `:latest`, `:vX.Y.Z` | Released versions. `linux/amd64` + `linux/arm64`. Use these in production. |
-| `:edge` | Whatever is on `dev` right now, rebuilt only after every CI job is green. The live demo runs this tag; good for previewing unreleased work, not for keeping your data on. |
+| `:edge` | Whatever is on `dev` right now, rebuilt only after every CI job is green. The live demo runs this tag; good for previewing unreleased work, not for keeping your data on. Built for `linux/amd64` only — use a release tag on ARM. |
 
 ### Skip the password and initialise from an environment variable
 
