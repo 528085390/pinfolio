@@ -1,6 +1,6 @@
 # pinfolio 功能细节
 
-两个最重的页面到底怎么用。概览见 [README](../README.zh.md)。
+几个重页面的用法细节。概览见 [README](../README.zh.md)。
 
 ## 观测台
 - 数据源是**本机的 Uptime Kuma**（默认 `http://127.0.0.1:3001`，状态页 slug `obs`），Kuma 只当探测后端，页面在 pinboard 里。
@@ -34,7 +34,7 @@
   ]
   ```
 
-  `url` 只认 `http(s)://`（写成 `javascript:` / 相对路径会被丢掉），`name` 留空退回 host，同一 URL 只留第一条，`icon` 认 `image`（相机）/ `globe`（地球），其余用默认链环图标；`note` 是副标题，`label` 是悬停提示。
+  `url` 只认 `http(s)://`（写成 `javascript:` / 相对路径会被丢掉），`name` 留空退回 host，同一 URL 只留第一条，`icon` 认 `image`（相机）/ `globe`（地球），其余用默认链环图标；`note` 是副标题，`label` 是悬停提示。**要登记「这台机上跑着什么、部署在哪」请去服务页**（`data/services.json`），快捷入口卡只管「点一下打开某个网址」；2026-10-26 起 Immich 图库就挪去了服务页，本机这份现在是空数组、整块不显示。
 - **点卡片（或表格行）打开右侧观测项详情抽屉**，和资产详情同一套交互：
   - **基本信息**：名称、介绍、检查频率（带 30 秒 / 1 分钟 / 5 分钟 / 10 分钟 / 30 分钟快捷键）；展开「高级设置」还能改超时、重试次数、重试间隔、是否常显消息。这些都**写回 Kuma**（Kuma 是唯一事实源，CLI 与 `SNAPSHOT.md` 看到的是同一份），保存后列表立即刷新。
   - **暂停 / 恢复观测**：暂停后卡片和表格行都变淡并标「已暂停」，Kuma 不再探测（历史心跳保留）；恢复即重新开始。
@@ -70,11 +70,32 @@
 - **曲线**：24 小时的 CPU（橙）与内存（灰）两条线，`[ts, cpuPct, memPct]` 一天最多 288 个点。样本不足 2 个时写「还没有曲线」——**不画假线**。
 - **手动拉取**：工具条的「立即拉取」走 `POST /api/hosts/refresh`，绕过 4 分钟最小间隔；日常页面刷新只会触发一次「最多每 4 分钟」的拉取，免得把 my-server 打穿。
 - **时间戳不同步是正常的**：timer 带 `RandomizedDelaySec=20s` + `AccuracySec=30s`，6 台故意错峰。看到有的卡 2 分钟前、有的 5 分钟前，不是采集坏了。
-- **点服务 chip 跳观测台**：卡片「服务」区里，凡是 `host-services.json` 配到了观测项的 chip 都可点（右边带一个 ↗ 小箭头），点了切到观测页、滚到那张卡并高亮 1.6 秒（不开详情抽屉）。没配到映射的仍是纯文字 chip，`title` 会说明没有对应观测项。映射表在仓库根 `host-services.json`：`host` + `unit` 定位采集端的服务名，`match` 在**该主机分组内**的观测项短名里做不区分大小写的包含匹配（也可用 `monitor` 直接钉 id）。观测项被删/改名后 chip 自动退回纯文字，不用改代码。
+- **主机页只讲主机**：卡片上只有指标（CPU / 内存 / 磁盘 / 负载 / 曲线 / top 进程）。2026-10-26 起卡底那排「服务 chip」已删掉 —— 谁部署在谁上面属于[服务页](#服务服务器--服务部署关系)，两边不重复。（后端 `host-services.json` 与 `/api/hosts` 的 `unitMonitors` 还留着，只是前端不再画。）
 - **添加 / 暂停 / 删除**：工具条的「+ 添加主机」分三段 —— 基本信息（`id` 限字母数字 `.` `_` `-`、1–32 位、不能重名；显示名留空就用 id；`note` 只写机房）、采集端（服务清单 `WATCH_UNITS`、磁盘路径、地址）、观测项（端口 / HTTP 站点 / systemd 服务，默认都不勾）。保存后**直接弹出「接入这台机器」**：一条 `curl … && sudo bash …` 命令（复制即用）+ 「立即检查」，装完 timer 立刻上报第一帧，状态从「还在等第一帧」变「已收到首帧」。勾了观测项时会在观测台顺带建同名分组与观测项（命名 `<组短名> / <服务名>`，并把 id 记进 `data/metrics.json` 的 `monitors`），**建失败不影响主机**——错误会显示在页面上，主机照样收指标。卡片右上角 hover 出两个按钮：**暂停采集**（`paused`，卡片虚线变灰、副标题算「N 台暂停」、既不算离线也不算陈旧，历史曲线保留；要彻底停掉服务器上的上报得去那台机 `systemctl disable --now node-metrics.timer`，恢复后只能补到最新一帧）/ **删除**（弹窗里手输 id 才可点，默认同时删掉这台机 30 天历史样本、加主机时顺带建的观测项与空出来的分组）。
 - **为什么不直接上 node_exporter + Prometheus + Grafana**：每台要常驻 15–25 MB，本机再加约 200 MB；oj 只有 945 MB（历史上装 dnf-automatic 把它拖死过）。现在服务器侧**零常驻**，磁盘 2 KB。
 - **加一台机**：① 主机页点「+ 添加主机」填 id / 服务清单 / 磁盘 / 地址，要监控端口或站点就顺手勾上；② 保存后复制弹窗里那条命令，到目标机 `sudo` 跑一遍（下载单文件安装器 → 写 `/etc/node-metrics.conf` → 装 timer → 立刻上报一帧）；③ 弹窗里点「立即检查」或等 5 分钟，卡片从「还没收到上报」变成正常指标。没有界面时也能手装：`curl -fsSL https://metrics.example.com/nm/node-metrics-install.sh | sudo bash -s -- <URL> <HOST_ID> "<WATCH_UNITS>" "<DISK_PATHS>"`。
 - **排错**：`systemctl status node-metrics.service`（应 `status=0/SUCCESS`）→ `node-metrics.sh --print`（只打印不上报）→ `curl https://metrics.example.com/metrics/<token>/<id>.json`（看落盘那份）→ 本机 `GET /api/hosts` 看 `pollOk` / `pollFailed`。
+
+## 服务（服务器 ↔ 服务部署关系）
+
+**只登记关系，不做任何探测**：这一页没有状态、没有心跳、没有可用率，也不会去建 Kuma 观测项。它只回答两个问题——「这台机上跑着什么」和「这个服务部署在哪几台机上」。
+
+- **数据在 `data/services.json`**（`SERVICES_FILE` 可换路径），每次请求热读，改完刷新页面即生效、不用重启；文件不存在或写坏了就是空页面 +「还没有登记任何部署」，不报错。仓库里只带示例 `services.example.json`，**复制成 `data/services.json` 再改**：
+
+  ```json
+  {
+    "servers":  [{ "id": "local", "name": "本机", "vendor": "Windows", "ip": "127.0.0.1", "user": "huang", "monitors": [1, 2] }],
+    "services": [{ "id": "webapp", "name": "示例 Web 应用", "kind": "project", "summary": "一个项目" }],
+    "deploys":  [{ "server": "local", "service": "webapp", "path": "E:\\demo", "runtime": "node index.js", "port": "8080", "monitor": [1], "url": "http://127.0.0.1:8080" }],
+    "monitors": { "1": "WorkBuddy 网关 API（7863）" }
+  }
+  ```
+
+  四段各管一件事：`servers` 哪几台机（`monitors` 是这台机的服务器级观测项，显示在卡片底部）、`services` 有哪些项目 / 服务 / 站点 / 脚本 / 任务（`kind` 五选一：`project` / `service` / `site` / `script` / `task`）、`deploys` 谁部署在谁上面（`path` / `runtime` / `port` / `monitor` / `url` / `note` 都可选）、`monitors` 只是观测项 id → 短名，**纯显示用**（没登记的退回「观测项 N」，不会去 Kuma 现取）。
+- **两种视角**：「服务器视角」一台机一张卡，卡里是这台机的每条部署；「服务视角」一行一个服务，右边排出它部署在哪些机上（点机名跳回服务器视角并闪那张卡）。顶部统计：N 台服务器 · N 个服务 · N 条部署 · N 条挂了观测 · N 条能打开管理页。
+- **紧凑 / 详细**：默认紧凑，一屏能看完全部部署（路径与启动方式走悬停提示）；切「详细」是带表头的表格视图（列宽写死，列不会错位）。选择记在本机浏览器里。
+- **点名字的三种行为**：挂了观测 → 跳到观测台并高亮那张卡；没观测但填了 `url` → 新标签页打开管理页；两样都没有 → 灰字、点了不动。搜索框搜服务名 / 服务器名 / 路径 / 端口 / 备注 / 管理页地址。
+- **和观测页、主机页的分工**：要「探活」就去观测台建观测项；要「点开某个面板」既可以给这条部署填 `url`，也可以用观测页的快捷入口卡（纯外链）；要「谁部署在谁上面」只写这一页。三处互不复制。
 
 ## 备份
 

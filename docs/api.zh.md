@@ -43,6 +43,7 @@
 | PATCH | `/hosts/:id` | 改 `{ paused?, label?, note?, units?, disks?, address? }`。`paused: true` 之后不再拉这台机（卡片保留、变灰）；`paused: false` 会立刻拉一次补到最新一帧。没有这台机回 404 |
 | DELETE | `/hosts/:id?confirm=<id>&purge=1` | 删一台机 —— id 必须原样输对。`purge=1` 连带删掉它的 `host_metrics` 历史、加主机时顺带建的观测项（记在 `data/metrics.json` 的 `monitors` 里）、空出来的分组，以及 `host-services.json` 里它的映射；回包加 `{ purged, monitorsDeleted, monitorsFailed }`。没有这台机回 404 |
 | POST | `/hosts/refresh` | 立刻把六台机拉一遍（绕过 4 分钟最小间隔）；要求 `Content-Type: application/json`，否则 415 |
+| GET | `/services` | 服务页的部署关系：`{ servers, services, deploys, monitors, file }`，读 `data/services.json`（`SERVICES_FILE` 可换路径），**每次请求热读**，改完刷新页面即生效。`servers` 哪几台机、`services` 哪些项目 / 服务 / 站点 / 脚本 / 任务、`deploys` 谁部署在谁上面（路径、启动方式、端口、`monitor` 观测项 id、可选 `url` 管理页）、`monitors` 是观测项 id → 短名（只用于显示，没登记的退回「观测项 N」）。坏条目跳过、指向没登记的服务器或服务的部署丢掉；`file` 回实际读的路径。**只登记关系，不探测、不产生任何 Kuma 检查** |
 | GET | `/backup` | 备份状态：`{ local: { dir, keep, files: [{ name, size, mtime }], last, lastOkAt, lastError }, remote: { type, host, port, database, user, table, hasPassword, rows, last, lastError } }` |
 | GET | `/backup/local/:name/manifest` | 读包里的 `manifest.json`（成员名 / 大小 / sha256 / 生成时间 / 实例 id） |
 | GET | `/backup/local/:name/download` | 下载一个包（`Content-Disposition` 带文件名） |

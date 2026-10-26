@@ -476,3 +476,8 @@
 
 .svc-hint-ico { vertical-align: -2px; color: var(--accent-strong); }
 
+/* 取数中的一行提示（数据在 data/services.json，读不到就整页空态） */
+.svc-loading {
+  display: flex; align-items: center; gap: 8px;
+  padding: 28px 4px; color: var(--muted); font-size: 13px;
+}

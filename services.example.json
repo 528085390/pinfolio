@@ -1,0 +1,93 @@
+{
+  "servers": [
+    {
+      "id": "local",
+      "name": "本机",
+      "vendor": "Windows · 本机",
+      "ip": "127.0.0.1",
+      "user": "huang",
+      "note": "127.0.0.1 上的服务都在这台",
+      "doc": "C:\\Users\\huang\\.dsh\\memory\\services.md",
+      "monitors": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "srv1",
+      "name": "srv1",
+      "vendor": "阿里云 · 北京",
+      "ip": "203.0.113.10",
+      "user": "admin",
+      "doc": "E:\\services\\srv1",
+      "monitors": [
+        5
+      ]
+    }
+  ],
+  "services": [
+    {
+      "id": "webapp",
+      "name": "示例 Web 应用",
+      "kind": "project",
+      "summary": "自己的项目，systemd 常驻，8080"
+    },
+    {
+      "id": "nginx",
+      "name": "Nginx",
+      "kind": "site",
+      "summary": "反代与静态站点"
+    },
+    {
+      "id": "backup",
+      "name": "备份脚本",
+      "kind": "script",
+      "summary": "每天 03:00 推一次，timer 触发"
+    }
+  ],
+  "deploys": [
+    {
+      "server": "local",
+      "service": "webapp",
+      "path": "E:\\proj\\webapp",
+      "runtime": "计划任务 WebApp",
+      "port": "8080",
+      "url": "http://127.0.0.1:8080",
+      "note": "有管理页，点名字直接打开"
+    },
+    {
+      "server": "local",
+      "service": "backup",
+      "path": "E:\\proj\\scripts\\backup.ps1",
+      "runtime": "计划任务 Backup（03:00）"
+    },
+    {
+      "server": "srv1",
+      "service": "nginx",
+      "path": "/etc/nginx",
+      "runtime": "systemd nginx",
+      "port": "443",
+      "monitor": [
+        5
+      ]
+    },
+    {
+      "server": "srv1",
+      "service": "webapp",
+      "path": "/opt/webapp",
+      "runtime": "systemd webapp",
+      "port": "8080",
+      "monitor": [
+        6
+      ],
+      "url": "https://203.0.113.10/",
+      "note": "既有观测也有管理页：点名字去观测，行尾还有「管理页」"
+    }
+  ],
+  "monitors": {
+    "1": "WorkBuddy 网关 API（7863）",
+    "2": "WorkBuddy 管理端（7864）",
+    "5": "srv1 / Nginx 站点",
+    "6": "srv1 / 公网入口（443）"
+  }
+}

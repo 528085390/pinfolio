@@ -1,4 +1,5 @@
-// 服务栏的纯逻辑（web/pages/services/model.ts）+ 样例数据自洽性
+// 服务栏的纯逻辑（web/pages/services/model.ts）
+// 数据来源解析在 services-parse.test.mts；这里只管分组 / 搜索 / 统计 / 点击目标
 // 运行：pnpm test:unit
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -11,12 +12,12 @@ import {
   groupByServer,
   groupByService,
   kindRank,
+  monitorLabel,
   summaryOf,
   type DeployRec,
   type ServerRec,
   type ServiceRec,
 } from '../../web/pages/services/model.js'
-import { DEPLOYS, SERVERS, SERVICES, monitorName } from '../../web/pages/services/sample.js'
 
 const servers: ServerRec[] = [
   { id: 'a', name: 'a机', vendor: '某云 · 北京', ip: '1.1.1.1', user: 'root', monitors: [9, 3] },
@@ -124,19 +125,14 @@ test('deployTarget：先观测后管理页，都没有就返回 null', () => {
   assert.equal(deployTarget(base), null)
 })
 
-test('样例数据：部署都指向真实存在的服务器与服务', () => {
-  const srvIds = new Set(SERVERS.map((s) => s.id))
-  const svcIds = new Set(SERVICES.map((s) => s.id))
-  for (const d of DEPLOYS) {
-    assert.ok(srvIds.has(d.server), '未知服务器：' + d.server)
-    assert.ok(svcIds.has(d.service), '未知服务：' + d.service)
-    assert.ok(d.path.length > 0, '缺路径：' + d.server + '/' + d.service)
-    assert.ok(d.runtime.length > 0, '缺启动方式：' + d.server + '/' + d.service)
-    if (d.url) assert.match(d.url, /^https?:\/\//, '管理页得是 http(s) 地址：' + d.server + '/' + d.service)
-  }
-  // 每个服务至少被部署一次（否则服务视角里看不到它，等于白登记）
-  const used = new Set(DEPLOYS.map((d) => d.service))
-  for (const s of SERVICES) assert.ok(used.has(s.id), '没有任何部署：' + s.name)
+test('monitorLabel：查得到就用数据文件里的名字，查不到退回 id', () => {
+  const labels = { '24': '抖音续火花（每日打卡）', '126': 'os / 代理端口 443（TCP）', '7': '   ' }
+  assert.equal(monitorLabel(labels, 24), '抖音续火花（每日打卡）')
+  assert.equal(monitorLabel(labels, 126), 'os / 代理端口 443（TCP）')
+  assert.equal(monitorLabel(labels, 7), '观测项 7') // 空名字不算
+  assert.equal(monitorLabel(labels, 999), '观测项 999')
+  assert.equal(monitorLabel(undefined, 3), '观测项 3')
+  assert.equal(monitorLabel(null, 3), '观测项 3')
 })
 
 test('deployTitle：紧凑视图的悬停提示——路径 / 启动·端口 / 观测 / 备注各占一行', () => {
@@ -153,13 +149,4 @@ test('deployTitle：紧凑视图的悬停提示——路径 / 启动·端口 / �
   )
 })
 
-test('样例数据：挂的观测项 id 都能对上名字', () => {
-  const ids: number[] = []
-  for (const d of DEPLOYS) for (const id of d.monitor ?? []) ids.push(id)
-  for (const s of SERVERS) for (const id of s.monitors ?? []) ids.push(id)
-  assert.ok(ids.length > 0)
-  for (const id of ids) {
-    assert.ok(!monitorName(id).startsWith('观测项 '), '没有名字的观测项：' + id)
-  }
-  assert.equal(monitorName(999), '观测项 999')
-})
+

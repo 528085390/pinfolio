@@ -1,6 +1,6 @@
 # pinfolio — features in detail
 
-The full behaviour of the two busiest pages. For a quick overview see the [README](../README.md).
+The full behaviour of the busiest pages. For a quick overview see the [README](../README.md).
 
 ## Monitors
 - The data source is a **local Uptime Kuma** (default `http://127.0.0.1:3001`, status page slug `obs`). Kuma is only the probing backend; the UI lives here.
@@ -29,7 +29,7 @@ The full behaviour of the two busiest pages. For a quick overview see the [READM
   ]
   ```
 
-  `url` must be `http(s)://` (anything else — `javascript:`, a relative path — is dropped), an empty `name` falls back to the host, duplicate URLs keep only the first, `icon` understands `image` (camera) and `globe`, anything else gets the default link icon; `note` is the subtitle and `label` the hover tooltip.
+  `url` must be `http(s)://` (anything else — `javascript:`, a relative path — is dropped), an empty `name` falls back to the host, duplicate URLs keep only the first, `icon` understands `image` (camera) and `globe`, anything else gets the default link icon; `note` is the subtitle and `label` the hover tooltip. **To record what runs where, use the services page** (`data/services.json`) — a quick-link card only means "click to open this URL". The Immich library moved there on 2026-10-26, so this file is an empty array on this machine and the whole strip disappears.
 - **Clicking a card (or table row) opens the monitor drawer** on the right, with the same interaction as the asset drawer:
   - **Basics**: name, description, check interval (with 30s / 1m / 5m / 10m / 30m shortcuts); "Advanced" exposes timeout, retries, retry interval and whether the status message is always shown. All of it is **written back to Kuma** (Kuma stays the single source of truth — the CLI and `SNAPSHOT.md` see the same thing) and the list refreshes as soon as you save.
   - **Pause / resume**: paused monitors are dimmed and labelled in both views, and Kuma stops probing them (history is kept); resuming starts it again.
@@ -65,11 +65,32 @@ The hosts page shows resource usage and service state for six servers. **The dat
 - **Sparkline**: 24 hours of CPU (orange) and memory (grey), `[ts, cpuPct, memPct]`, at most 288 points a day. With fewer than two samples it says "no curve yet" — **it never draws a fake line**.
 - **Refresh now**: the toolbar button calls `POST /api/hosts/refresh`, bypassing the 4-minute minimum gap; an ordinary page refresh only triggers a pull at most once every 4 minutes, so the ingest host is never hammered.
 - **Unsynchronised timestamps are normal**: the timer uses `RandomizedDelaySec=20s` + `AccuracySec=30s`, deliberately staggered across the six machines.
-- **Service chips jump to the observatory**: a chip whose unit is mapped in `host-services.json` is clickable (small ↗ arrow); clicking switches to the monitors page, scrolls that card into view and flashes it for 1.6 s — it does not open the detail drawer. Unmapped units stay plain text and their `title` says there is no matching monitor. The map lives at the repo root: `host` + `unit` pick the collector unit, `match` is a case-insensitive substring test against the monitor short name **inside that host group** (or `monitor` pins an id). Rename or delete the monitor and the chip quietly falls back to plain text, no code change needed.
+- **The hosts page is about hosts only**: a card carries metrics (CPU / memory / disk / load / curves / top processes) and nothing else. The row of "service chips" under each card was removed on 2026-10-26 — which service runs on which machine belongs to the [services page](#services-server--service-deployment-map), so the two never duplicate. (The `host-services.json` file and the `unitMonitors` field of `/api/hosts` are still there; the front end simply no longer renders them.)
 - **Add / pause / delete**: "+ Add host" has three sections — basics (`id` is 1–32 chars of letters, digits, `.`, `_`, `-` and must be unique; the display name falls back to the id; keep IPs out of `note`), collector (unit list / disk paths / address) and monitors (port / HTTP site / systemd unit, all off by default). Saving immediately opens **"Hook up this machine"**: one `curl … && sudo bash …` command to copy, a "Check now" button, and a first-frame indicator that flips from "waiting for the first frame" to "first frame received" (the installer runs the collector once, then every 5 minutes). Any monitors you ticked are created in the observatory together with a group of the same name (`<group short> / <service>`, ids recorded as `monitors` in `data/metrics.json`); **a failing monitor never rolls back the host** — the error is shown on the page and metrics keep flowing. Hovering a card reveals two buttons: **pause** (`paused`: the card goes dashed and dim, the subtitle counts "N paused", the machine is neither offline nor stale and its history is kept; to stop the upload for good run `systemctl disable --now node-metrics.timer` on that server — resuming can only backfill the newest frame) and **delete** (you must type the id in the dialog; by default the 30-day history, the monitors created with the host and the now-empty group are dropped too).
 - **Why not node_exporter + Prometheus + Grafana**: 15–25 MB resident per server plus ~200 MB here; one of these boxes has 945 MB of RAM (and was killed once by a package that pulled in dnf-automatic). Today the server side is **fully resident-free** and costs 2 KB of disk.
 - **Adding a machine**: ① click "+ Add host" and fill id / units / disks / address (tick a monitor template if you want one); ② copy the command from the dialog and run it with `sudo` on that box (it downloads the single-file installer, writes `/etc/node-metrics.conf`, installs the timer and reports one frame right away); ③ press "Check now" in the dialog or wait 5 minutes — the card turns from "no report yet" into real numbers. Without the UI: `curl -fsSL https://metrics.example.com/nm/node-metrics-install.sh | sudo bash -s -- <URL> <HOST_ID> "<WATCH_UNITS>" "<DISK_PATHS>"`.
 - **Troubleshooting**: `systemctl status node-metrics.service` (expect `status=0/SUCCESS`) → `node-metrics.sh --print` (prints, does not upload) → `curl https://metrics.example.com/metrics/<token>/<id>.json` (the file on disk) → `GET /api/hosts` here and look at `pollOk` / `pollFailed`.
+
+## Services (server ↔ service deployment map)
+
+**Relationships only — nothing is probed here**: no status, no heartbeats, no uptime, and no Kuma monitor is created. The page answers two questions — what runs on this machine, and which machines does this service live on.
+
+- **The data lives in `data/services.json`** (`SERVICES_FILE` overrides the path) and is re-read on every request, so an edit shows up on reload with no restart. A missing or broken file renders an empty page saying nothing is registered yet instead of an error. The repo ships `services.example.json`; **copy it to `data/services.json` and edit that**:
+
+  ```json
+  {
+    "servers":  [{ "id": "local", "name": "This box", "vendor": "Windows", "ip": "127.0.0.1", "user": "huang", "monitors": [1, 2] }],
+    "services": [{ "id": "webapp", "name": "Sample web app", "kind": "project", "summary": "a project" }],
+    "deploys":  [{ "server": "local", "service": "webapp", "path": "E:\\demo", "runtime": "node index.js", "port": "8080", "monitor": [1], "url": "http://127.0.0.1:8080" }],
+    "monitors": { "1": "WorkBuddy gateway API (7863)" }
+  }
+  ```
+
+  Four sections, one job each: `servers` are the machines (`monitors` are host-level monitor ids shown at the foot of the card), `services` are projects / services / sites / scripts / tasks (`kind` is one of `project` / `service` / `site` / `script` / `task`), `deploys` say what runs where (`path` / `runtime` / `port` / `monitor` / `url` / `note` are all optional), and `monitors` is only a monitor id → short-name table for display (unknown ids fall back to `观测项 N`; nothing is fetched from Kuma).
+- **Two views**: "by server" is one card per machine listing that machine's deployments; "by service" is one row per service with the machines it lives on (clicking a machine jumps back and flashes that card). The stats line reads N servers · N services · N deploys · N monitored · N with a management page.
+- **Compact / detailed**: compact is the default and fits every deployment on one screen (paths and start commands live in the tooltip); "detailed" is a table with a header row and fixed column widths (columns never drift). The choice is remembered in the browser.
+- **Clicking a name does one of three things**: it has a monitor → jump to the observatory and flash that card; no monitor but a `url` → open the management page in a new tab; neither → dimmed text that does nothing. Search covers service name, server name, path, port, note and management URL.
+- **Division of labour**: probing belongs to the observatory, "open this panel" can be either a deploy `url` or a quick-link card, and "what runs where" lives only on this page. The three never duplicate each other.
 
 ## Backup
 

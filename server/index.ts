@@ -13,6 +13,7 @@ import { metaRoute } from './routes/meta.js'
 import { monitorsRoute } from './kuma/routes.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
 import { hostsRoute } from './metrics/routes.js'
+import { servicesRoute } from './services/routes.js'
 import { tunnelRoute } from './routes/tunnel.js'
 import { backupRoute } from './routes/backup.js'
 import { runBackup } from './backup/run.js'
@@ -60,6 +61,7 @@ api.route('/fields', fieldsRoute)
 api.route('/monitors', monitorsRoute)
 api.route('/mail', mailRoute)
 api.route('/hosts', hostsRoute)
+api.route('/services', servicesRoute)
 api.route('/tunnel', tunnelRoute)
 api.route('/backup', backupRoute)
 app.route('/api', api)

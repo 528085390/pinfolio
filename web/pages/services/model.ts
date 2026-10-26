@@ -5,7 +5,11 @@
  * 观测只以「跳转」的形式存在——一条部署挂了观测项 id，点一下就去观测台定位那一项。
  */
 
-export type DeployKind = 'project' | 'service' | 'site' | 'script' | 'task'
+import type { DeployKind, DeployRec, ServerRec, ServiceRec } from '../../lib/api/services'
+
+// 记录类型（服务器 / 服务 / 部署）定义在 API 层，跟 GET /api/services 的返回是同一份；
+// 这里再导出一次，页面与单测继续从 './services/model' 拿。
+export type { DeployKind, DeployRec, ServerRec, ServiceRec } from '../../lib/api/services'
 
 /** 卡片里行的顺序：项目 → 系统服务 → 站点 → 脚本 → 定时任务。 */
 export const KIND_ORDER: DeployKind[] = ['project', 'service', 'site', 'script', 'task']
@@ -16,50 +20,6 @@ export const KIND_LABEL: Record<DeployKind, string> = {
   site: '站点',
   script: '脚本',
   task: '任务',
-}
-
-export type ServerRec = {
-  id: string
-  /** 卡片标题：与观测台组名、主机页一致的那截短名 */
-  name: string
-  /** 副标题：厂商 · 区域 */
-  vendor: string
-  ip: string
-  user: string
-  note?: string
-  /** 档案（本机文档路径 / 仓库地址），样例里只做展示 */
-  doc?: string
-  /** 不挂在具体部署上的观测项（入口、端口这类） */
-  monitors?: number[]
-}
-
-export type ServiceRec = {
-  id: string
-  name: string
-  kind: DeployKind
-  summary: string
-  doc?: string
-}
-
-export type DeployRec = {
-  /** ServerRec.id */
-  server: string
-  /** ServiceRec.id */
-  service: string
-  /** 服务器上的绝对路径（本机就是本机路径） */
-  path: string
-  /** 怎么起的：systemd unit / timer / 计划任务 / 裸命令 */
-  runtime: string
-  /** 监听，写成 7863 或 127.0.0.1:29195 这种 */
-  port?: string
-  /** 对应的 Kuma 观测项 id（没有观测就不写，点了也没得跳） */
-  monitor?: number[]
-  /**
-   * 这个部署自己的管理页（面板 / 后台那种能打开的页面）。
-   * 没挂观测项时点名字就打开它——比如抖音续火花面板 8765。
-   */
-  url?: string
-  note?: string
 }
 
 /** 点一行会去哪儿：观测台定位某一项，或者打开这个部署自己的管理页。 */
@@ -74,6 +34,15 @@ export function deployTarget(rec: DeployRec): DeployTarget | null {
   if (typeof first === 'number') return { kind: 'monitor', id: first }
   if (rec.url) return { kind: 'url', url: rec.url }
   return null
+}
+
+/**
+ * 观测项的显示名：data/services.json 的 monitors 表里配了就显示它，
+ * 没配（或 id 写错）就退回「观测项 12」——这一页不连 Kuma，名字只能来自这份文件。
+ */
+export function monitorLabel(labels: Record<string, string> | undefined | null, id: number): string {
+  const hit = labels?.[String(id)]
+  return hit && hit.trim() ? hit.trim() : '观测项 ' + id
 }
 
 export type ServerRow = DeployRec & { svc: ServiceRec }

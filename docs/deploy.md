@@ -160,6 +160,7 @@ powershell -File tools\pinboard.ps1 start
 | `KUMA_DB` | `<上级目录>/kuma/data/kuma.db` | 备份时导出当天心跳的 Kuma 库 |
 | `METRICS_INSTALL_URL` | 按 `PUBLIC_URL` 推 | 主机指标安装命令的托管地址 |
 | `MONITOR_ACTIONS` / `MONITOR_LINKS` / `MONITOR_QUICK` / `HOST_SERVICES` / `KUMA_CLI` | 见代码 | 观测项配方 / 跳转 / 快捷入口 / 服务映射 |
+| `SERVICES_FILE` | `<数据目录>/services.json` | 服务页的部署关系（`servers` / `services` / `deploys` / `monitors`），每次请求热读；没有这个文件就是空页面 |
 
 ---
 

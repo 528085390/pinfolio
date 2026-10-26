@@ -1,7 +1,8 @@
-import { Fragment, useMemo, useRef, useState } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeftRight, Boxes, ExternalLink, LayoutGrid, List, Search, Server } from 'lucide-react'
-import { Button, Empty } from '../components/ui'
+import { Button, Empty, Spinner } from '../components/ui'
 import { cx } from '../lib/cx'
+import { api, type ServicesPayload } from '../lib/api'
 import {
   KIND_LABEL,
   deployTarget,
@@ -10,6 +11,7 @@ import {
   filterServiceGroups,
   groupByServer,
   groupByService,
+  monitorLabel,
   summaryOf,
   type DeployTarget,
   type ServerGroup,
@@ -17,9 +19,11 @@ import {
   type ServiceGroup,
   type ServiceRow,
 } from './services/model'
-import { DEPLOYS, SERVERS, SERVICES, monitorName } from './services/sample'
 
 type View = 'server' | 'service'
+
+/** 观测项显示名：页面从 data/services.json 的 monitors 表建一个查表函数，子组件用 context 取。 */
+const MonNames = createContext<(id: number) => string>((id) => '观测项 ' + id)
 
 /** 紧凑（默认，一屏看全）/ 详细（带路径与启动方式）。选过就记住，下次进来还是那个。 */
 const DENSITY_KEY = 'pinboard-svc-density'
@@ -47,6 +51,7 @@ function openUrl(url: string) {
 
 /** 一行里的观测入口：挂了观测项才是按钮，没挂就一个「—」（这一格还有管理页时不给「—」）。 */
 function MonChips({ ids, onOpen, quiet }: { ids?: number[]; onOpen?: (id: number) => void; quiet?: boolean }) {
+  const mon = useContext(MonNames)
   if (!ids || ids.length === 0) return quiet ? null : <span className="svc-nomon">—</span>
   return (
     <>
@@ -55,10 +60,10 @@ function MonChips({ ids, onOpen, quiet }: { ids?: number[]; onOpen?: (id: number
           key={id}
           type="button"
           className="svc-mon"
-          title={'去观测台看「' + monitorName(id) + '」'}
+          title={'去观测台看「' + mon(id) + '」'}
           onClick={() => onOpen?.(id)}
         >
-          <span>{monitorName(id)}</span>
+          <span>{mon(id)}</span>
         </button>
       ))}
     </>
@@ -82,11 +87,12 @@ function NameCell({ name, summary, target, onOpen }: {
   target: DeployTarget | null
   onOpen?: (id: number) => void
 }) {
+  const mon = useContext(MonNames)
   if (!target) {
     return <span className="svc-name is-static" title={summary + '（没挂观测也没有管理页，点了不跳）'}>{name}</span>
   }
   const tip = target.kind === 'monitor'
-    ? summary + '（点一下去观测台看「' + monitorName(target.id) + '」）'
+    ? summary + '（点一下去观测台看「' + mon(target.id) + '」）'
     : summary + '（点一下打开管理页 ' + target.url + '）'
   return (
     <button
@@ -190,11 +196,12 @@ function MiniRow({
   detail: string
   onOpen?: (id: number) => void
 }) {
+  const mon = useContext(MonNames)
   const linked = target !== null
   const tip = !target
     ? detail + '\n没挂观测也没有管理页，点了不跳'
     : target.kind === 'monitor'
-      ? detail + '\n点一下 → 观测台看「' + monitorName(target.id) + '」'
+      ? detail + '\n点一下 → 观测台看「' + mon(target.id) + '」'
       : detail + '\n点一下 → 打开管理页 ' + target.url
   const go = () => {
     if (!target) return
@@ -228,6 +235,7 @@ function MiniServerCard({ g, flash, onOpen }: {
   onOpen?: (id: number) => void
 }) {
   const cardId = 'svc-card-srv-' + g.server.id
+  const mon = useContext(MonNames)
   return (
     <article id={cardId} className={cx('svc-mini', flash === cardId && 'is-flash')}>
       <header className="svc-mini-head">
@@ -245,7 +253,7 @@ function MiniServerCard({ g, flash, onOpen }: {
             labelTitle={KIND_LABEL[row.svc.kind] + ' · ' + row.svc.summary}
             port={row.port}
             target={deployTarget(row)}
-            detail={deployTitle(row, (row.monitor ?? []).map(monitorName))}
+            detail={deployTitle(row, (row.monitor ?? []).map(mon))}
             onOpen={onOpen}
           />
         ))}
@@ -257,10 +265,10 @@ function MiniServerCard({ g, flash, onOpen }: {
               key={id}
               type="button"
               className="svc-mini-mon is-foot"
-              title={'服务器观测：去观测台看「' + monitorName(id) + '」'}
+              title={'服务器观测：去观测台看「' + mon(id) + '」'}
               onClick={() => onOpen?.(id)}
             >
-              <span>{monitorName(id)}</span>
+              <span>{mon(id)}</span>
             </button>
           ))}
         </footer>
@@ -278,12 +286,13 @@ function ServiceListRow({ g, flash, onOpen, onJump }: {
   onJump: (view: View, cardId: string) => void
 }) {
   const cardId = 'svc-card-svc-' + g.service.id
+  const mon = useContext(MonNames)
   // 服务视角的名字只有一个入口：优先取第一条挂了观测/有管理页的部署
   const target = g.rows.map(deployTarget).find((t) => t !== null) ?? null
   const tip = !target
     ? g.service.summary + '（没挂观测也没有管理页，点了不跳）'
     : target.kind === 'monitor'
-      ? g.service.summary + '（点一下去观测台看「' + monitorName(target.id) + '」）'
+      ? g.service.summary + '（点一下去观测台看「' + mon(target.id) + '」）'
       : g.service.summary + '（点一下打开管理页 ' + target.url + '）'
   return (
     <li id={cardId} className={cx('svc-srow', flash === cardId && 'is-flash')}>
@@ -331,11 +340,37 @@ export function ServicesPage({ onOpenMonitor }: {
   const [dense, setDense] = useState<boolean>(readDense)
   const [q, setQ] = useState('')
   const [flash, setFlash] = useState('')
+  const [data, setData] = useState<ServicesPayload | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const timer = useRef<number | undefined>(undefined)
 
-  const sum = useMemo(() => summaryOf(SERVERS, SERVICES, DEPLOYS), [])
-  const byServer = useMemo(() => groupByServer(SERVERS, SERVICES, DEPLOYS), [])
-  const byService = useMemo(() => groupByService(SERVICES, SERVERS, DEPLOYS), [])
+  // 数据只有一个来源：data/services.json（GET /api/services 每次热读）。进页面拉一次，改完刷新页面即生效。
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      setData(await api.services.get())
+      setError('')
+    } catch (e: any) {
+      setError(String(e?.message || e))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const srvRecs = useMemo(() => data?.servers ?? [], [data])
+  const svcRecs = useMemo(() => data?.services ?? [], [data])
+  const deploys = useMemo(() => data?.deploys ?? [], [data])
+  // 观测项名字只来自这份文件的 monitors 表；这一页不连 Kuma
+  const mon = useCallback((id: number) => monitorLabel(data?.monitors, id), [data])
+
+  const sum = useMemo(() => summaryOf(srvRecs, svcRecs, deploys), [srvRecs, svcRecs, deploys])
+  const byServer = useMemo(() => groupByServer(srvRecs, svcRecs, deploys), [srvRecs, svcRecs, deploys])
+  const byService = useMemo(() => groupByService(svcRecs, srvRecs, deploys), [svcRecs, srvRecs, deploys])
   const servers = useMemo(() => filterServerGroups(byServer, q), [byServer, q])
   const services = useMemo(() => filterServiceGroups(byService, q), [byService, q])
 
@@ -359,192 +394,212 @@ export function ServicesPage({ onOpenMonitor }: {
   const total = view === 'server' ? servers.length : services.length
 
   return (
-    <div className="page page-wide page-svc">
-      <div className="svc-toolbar">
-        <div className="svc-sum">
-          <span className="svc-sum-num">{sum.servers}</span>
-          <span className="svc-sum-label">台服务器</span>
-          <span className="svc-sum-sep">·</span>
-          <span className="svc-sum-num">{sum.services}</span>
-          <span className="svc-sum-label">个服务</span>
-          <span className="svc-sum-sep">·</span>
-          <span className="svc-sum-dim">{sum.deploys} 条部署</span>
-          <span className="svc-sum-sep">·</span>
-          <span className="svc-sum-dim">{sum.linked} 条挂了观测（共 {sum.monitors} 项）</span>
-          <span className="svc-sum-sep">·</span>
-          <span className="svc-sum-dim">{sum.manage} 条能打开管理页</span>
-        </div>
-        <div className="svc-actions">
-          <div className="svc-tabs">
-            <button
-              type="button"
-              className={cx('svc-tab', view === 'server' && 'is-on')}
-              onClick={() => setView('server')}
-            >
-              <Server size={13} />服务器视角
-            </button>
-            <button
-              type="button"
-              className={cx('svc-tab', view === 'service' && 'is-on')}
-              onClick={() => setView('service')}
-            >
-              <Boxes size={13} />服务视角
-            </button>
+    <MonNames.Provider value={mon}>
+      <div className="page page-wide page-svc">
+        <div className="svc-toolbar">
+          <div className="svc-sum">
+            <span className="svc-sum-num">{sum.servers}</span>
+            <span className="svc-sum-label">台服务器</span>
+            <span className="svc-sum-sep">·</span>
+            <span className="svc-sum-num">{sum.services}</span>
+            <span className="svc-sum-label">个服务</span>
+            <span className="svc-sum-sep">·</span>
+            <span className="svc-sum-dim">{sum.deploys} 条部署</span>
+            <span className="svc-sum-sep">·</span>
+            <span className="svc-sum-dim">{sum.linked} 条挂了观测（共 {sum.monitors} 项）</span>
+            <span className="svc-sum-sep">·</span>
+            <span className="svc-sum-dim">{sum.manage} 条能打开管理页</span>
           </div>
-          <div className="svc-tabs is-density">
-            <button
-              type="button"
-              className={cx('svc-tab', dense && 'is-on')}
-              title="紧凑：一屏看全所有部署"
-              onClick={() => setDensity(true)}
-            >
-              <LayoutGrid size={13} />紧凑
-            </button>
-            <button
-              type="button"
-              className={cx('svc-tab', !dense && 'is-on')}
-              title="详细：带路径与启动方式"
-              onClick={() => setDensity(false)}
-            >
-              <List size={13} />详细
-            </button>
+          <div className="svc-actions">
+            <div className="svc-tabs">
+              <button
+                type="button"
+                className={cx('svc-tab', view === 'server' && 'is-on')}
+                onClick={() => setView('server')}
+              >
+                <Server size={13} />服务器视角
+              </button>
+              <button
+                type="button"
+                className={cx('svc-tab', view === 'service' && 'is-on')}
+                onClick={() => setView('service')}
+              >
+                <Boxes size={13} />服务视角
+              </button>
+            </div>
+            <div className="svc-tabs is-density">
+              <button
+                type="button"
+                className={cx('svc-tab', dense && 'is-on')}
+                title="紧凑：一屏看全所有部署"
+                onClick={() => setDensity(true)}
+              >
+                <LayoutGrid size={13} />紧凑
+              </button>
+              <button
+                type="button"
+                className={cx('svc-tab', !dense && 'is-on')}
+                title="详细：带路径与启动方式"
+                onClick={() => setDensity(false)}
+              >
+                <List size={13} />详细
+              </button>
+            </div>
+            <label className="svc-search">
+              <Search size={13} />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={view === 'server' ? '搜服务器 / 服务 / 路径' : '搜服务 / 服务器'}
+              />
+            </label>
           </div>
-          <label className="svc-search">
-            <Search size={13} />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={view === 'server' ? '搜服务器 / 服务 / 路径' : '搜服务 / 服务器'}
-            />
-          </label>
         </div>
-      </div>
 
-      <p className="svc-hint">
-        {dense ? (
-          view === 'server' ? (
-            <>
-              只登记部署关系，<b>不做任何探测</b>。点任意一行：挂了观测的去观测台，没观测但有管理页的打开管理页，
-              都没有的点不动；服务器级观测在卡片底部；路径 / 启动方式 / 端口看悬停提示。
-            </>
+        <p className="svc-hint">
+          {dense ? (
+            view === 'server' ? (
+              <>
+                只登记部署关系，<b>不做任何探测</b>。点任意一行：挂了观测的去观测台，没观测但有管理页的打开管理页，
+                都没有的点不动；服务器级观测在卡片底部；路径 / 启动方式 / 端口看悬停提示。
+              </>
+            ) : (
+              <>
+                只登记部署关系，<b>不做任何探测</b>。点服务名：有观测去观测台，没观测就打开它的管理页（都没有的点不动）；
+                点右边的机名小标签换到服务器视角，看那台机上还部署了什么。
+              </>
+            )
           ) : (
             <>
-              只登记部署关系，<b>不做任何探测</b>。点服务名：有观测去观测台，没观测就打开它的管理页（都没有的点不动）；
-              点右边的机名小标签换到服务器视角，看那台机上还部署了什么。
+              这一栏只登记部署关系，<b>不做任何探测</b>。点名字：有观测去观测台，没观测就打开管理页（都没有的点了不跳）；
+              行尾的 <ArrowLeftRight size={11} className="svc-hint-ico" /> 换到另一个视角。
             </>
-          )
-        ) : (
-          <>
-            这一栏只登记部署关系，<b>不做任何探测</b>。点名字：有观测去观测台，没观测就打开管理页（都没有的点了不跳）；
-            行尾的 <ArrowLeftRight size={11} className="svc-hint-ico" /> 换到另一个视角。
-          </>
-        )}
-      </p>
+          )}
+        </p>
 
-      {total === 0 ? (
-        <Empty
-          icon={<Search size={20} />}
-          title="没有匹配的部署"
-          text={'没找到「' + q + '」，换个关键词试试。'}
-          action={<Button onClick={() => setQ('')}>清空搜索</Button>}
-        />
-      ) : dense && view === 'server' ? (
-        <div className="svc-board">
-          {servers.map((g) => (
-            <MiniServerCard key={g.server.id} g={g} flash={flash} onOpen={onOpenMonitor} />
-          ))}
-        </div>
-      ) : dense ? (
-        <ul className="svc-slist">
-          {services.map((g) => (
-            <ServiceListRow key={g.service.id} g={g} flash={flash} onOpen={onOpenMonitor} onJump={jump} />
-          ))}
-        </ul>
-      ) : (
-        <div className="svc-list">
-          {view === 'server'
-            ? servers.map((g) => {
-                const cardId = 'svc-card-srv-' + g.server.id
-                return (
-                  <article key={g.server.id} id={cardId} className={cx('svc-card', flash === cardId && 'is-flash')}>
-                    <header className="svc-head">
-                      <h3 className="svc-title is-static">{g.server.name}</h3>
-                      <span className="svc-meta">{g.server.vendor} · {g.server.ip} · {g.server.user}</span>
-                      <span className="svc-count">{g.rows.length} 项部署</span>
-                    </header>
-                    {g.server.note ? <p className="svc-sub">{g.server.note}</p> : null}
-                    {g.rows.length === 0 ? (
-                      <p className="svc-sub">这台机还没登记部署。</p>
-                    ) : (
-                      <>
-                        <div className="svc-rows-head">
-                          <span>种类</span>
-                          <span>服务</span>
-                          <span>路径</span>
-                          <span>启动 · 端口</span>
-                          <span>观测</span>
-                          <span />
-                        </div>
-                        <ul className="svc-rows">
+        {loading && !data ? (
+          <p className="svc-loading">
+            <Spinner /> 正在读服务清单…
+          </p>
+        ) : error ? (
+          <Empty
+            icon={<Boxes size={20} />}
+            title="读不到服务清单"
+            text={error}
+            action={<Button onClick={() => void load()}>重试</Button>}
+          />
+        ) : !srvRecs.length ? (
+          <Empty
+            icon={<Boxes size={20} />}
+            title="还没有登记任何部署"
+            text={'在 ' + (data?.file || 'data/services.json') + ' 里按 services.example.json 的格式写：servers（哪几台机）、services（哪些服务）、deploys（谁部署在谁上面）。改完刷新页面即生效。'}
+            action={<Button onClick={() => void load()}>重新读取</Button>}
+          />
+        ) : total === 0 ? (
+          <Empty
+            icon={<Search size={20} />}
+            title="没有匹配的部署"
+            text={'没找到「' + q + '」，换个关键词试试。'}
+            action={<Button onClick={() => setQ('')}>清空搜索</Button>}
+          />
+        ) : dense && view === 'server' ? (
+          <div className="svc-board">
+            {servers.map((g) => (
+              <MiniServerCard key={g.server.id} g={g} flash={flash} onOpen={onOpenMonitor} />
+            ))}
+          </div>
+        ) : dense ? (
+          <ul className="svc-slist">
+            {services.map((g) => (
+              <ServiceListRow key={g.service.id} g={g} flash={flash} onOpen={onOpenMonitor} onJump={jump} />
+            ))}
+          </ul>
+        ) : (
+          <div className="svc-list">
+            {view === 'server'
+              ? servers.map((g) => {
+                  const cardId = 'svc-card-srv-' + g.server.id
+                  return (
+                    <article key={g.server.id} id={cardId} className={cx('svc-card', flash === cardId && 'is-flash')}>
+                      <header className="svc-head">
+                        <h3 className="svc-title is-static">{g.server.name}</h3>
+                        <span className="svc-meta">{g.server.vendor} · {g.server.ip} · {g.server.user}</span>
+                        <span className="svc-count">{g.rows.length} 项部署</span>
+                      </header>
+                      {g.server.note ? <p className="svc-sub">{g.server.note}</p> : null}
+                      {g.rows.length === 0 ? (
+                        <p className="svc-sub">这台机还没登记部署。</p>
+                      ) : (
+                        <>
+                          <div className="svc-rows-head">
+                            <span>种类</span>
+                            <span>服务</span>
+                            <span>路径</span>
+                            <span>启动 · 端口</span>
+                            <span>观测</span>
+                            <span />
+                          </div>
+                          <ul className="svc-rows">
+                          {g.rows.map((row) => (
+                            <ServerDeployRow
+                              key={row.server + ':' + row.service}
+                              row={row}
+                              onOpen={onOpenMonitor}
+                              onService={(id) => jump('service', id)}
+                            />
+                          ))}
+                          </ul>
+                        </>
+                      )}
+                      <footer className="svc-foot">
+                        <span className="svc-foot-label">服务器观测</span>
+                        <MonChips ids={g.monitors} onOpen={onOpenMonitor} />
+                        {g.server.doc ? <span className="svc-doc" title={g.server.doc}>{g.server.doc}</span> : null}
+                      </footer>
+                    </article>
+                  )
+                })
+              : services.map((g) => {
+                  const cardId = 'svc-card-svc-' + g.service.id
+                  return (
+                    <article key={g.service.id} id={cardId} className={cx('svc-card', 'is-svc', flash === cardId && 'is-flash')}>
+                      <header className="svc-head">
+                        <h3 className="svc-title is-static">{g.service.name}</h3>
+                        <span className={cx('svc-kind', 'is-chip', 'kind-' + g.service.kind)}>
+                          {KIND_LABEL[g.service.kind]}
+                        </span>
+                        <span className="svc-count">{g.rows.length} 台服务器</span>
+                      </header>
+                      <p className="svc-sub">{g.service.summary}</p>
+                      <div className="svc-rows-head is-srv">
+                        <span>服务器</span>
+                        <span>路径</span>
+                        <span>启动 · 端口</span>
+                        <span>观测</span>
+                        <span />
+                      </div>
+                      <ul className="svc-rows">
                         {g.rows.map((row) => (
-                          <ServerDeployRow
+                          <ServiceDeployRow
                             key={row.server + ':' + row.service}
                             row={row}
                             onOpen={onOpenMonitor}
-                            onService={(id) => jump('service', id)}
+                            onServer={(id) => jump('server', id)}
                           />
                         ))}
-                        </ul>
-                      </>
-                    )}
-                    <footer className="svc-foot">
-                      <span className="svc-foot-label">服务器观测</span>
-                      <MonChips ids={g.monitors} onOpen={onOpenMonitor} />
-                      {g.server.doc ? <span className="svc-doc" title={g.server.doc}>{g.server.doc}</span> : null}
-                    </footer>
-                  </article>
-                )
-              })
-            : services.map((g) => {
-                const cardId = 'svc-card-svc-' + g.service.id
-                return (
-                  <article key={g.service.id} id={cardId} className={cx('svc-card', 'is-svc', flash === cardId && 'is-flash')}>
-                    <header className="svc-head">
-                      <h3 className="svc-title is-static">{g.service.name}</h3>
-                      <span className={cx('svc-kind', 'is-chip', 'kind-' + g.service.kind)}>
-                        {KIND_LABEL[g.service.kind]}
-                      </span>
-                      <span className="svc-count">{g.rows.length} 台服务器</span>
-                    </header>
-                    <p className="svc-sub">{g.service.summary}</p>
-                    <div className="svc-rows-head is-srv">
-                      <span>服务器</span>
-                      <span>路径</span>
-                      <span>启动 · 端口</span>
-                      <span>观测</span>
-                      <span />
-                    </div>
-                    <ul className="svc-rows">
-                      {g.rows.map((row) => (
-                        <ServiceDeployRow
-                          key={row.server + ':' + row.service}
-                          row={row}
-                          onOpen={onOpenMonitor}
-                          onServer={(id) => jump('server', id)}
-                        />
-                      ))}
-                    </ul>
-                    {g.service.doc ? (
-                      <footer className="svc-foot">
-                        <span className="svc-foot-label">项目目录</span>
-                        <span className="svc-doc" title={g.service.doc}>{g.service.doc}</span>
-                      </footer>
-                    ) : null}
-                  </article>
-                )
-              })}
-        </div>
-      )}
-    </div>
+                      </ul>
+                      {g.service.doc ? (
+                        <footer className="svc-foot">
+                          <span className="svc-foot-label">项目目录</span>
+                          <span className="svc-doc" title={g.service.doc}>{g.service.doc}</span>
+                        </footer>
+                      ) : null}
+                    </article>
+                  )
+                })}
+          </div>
+        )}
+      </div>
+    </MonNames.Provider>
   )
 }

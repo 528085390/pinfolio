@@ -5,6 +5,7 @@ import { notesApi } from './api/notes'
 import { assetsApi } from './api/assets'
 import { monitorsApi } from './api/monitors'
 import { hostsApi } from './api/hosts'
+import { servicesApi } from './api/services'
 import { mailApi } from './api/mail'
 import { authApi } from './api/auth'
 import { tunnelApi } from './api/tunnel'
@@ -17,6 +18,7 @@ export const api = {
   assets: assetsApi,
   monitors: monitorsApi,
   hosts: hostsApi,
+  services: servicesApi,
   mail: mailApi,
   auth: authApi,
   tunnel: tunnelApi,
@@ -31,6 +33,7 @@ export { request } from './api/http'
 export type { Tag, FieldDef, Stats } from './api/types'
 export type { SessionInfo, ApiToken } from './api/auth'
 export type { TunnelStatus } from './api/tunnel'
+export type { DeployKind, DeployRec, ServerRec, ServiceRec, ServicesPayload } from './api/services'
 export type { BackupStatus, BackupState, LocalFile, RemoteRow, RemoteConfigView, RemoteInput, Manifest } from './api/backup'
 export type { Note } from './api/notes'
 export type { Asset } from './api/assets'
