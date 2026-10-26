@@ -6,6 +6,7 @@ import { MailAccountDrawer } from '../components/MailAccountDrawer'
 import { MailList } from './mail/MailList'
 import { MailToolbar } from './mail/MailToolbar'
 import { PAGE, useInbox } from './mail/useInbox'
+import { t } from '../lib/i18n'
 
 /**
  * 邮件页：只负责拼装。
@@ -24,17 +25,17 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
       <div className="mail-page mail-page-empty">
         <Empty
           icon={<Mail size={22} />}
-          title="还没有添加邮箱"
+          title={t('还没有添加邮箱')}
           text={
             <>
-              支持 Gmail / QQ / 163 等任意 IMAP 邮箱，只收信、不改变服务器上的任何状态。
+              {t('支持 Gmail / QQ / 163 等任意 IMAP 邮箱，只收信、不改变服务器上的任何状态。')}
               <br />
-              Gmail 用「应用专用密码」，QQ 和 163 用「授权码」。
+              {t('Gmail 用「应用专用密码」，QQ 和 163 用「授权码」。')}
             </>
           }
           action={
             <Button variant="primary" onClick={() => M.setDrawer(true)}>
-              <Mail size={14} /> 添加邮箱
+              <Mail size={14} /> {t('添加邮箱')}
             </Button>
           }
         />
@@ -86,13 +87,13 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
 
         <section className="mail-reader-pane">
           <button className="mail-back" onClick={M.close}>
-            <ChevronLeft size={16} /> 返回列表
+            <ChevronLeft size={16} /> {t('返回列表')}
           </button>
           {M.sel ? (
             <MailReader key={M.sel.accountId + ':' + M.sel.folder + ':' + M.sel.uid} accountId={M.sel.accountId} folder={M.sel.folder} uid={M.sel.uid} folderLabel={M.folderName} />
           ) : (
             <div className="mail-reader-empty">
-              <Empty icon={<Inbox size={20} />} title="选一封邮件" text="点左边的邮件，正文就显示在这里（不会把服务器上的邮件标成已读）。" />
+              <Empty icon={<Inbox size={20} />} title={t('选一封邮件')} text={t('点左边的邮件，正文就显示在这里（不会把服务器上的邮件标成已读）。')} />
             </div>
           )}
         </section>

@@ -12,10 +12,13 @@ import { Sidebar } from './app/Sidebar'
 import { Topbar } from './app/Topbar'
 import { useShell } from './app/useShell'
 import { Spinner } from './components/ui'
+import { t, useLocale } from './lib/i18n'
 
 // 组合层：外壳状态在 useShell，侧栏与顶栏是纯展示，页面按 URL 选。
 export function App() {
   const s = useShell()
+  // 语言切换的唯一订阅点：这里重渲染 → 整棵树跟着换文案（子组件不用各自订阅）
+  useLocale()
   // 主题生效后由 useShell 的 effect 写到 <html data-theme>，这里只读一次决定图标
   const dark = document.documentElement.dataset.theme === 'dark'
 
@@ -43,7 +46,7 @@ export function App() {
         />
 
         <div className="content">
-          {s.error ? <div className="alert" style={{ margin: '0 0 14px' }}>接口出错：{s.error}</div> : null}
+          {s.error ? <div className="alert" style={{ margin: '0 0 14px' }}>{t('接口出错：{msg}', { msg: s.error })}</div> : null}
           {!s.ready ? (
             <div className="empty"><Spinner /></div>
           ) : s.page === 'notes' ? (

@@ -1,3 +1,4 @@
+import { t } from '../i18n.js'
 import { pickLink, type LinkRule } from './links.js'
 import { toIso, toneChar, type RawBeat } from './beat.js'
 import type { QuickLink } from './quick.js'
@@ -125,7 +126,7 @@ export function buildPayload(input: BuildInput): Payload {
   const all = groups.reduce<Monitor[]>((acc, g) => acc.concat(g.monitors), [])
   const rated = all.filter((m) => m.uptime24 !== null)
   return {
-    kuma: { base: input.base, slug: input.slug, title: String(input.statusPage.config?.title || '观测台') },
+    kuma: { base: input.base, slug: input.slug, title: String(input.statusPage.config?.title || t('观测台')) },
     updatedAt: input.now ?? new Date().toISOString(),
     summary: {
       total: all.length,

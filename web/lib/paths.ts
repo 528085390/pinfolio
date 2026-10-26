@@ -2,6 +2,8 @@
  * 页面与 URL 的对应关系。纯函数，放在这里是为了能单测 —— router.ts 里带着 React hooks。
  */
 
+import { t } from './i18n'
+
 export type Page = 'notes' | 'mail' | 'assets' | 'monitors' | 'hosts' | 'services' | 'backup' | 'settings'
 
 /** 每个页面在地址栏里的规范路径。改这里等于改 URL 约定。 */
@@ -16,15 +18,16 @@ export const PATHS: Record<Page, string> = {
   settings: '/settings',
 }
 
+// 用 getter：调用方照旧写 TITLES[page]，取值时才知道当前语言（模块加载期就调 t() 会把语言冻住）
 export const TITLES: Record<Page, string> = {
-  notes: '便签',
-  mail: '邮件',
-  assets: '资产台账',
-  monitors: '观测台',
-  hosts: '主机',
-  services: '服务',
-  backup: '备份',
-  settings: '设置',
+  get notes() { return t('便签') },
+  get mail() { return t('邮件') },
+  get assets() { return t('资产台账') },
+  get monitors() { return t('观测台') },
+  get hosts() { return t('主机') },
+  get services() { return t('服务') },
+  get backup() { return t('备份') },
+  get settings() { return t('设置') },
 }
 
 /**

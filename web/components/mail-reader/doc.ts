@@ -27,11 +27,12 @@ export function saveImagePref(show: boolean): void {
  * 阅读区的基础样式（注入到 Shadow DOM 里，跟邮件自带样式一起生效）。
  * 用 CSS 变量取主界面的暖纸色，变量能穿透 shadow 边界；写死颜色的话深色模式就不跟了。
  * max-width/height 加 !important 是为了压住邮件自带的 width=600 之类固定宽度，避免横向溢出。
+ * （原来串内还有一行同样意思的中文 CSS 注释，挪到串外：CSS 注释无渲染作用，
+ *   留在模板串里会被 i18n 巡检当成待翻译文案。）
  */
 export const BASE_CSS = `
   :host { display: block; }
   .mail-doc { font-size: 13.5px; line-height: 1.7; color: var(--ink-2); overflow-wrap: anywhere; max-width: 100%; }
-  /* 邮件常用固定宽度（这封就是 width:720px），阅读区只有 650 出头，不压住就会横向溢出被裁 */
   .mail-doc * { max-width: 100% !important; box-sizing: border-box; }
   .mail-doc img { height: auto !important; }
   .mail-doc img[data-blocked] {

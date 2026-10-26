@@ -1,6 +1,7 @@
 import { Pin, Plus, Search, Archive, CheckCircle2 } from 'lucide-react'
 import { cx, type Tag } from '../../lib/api'
 import type { DoneFilter } from './useNotes'
+import { t } from '../../lib/i18n'
 
 export type FilterBarProps = {
   archivedMode: boolean
@@ -25,37 +26,37 @@ export function FilterBar(p: FilterBarProps) {
     <div className="filters" style={{ marginTop: 18 }}>
       {p.archivedMode ? null : (
         <>
-          <button className={cx('chip', !p.pinnedOnly && !p.tag && !p.doneFilter && 'active')} onClick={p.onShowAll}>全部</button>
-          <button className={cx('chip', p.doneFilter === '0' && 'active')} onClick={() => p.onToggleDoneFilter('0')}>未完成</button>
+          <button className={cx('chip', !p.pinnedOnly && !p.tag && !p.doneFilter && 'active')} onClick={p.onShowAll}>{t('全部')}</button>
+          <button className={cx('chip', p.doneFilter === '0' && 'active')} onClick={() => p.onToggleDoneFilter('0')}>{t('未完成')}</button>
           <button className={cx('chip', p.doneFilter === '1' && 'active')} onClick={() => p.onToggleDoneFilter('1')}>
-            <CheckCircle2 size={12} /> 已完成
+            <CheckCircle2 size={12} /> {t('已完成')}
           </button>
           <button className={cx('chip', p.pinnedOnly && 'active')} onClick={p.onTogglePinned}>
-            <Pin size={12} /> 置顶
+            <Pin size={12} /> {t('置顶')}
           </button>
         </>
       )}
       <button
         className={cx('chip', p.archivedMode && 'active')}
         onClick={p.onToggleArchived}
-        title="归档的便签默认不显示；在这里查看、恢复或永久删除"
+        title={t('归档的便签默认不显示；在这里查看、恢复或永久删除')}
       >
-        <Archive size={12} /> 已归档{p.archivedCount > 0 ? <span className="chip-count">{p.archivedCount}</span> : null}
+        <Archive size={12} /> {t('已归档')}{p.archivedCount > 0 ? <span className="chip-count">{p.archivedCount}</span> : null}
       </button>
       {p.archivedMode ? null : (
         <>
           <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
-          {p.usedTags.map((t) => (
+          {p.usedTags.map((tg) => (
             <button
-              key={t.id}
-              className={cx('chip', p.tag === t.name && 'active')}
-              onClick={() => p.onToggleTag(t.name)}
+              key={tg.id}
+              className={cx('chip', p.tag === tg.name && 'active')}
+              onClick={() => p.onToggleTag(tg.name)}
             >
-              #{t.name} <span className="chip-count">{t.notes}</span>
+              #{tg.name} <span className="chip-count">{tg.notes}</span>
             </button>
           ))}
-          <button className="chip chip-add" onClick={p.onNewTag} title="新建一个标签">
-            <Plus size={12} /> 新标签
+          <button className="chip chip-add" onClick={p.onNewTag} title={t('新建一个标签')}>
+            <Plus size={12} /> {t('新标签')}
           </button>
         </>
       )}
@@ -65,7 +66,7 @@ export function FilterBar(p: FilterBarProps) {
         <input
           className="input input-sm"
           style={{ paddingLeft: 27 }}
-          placeholder="搜索便签"
+          placeholder={t('搜索便签')}
           value={p.searchInput}
           onChange={(e) => p.onSearchInput(e.target.value)}
         />

@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { t } from '../i18n.js'
 
 // 采集端接入的纯逻辑：把 data/metrics.json 的 base 换算成采集端要 PUT 的地址、
 // 解析「服务清单 / 磁盘路径」、拼那条贴进终端就能跑的安装命令。
@@ -20,12 +21,12 @@ export const INSTALL_URL = process.env.METRICS_INSTALL_URL || ''
  */
 export function buildIngestUrl(base: string): string {
   const trimmed = String(base ?? '').trim()
-  if (!trimmed) throw new Error('metrics base 为空，无法生成上报地址')
+  if (!trimmed) throw new Error(t('metrics base 为空，无法生成上报地址'))
   const marker = '/metrics/'
   const cut = trimmed.indexOf(marker)
-  if (cut < 0) throw new Error('metrics base 里没有 /metrics/ 段，无法生成上报地址')
+  if (cut < 0) throw new Error(t('metrics base 里没有 /metrics/ 段，无法生成上报地址'))
   const token = trimmed.slice(cut + marker.length).replace(/\/+$/, '')
-  if (!token) throw new Error('metrics base 里没有 token，无法生成上报地址')
+  if (!token) throw new Error(t('metrics base 里没有 token，无法生成上报地址'))
   return trimmed.slice(0, cut) + '/metrics-ingest/' + token
 }
 
@@ -35,10 +36,10 @@ export function parseUnits(text?: string | null): string[] {
   for (const raw of String(text ?? '').split(/[\s,]+/)) {
     const unit = raw.trim()
     if (!unit) continue
-    if (!UNIT_RE.test(unit)) throw new Error('单元名只能用字母、数字、@ : . _ -：' + unit)
+    if (!UNIT_RE.test(unit)) throw new Error(t('单元名只能用字母、数字、@ : . _ -：{unit}', { unit }))
     if (!out.includes(unit)) out.push(unit)
   }
-  if (out.length > MAX_UNITS) throw new Error('服务清单最多 ' + MAX_UNITS + ' 个')
+  if (out.length > MAX_UNITS) throw new Error(t('服务清单最多 {n} 个', { n: MAX_UNITS }))
   return out
 }
 
@@ -48,10 +49,10 @@ export function parseDisks(text?: string | null): string[] {
   for (const raw of String(text ?? '').split(/[\s,]+/)) {
     const p = raw.trim()
     if (!p) continue
-    if (!p.startsWith('/') || /\s/.test(p)) throw new Error('磁盘路径要以 / 开头，且不能含空格：' + p)
+    if (!p.startsWith('/') || /\s/.test(p)) throw new Error(t('磁盘路径要以 / 开头，且不能含空格：{p}', { p }))
     if (!out.includes(p)) out.push(p)
   }
-  if (out.length > MAX_DISKS) throw new Error('磁盘路径最多 ' + MAX_DISKS + ' 个')
+  if (out.length > MAX_DISKS) throw new Error(t('磁盘路径最多 {n} 个', { n: MAX_DISKS }))
   return out.length ? out : ['/']
 }
 

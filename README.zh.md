@@ -87,9 +87,10 @@
 - 恢复步骤、`secret.key` 丢了怎么办、审计 CSV 怎么用：[`docs/backup-restore.zh.md`](docs/backup-restore.zh.md)。
 
 ### 全局
-- **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/hosts` `/backup` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
+- **每页都有自己的地址**（`/notes` `/mail` `/assets` `/monitors` `/hosts` `/services` `/backup` `/settings`）：F5 不会跳回便签页，前进 / 后退可用，链接能直达。
 - **Ctrl / ⌘ + K** 命令面板：搜便签、搜资产，或执行「新建便签 / 打开邮件 / 新增资产 / 打开观测台 / 打开主机 / 导出 JSON」。
 - 主题：浅色 / 深色 / 跟随系统；设置页可把整库导出成 JSON，空库可一键写入示例数据。
+- **界面中英双语**：首次访问跟随浏览器语言，随时可在「设置 → 外观 → 语言」切换。只有界面文案会翻——便签正文、标签名、服务器与服务名保持你写的原样（见 [`docs/i18n.md`](docs/i18n.md)）。
 
 ## 快速开始
 

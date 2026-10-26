@@ -1,4 +1,5 @@
 import type { MailAccount, MailSecurity } from '../../lib/api'
+import { t } from '../../lib/i18n'
 
 export type FormState = {
   id: number | null
@@ -25,14 +26,31 @@ export const EMPTY: FormState = {
 }
 
 /** 常见邮箱的预设：只填 host/port，用户名密码仍要自己来 */
+// label / hint 用 getter：调用方照旧写 p.label、p.hint，取值时才知道当前语言，
+// 不用把 t() 散到消费点，也不会在 import 时把译文冻住（同 lib/format.ts 的写法）。
 export const PRESETS: { key: string; label: string; host: string; hint: string }[] = [
-  { key: 'Gmail', label: 'Gmail', host: 'imap.gmail.com', hint: '密码要填「应用专用密码」：Google 账号 → 安全性 → 两步验证 → 应用专用密码。普通密码一定登录失败。' },
-  { key: 'QQ', label: 'QQ 邮箱', host: 'imap.qq.com', hint: '密码要填「授权码」：QQ 邮箱设置 → 账号 → 开启 IMAP 服务后生成。' },
-  { key: '163', label: '163 邮箱', host: 'imap.163.com', hint: '密码要填「授权码」；163 要求客户端发 IMAP ID，本程序已自动处理。' },
+  {
+    key: 'Gmail',
+    get label() { return t('Gmail') },
+    host: 'imap.gmail.com',
+    get hint() { return t('密码要填「应用专用密码」：Google 账号 → 安全性 → 两步验证 → 应用专用密码。普通密码一定登录失败。') },
+  },
+  {
+    key: 'QQ',
+    get label() { return t('QQ 邮箱') },
+    host: 'imap.qq.com',
+    get hint() { return t('密码要填「授权码」：QQ 邮箱设置 → 账号 → 开启 IMAP 服务后生成。') },
+  },
+  {
+    key: '163',
+    get label() { return t('163 邮箱') },
+    host: 'imap.163.com',
+    get hint() { return t('密码要填「授权码」；163 要求客户端发 IMAP ID，本程序已自动处理。') },
+  },
 ]
 
 export function securityLabel(v: string) {
-  return v === 'ssl' ? 'SSL/TLS' : v === 'starttls' ? 'STARTTLS' : '不加密（仅本机调试）'
+  return v === 'ssl' ? 'SSL/TLS' : v === 'starttls' ? 'STARTTLS' : t('不加密（仅本机调试）')
 }
 
 export function blankForm(): FormState {

@@ -9,6 +9,7 @@ import {
 import { hashPassword, verifyPassword } from './password.js'
 import { LoginLimiter } from './limiter.js'
 import { COOKIE_NAME, clientIp, isHttps, parseCookies } from './middleware.js'
+import { t } from '../i18n.js'
 
 const limiter = new LoginLimiter()
 const MAX_AGE = 30 * 24 * 60 * 60
@@ -41,7 +42,7 @@ authRoute.post('/setup', async (c) => {
   if (getSetting(db, 'password_hash')) return c.json({ error: 'already initialized' }, 409)
   const body = await c.req.json().catch(() => ({})) as { password?: string }
   const password = String(body.password ?? '')
-  if (password.length < 8) return c.json({ error: '密码至少 8 位' }, 400)
+  if (password.length < 8) return c.json({ error: t('密码至少 8 位') }, 400)
   setSetting(db, 'password_hash', hashPassword(password))
   startSession(c)
   return c.json({ ok: true })
@@ -52,14 +53,14 @@ authRoute.post('/login', async (c) => {
   const gate = limiter.check(ip)
   if (!gate.allowed) {
     c.header('Retry-After', String(Math.ceil(gate.retryAfterMs / 1000)))
-    return c.json({ error: '尝试过于频繁，请稍后再试' }, 429)
+    return c.json({ error: t('尝试过于频繁，请稍后再试') }, 429)
   }
   const stored = getSetting(db, 'password_hash')
-  if (!stored) return c.json({ error: '尚未设置密码' }, 400)
+  if (!stored) return c.json({ error: t('尚未设置密码') }, 400)
   const body = await c.req.json().catch(() => ({})) as { password?: string }
   if (!verifyPassword(String(body.password ?? ''), stored)) {
     limiter.fail(ip)
-    return c.json({ error: '密码不对' }, 401)
+    return c.json({ error: t('密码不对') }, 401)
   }
   limiter.succeed(ip)
   startSession(c)
@@ -81,9 +82,9 @@ authRoute.post('/password', async (c) => {
   if (!me) return c.json({ error: 'unauthorized' }, 401)
   const stored = getSetting(db, 'password_hash')
   const body = await c.req.json().catch(() => ({})) as { current?: string; next?: string }
-  if (!stored || !verifyPassword(String(body.current ?? ''), stored)) return c.json({ error: '当前密码不对' }, 401)
+  if (!stored || !verifyPassword(String(body.current ?? ''), stored)) return c.json({ error: t('当前密码不对') }, 401)
   const next = String(body.next ?? '')
-  if (next.length < 8) return c.json({ error: '新密码至少 8 位' }, 400)
+  if (next.length < 8) return c.json({ error: t('新密码至少 8 位') }, 400)
   setSetting(db, 'password_hash', hashPassword(next))
   deleteOtherSessions(db, me.id)
   return c.json({ ok: true })

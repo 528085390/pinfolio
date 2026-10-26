@@ -24,8 +24,11 @@ test('assetSub：类型中文名 + 位置；没位置只有类型名', () => {
   assert.equal(assetSub({ kind: 'other', location: null as any }), '其他')
 })
 
-test('assetSub：不认识的类型给 undefined（实测行为，别改成「其他」）', () => {
-  assert.equal(assetSub({ kind: 'unknown' as any, location: '' }), 'undefined')
+test('assetSub：不认识的类型不给类型名，也别硬凑成「其他」', () => {
+  // 原来这里靠 `KIND_META[kind]?.label + …` 拼出字面量 "undefined"，界面上真的会显示 undefined。
+  // 现在认不出就空着，有位置才显示位置。
+  assert.equal(assetSub({ kind: 'unknown' as any, location: '' }), '')
+  assert.equal(assetSub({ kind: 'unknown' as any, location: '机房 A' }), '机房 A')
 })
 
 test('moveSel：上下夹在 0..length-1', () => {

@@ -3,7 +3,16 @@ import { BASE } from './env.mjs'
 // 密码从 PINBOARD_PASSWORD 读（别写进仓库）；同一 context 已登录时直接返回。
 export const E2E_BASE = (process.env.MAIL_E2E_BASE || BASE).replace(/\/+$/, '')
 
-export async function login(page, base = E2E_BASE) {
+export async function login(page, base = E2E_BASE, opts = {}) {
+  // 断言都写的是中文文案，而 Playwright 默认 en-US 会把界面切成英文，所以先把语言钉成中文
+  // （要测语言切换的用例传 { pin: false } 自己控制，见 e2e-i18n.mjs）
+  if (opts.pin !== false) {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('pinboard-locale', 'zh')
+      } catch {}
+    })
+  }
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
   if (await page.locator('.nav-item').count()) return
   if (!(await page.locator('input[type=password]').count())) {

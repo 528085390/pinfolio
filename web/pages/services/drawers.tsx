@@ -14,7 +14,8 @@ import {
   type ServiceRec,
   type ServicesPayload,
 } from '../../lib/api'
-import { KIND_LABEL, KIND_ORDER } from './model'
+import { t } from '../../lib/i18n'
+import { KIND_LABEL, KIND_ORDER, listJoin } from './model'
 
 /** 观测项下拉的一项：id + 名字 */
 export type MonitorChoice = { id: number; name: string }
@@ -85,7 +86,7 @@ export function MonitorPicker({ value, onChange, choices }: {
   return (
     <div className="svc-pick">
       <div className="svc-pick-list">
-        {choices.length === 0 ? <span className="field-hint">还没登记过观测项，可以直接填 id</span> : null}
+        {choices.length === 0 ? <span className="field-hint">{t('还没登记过观测项，可以直接填 id')}</span> : null}
         {choices.map((c) => (
           <button
             key={c.id}
@@ -103,7 +104,7 @@ export function MonitorPicker({ value, onChange, choices }: {
           className="input input-sm"
           value={draft}
           inputMode="numeric"
-          placeholder="其它观测项 id"
+          placeholder={t('其它观测项 id')}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -112,8 +113,8 @@ export function MonitorPicker({ value, onChange, choices }: {
             }
           }}
         />
-        <Button size="sm" onClick={addDraft}>加上</Button>
-        {value.length ? <span className="svc-pick-sum">已选 {value.join('、')}</span> : null}
+        <Button size="sm" onClick={addDraft}>{t('加上')}</Button>
+        {value.length ? <span className="svc-pick-sum">{t('已选 {list}', { list: listJoin(value) })}</span> : null}
       </div>
     </div>
   )
@@ -194,7 +195,7 @@ export function ServerDrawer({ open, editing, monitors, onClose, onSaved }: {
     <FormDrawer
       open={open}
       onClose={onClose}
-      title={editing ? '编辑服务器：' + editing.name : '添加服务器'}
+      title={editing ? t('编辑服务器：{name}', { name: editing.name }) : t('添加服务器')}
       error={err}
       onSave={save}
       saving={saving}
@@ -202,29 +203,29 @@ export function ServerDrawer({ open, editing, monitors, onClose, onSaved }: {
       size="md"
     >
       <div className="form-grid">
-        <Field label="id" hint="小写字母 / 数字 / 点 / 下划线 / 短横线；改 id 会同步改部署里的引用">
-          <input className="input" value={id} autoFocus={!editing} placeholder="例如 wb-server2" onChange={(e) => setId(e.target.value)} />
+        <Field label="id" hint={t('小写字母 / 数字 / 点 / 下划线 / 短横线；改 id 会同步改部署里的引用')}>
+          <input className="input" value={id} autoFocus={!editing} placeholder={t('例如 wb-server2')} onChange={(e) => setId(e.target.value)} />
         </Field>
-        <Field label="名字" hint="卡片标题，与观测台组名、主机页一致">
-          <input className="input" value={name} placeholder="例如 wb-server2" onChange={(e) => setName(e.target.value)} />
+        <Field label={t('名字')} hint={t('卡片标题，与观测台组名、主机页一致')}>
+          <input className="input" value={name} placeholder={t('例如 wb-server2')} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="厂商 · 区域" hint="副标题，例如 阿里云 · 北京">
-          <input className="input" value={vendor} placeholder="阿里云 · 北京" onChange={(e) => setVendor(e.target.value)} />
+        <Field label={t('厂商 · 区域')} hint={t('副标题，例如 阿里云 · 北京')}>
+          <input className="input" value={vendor} placeholder={t('阿里云 · 北京')} onChange={(e) => setVendor(e.target.value)} />
         </Field>
-        <Field label="IP" hint="卡头上显示的那个地址">
+        <Field label="IP" hint={t('卡头上显示的那个地址')}>
           <input className="input" value={ip} placeholder="47.93.5.235" onChange={(e) => setIp(e.target.value)} />
         </Field>
-        <Field label="登录用户">
+        <Field label={t('登录用户')}>
           <input className="input" value={user} placeholder="admin" onChange={(e) => setUser(e.target.value)} />
         </Field>
-        <Field label="档案路径" hint="本机文档或仓库地址，显示在卡片底部">
+        <Field label={t('档案路径')} hint={t('本机文档或仓库地址，显示在卡片底部')}>
           <input className="input" value={doc} placeholder="E:/services/wb-server2" onChange={(e) => setDoc(e.target.value)} />
         </Field>
-        <Field label="备注" span={2}>
-          <input className="input" value={note} placeholder="例如 1C1G · 东京" onChange={(e) => setNote(e.target.value)} />
+        <Field label={t('备注')} span={2}>
+          <input className="input" value={note} placeholder={t('例如 1C1G · 东京')} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </div>
-      <Field label="服务器级观测项" hint="入口 / 端口这类不挂在具体部署上的；只做跳转，不在这里建观测">
+      <Field label={t('服务器级观测项')} hint={t('入口 / 端口这类不挂在具体部署上的；只做跳转，不在这里建观测')}>
         <MonitorPicker value={picked} onChange={setPicked} choices={choices} />
       </Field>
     </FormDrawer>
@@ -265,7 +266,7 @@ export function ServiceDrawer({ open, editing, onClose, onSaved }: {
     <FormDrawer
       open={open}
       onClose={onClose}
-      title={editing ? '编辑服务：' + editing.name : '添加服务'}
+      title={editing ? t('编辑服务：{name}', { name: editing.name }) : t('添加服务')}
       error={err}
       onSave={save}
       saving={saving}
@@ -273,24 +274,24 @@ export function ServiceDrawer({ open, editing, onClose, onSaved }: {
       size="md"
     >
       <div className="form-grid">
-        <Field label="id" hint="部署里靠它指认这个服务">
-          <input className="input" value={id} autoFocus={!editing} placeholder="例如 wbapi" onChange={(e) => setId(e.target.value)} />
+        <Field label="id" hint={t('部署里靠它指认这个服务')}>
+          <input className="input" value={id} autoFocus={!editing} placeholder={t('例如 wbapi')} onChange={(e) => setId(e.target.value)} />
         </Field>
-        <Field label="名字" hint="卡片 / 列表里显示的名字">
-          <input className="input" value={name} placeholder="例如 网关 API" onChange={(e) => setName(e.target.value)} />
+        <Field label={t('名字')} hint={t('卡片 / 列表里显示的名字')}>
+          <input className="input" value={name} placeholder={t('例如 网关 API')} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="种类">
+        <Field label={t('种类')}>
           <select className="select" value={kind} onChange={(e) => setKind(e.target.value as DeployKind)}>
             {KIND_ORDER.map((k) => (
               <option key={k} value={k}>{KIND_LABEL[k]}</option>
             ))}
           </select>
         </Field>
-        <Field label="项目目录" hint="仓库或部署目录，显示在卡片底部">
+        <Field label={t('项目目录')} hint={t('仓库或部署目录，显示在卡片底部')}>
           <input className="input" value={doc} placeholder="/opt/wbapi" onChange={(e) => setDoc(e.target.value)} />
         </Field>
-        <Field label="一句话说明" span={2} hint="鼠标悬停与搜索都会用到">
-          <input className="input" value={summary} placeholder="例如 WorkBuddy 网关（OpenAI 兼容）" onChange={(e) => setSummary(e.target.value)} />
+        <Field label={t('一句话说明')} span={2} hint={t('鼠标悬停与搜索都会用到')}>
+          <input className="input" value={summary} placeholder={t('例如 WorkBuddy 网关（OpenAI 兼容）')} onChange={(e) => setSummary(e.target.value)} />
         </Field>
       </div>
     </FormDrawer>
@@ -354,7 +355,7 @@ export function DeployDrawer({ open, editing, preset, servers, services, monitor
     <FormDrawer
       open={open}
       onClose={onClose}
-      title={editing ? '编辑部署：' + (servers.find((s) => s.id === editing.server)?.name ?? editing.server) : '添加部署'}
+      title={editing ? t('编辑部署：{name}', { name: servers.find((s) => s.id === editing.server)?.name ?? editing.server }) : t('添加部署')}
       error={err}
       onSave={save}
       saving={saving}
@@ -362,38 +363,38 @@ export function DeployDrawer({ open, editing, preset, servers, services, monitor
       size="md"
     >
       <div className="form-grid">
-        <Field label="服务器" hint="部署在哪台机上">
+        <Field label={t('服务器')} hint={t('部署在哪台机上')}>
           <select className="select" value={server} onChange={(e) => setServer(e.target.value)}>
             {servers.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
         </Field>
-        <Field label="服务" hint="部署的是什么">
+        <Field label={t('服务')} hint={t('部署的是什么')}>
           <select className="select" value={service} onChange={(e) => setService(e.target.value)}>
-            <option value="">选一个服务…</option>
+            <option value="">{t('选一个服务…')}</option>
             {services.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
         </Field>
-        <Field label="路径" span={2} hint="服务器上的绝对路径（本机就是本机路径）">
+        <Field label={t('路径')} span={2} hint={t('服务器上的绝对路径（本机就是本机路径）')}>
           <input className="input" value={path} autoFocus={!editing} placeholder="E:/workbuddy-workspace/projects/wbapi" onChange={(e) => setPath(e.target.value)} />
         </Field>
-        <Field label="启动方式" hint="systemd unit / 计划任务 / 裸命令">
+        <Field label={t('启动方式')} hint={t('systemd unit / 计划任务 / 裸命令')}>
           <input className="input" value={runtime} placeholder="systemd wb2api" onChange={(e) => setRuntime(e.target.value)} />
         </Field>
-        <Field label="端口" hint="监听地址，可空">
+        <Field label={t('端口')} hint={t('监听地址，可空')}>
           <input className="input" value={port} placeholder="7863" onChange={(e) => setPort(e.target.value)} />
         </Field>
-        <Field label="管理页" span={2} hint="能打开的页面（面板 / 后台）；没观测时点名字就跳它">
+        <Field label={t('管理页')} span={2} hint={t('能打开的页面（面板 / 后台）；没观测时点名字就跳它')}>
           <input className="input" value={url} placeholder="http://127.0.0.1:7863" onChange={(e) => setUrl(e.target.value)} />
         </Field>
-        <Field label="备注" span={2}>
-          <input className="input" value={note} placeholder="例如 不参与观测" onChange={(e) => setNote(e.target.value)} />
+        <Field label={t('备注')} span={2}>
+          <input className="input" value={note} placeholder={t('例如 不参与观测')} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </div>
-      <Field label="观测项" hint="有观测就点名字去观测台；没有就靠管理页">
+      <Field label={t('观测项')} hint={t('有观测就点名字去观测台；没有就靠管理页')}>
         <MonitorPicker value={picked} onChange={setPicked} choices={choices} />
       </Field>
     </FormDrawer>
@@ -451,9 +452,9 @@ export function DeleteDialog({ open, title, need, warning, blockers, onClose, on
       footer={(
         <>
           <span className="grow" />
-          <Button variant="ghost" onClick={onClose} disabled={busy}>取消</Button>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>{t('取消')}</Button>
           <Button variant="danger" disabled={!ok || busy} onClick={() => void run()}>
-            {busy ? <Spinner /> : <Trash2 size={14} />} 删除
+            {busy ? <Spinner /> : <Trash2 size={14} />} {t('删除')}
           </Button>
         </>
       )}
@@ -466,8 +467,8 @@ export function DeleteDialog({ open, title, need, warning, blockers, onClose, on
           ))}
         </ul>
       ) : null}
-      {blocked ? <p className="svc-del-text">先把这些删掉，再回来删这一条。</p> : null}
-      <Field label={'手输 ' + need + ' 确认'}>
+      {blocked ? <p className="svc-del-text">{t('先把这些删掉，再回来删这一条。')}</p> : null}
+      <Field label={t('手输 {need} 确认', { need })}>
         <input className="input" value={typed} disabled={blocked} onChange={(e) => setTyped(e.target.value)} autoFocus />
       </Field>
       {err ? <div className="alert">{err}</div> : null}

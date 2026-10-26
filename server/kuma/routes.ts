@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { t } from '../i18n.js'
 import {
   deleteMonitor, editMonitor, getBeats, getMonitor, listMonitors, pauseMonitor, resumeMonitor, toView,
 } from './client.js'
@@ -21,14 +22,14 @@ monitorsRoute.get('/', async (c) => {
   } catch (e: any) {
     // Kuma 挂了 / 没启动时，退回上一次的数据并标记 stale，比直接空屏有用
     const stale = lastPayload()
-    if (stale) return c.json({ ...stale, stale: true, error: '读不到 Kuma：' + String(e?.message || e) })
+    if (stale) return c.json({ ...stale, stale: true, error: t('读不到 Kuma：{msg}', { msg: String(e?.message || e) }) })
     // 压根没接 Kuma：给空列表而不是 502 —— 页面本来就会渲染引导卡（见 /meta），
     // 后台的异常通知轮询每 30 秒来一次，回 502 只会让浏览器控制台一直刷「Failed to load resource」。
     // 放在 catch 里是刻意的：接上了的实例走上面的快路径，不为此多付一次探测。
     const meta = await kumaMeta().catch(() => null)
     if (meta && !meta.configured) {
       return c.json({
-        kuma: { base: meta.url || '', slug: '', title: '观测台' },
+        kuma: { base: meta.url || '', slug: '', title: t('观测台') },
         updatedAt: new Date().toISOString(),
         summary: { total: 0, up: 0, down: 0, pending: 0, uptime24: null },
         groups: [],
@@ -36,7 +37,7 @@ monitorsRoute.get('/', async (c) => {
         configured: false,
       })
     }
-    return c.json({ error: '读不到 Kuma 状态页：' + String(e?.message || e) }, 502)
+    return c.json({ error: t('读不到 Kuma 状态页：{msg}', { msg: String(e?.message || e) }) }, 502)
   }
 })
 
@@ -56,7 +57,7 @@ monitorsRoute.get('/meta', async (c) => {
 
 monitorsRoute.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isInteger(id) || id <= 0) return c.json({ error: '观测项 id 不合法' }, 400)
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: t('观测项 id 不合法') }, 400)
   try {
     // 顺手拿一份 id → 名字的表：策略里的门控可能按 id 引用别的观测项，摘要里显示名字比 #3 好读
     const beans = await listMonitors().catch(() => null as Record<string, any> | null)
@@ -97,15 +98,15 @@ async function showMsgFromPage(id: number): Promise<boolean> {
 
 monitorsRoute.patch('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isInteger(id) || id <= 0) return c.json({ error: '观测项 id 不合法' }, 400)
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '写操作必须用 application/json' }, 415)
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: t('观测项 id 不合法') }, 400)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('写操作必须用 application/json') }, 415)
   let body: Record<string, unknown>
   try {
     body = (await c.req.json()) as Record<string, unknown>
   } catch {
-    return c.json({ error: '请求体不是合法 JSON' }, 400)
+    return c.json({ error: t('请求体不是合法 JSON') }, 400)
   }
-  if (!body || typeof body !== 'object') return c.json({ error: '请求体不是合法 JSON' }, 400)
+  if (!body || typeof body !== 'object') return c.json({ error: t('请求体不是合法 JSON') }, 400)
 
   try {
     const bean = await getMonitor(id)
@@ -132,8 +133,8 @@ monitorsRoute.patch('/:id', async (c) => {
 
 monitorsRoute.post('/:id/pause', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isInteger(id) || id <= 0) return c.json({ error: '观测项 id 不合法' }, 400)
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '写操作必须用 application/json' }, 415)
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: t('观测项 id 不合法') }, 400)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('写操作必须用 application/json') }, 415)
   try {
     await getMonitor(id) // 先确认存在，避免把不存在的 id 当成功
     await pauseMonitor(id)
@@ -147,8 +148,8 @@ monitorsRoute.post('/:id/pause', async (c) => {
 
 monitorsRoute.post('/:id/resume', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isInteger(id) || id <= 0) return c.json({ error: '观测项 id 不合法' }, 400)
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '写操作必须用 application/json' }, 415)
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: t('观测项 id 不合法') }, 400)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('写操作必须用 application/json') }, 415)
   try {
     await getMonitor(id)
     await resumeMonitor(id)
@@ -162,17 +163,17 @@ monitorsRoute.post('/:id/resume', async (c) => {
 
 monitorsRoute.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isInteger(id) || id <= 0) return c.json({ error: '观测项 id 不合法' }, 400)
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: t('观测项 id 不合法') }, 400)
   // DELETE 是「非简单请求」，浏览器跨站表单发不出来，所以没有 body 时也允许；
   // 带了 body 就必须是 JSON。
   const ct = c.req.header('content-type')
-  if (ct && !isJsonContentType(ct)) return c.json({ error: '写操作必须用 application/json' }, 415)
+  if (ct && !isJsonContentType(ct)) return c.json({ error: t('写操作必须用 application/json') }, 415)
   const confirm = String(c.req.query('confirm') || '').trim()
   try {
     const bean = await getMonitor(id)
     const name = String(bean.name || '').trim()
     if (confirm !== name) {
-      return c.json({ error: '要删除必须把观测项名字原样输对（当前是「' + name + '」）' }, 400)
+      return c.json({ error: t('要删除必须把观测项名字原样输对（当前是「{name}」）', { name }) }, 400)
     }
     const backup = backupDb()
     await deleteMonitor(id)
@@ -191,12 +192,12 @@ monitorsRoute.delete('/:id', async (c) => {
  */
 monitorsRoute.post('/:id/check', async (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isInteger(id) || id <= 0) return c.json({ error: '观测项 id 不合法' }, 400)
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '写操作必须用 application/json' }, 415)
+  if (!Number.isInteger(id) || id <= 0) return c.json({ error: t('观测项 id 不合法') }, 400)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('写操作必须用 application/json') }, 415)
   try {
     const bean = await getMonitor(id)
     const active = bean.active === true || bean.active === 1
-    if (!active) return c.json({ error: '这个观测项已暂停，先恢复再立即观测' }, 400)
+    if (!active) return c.json({ error: t('这个观测项已暂停，先恢复再立即观测') }, 400)
 
     const recipe = resolveAction({ id, name: String(bean.name || ''), type: String(bean.type || '') })
     if (recipe.disabledReason) return c.json({ error: recipe.disabledReason }, 400)

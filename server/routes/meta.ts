@@ -3,6 +3,7 @@ import { DB_PATH, all, db, get, nowIso, run, setAssetTags, syncNoteTags } from '
 import { hydrateAssets, hydrateNotes, type AssetRow, type NoteRow } from '../hydrate.js'
 import { daysLeft } from '../dates.js'
 import { instanceId } from '../tunnel.js'
+import { t } from '../i18n.js'
 
 // 不属于某个具体资源的杂项接口：健康检查、启动引导、全局搜索、统计、导出、示例数据。
 export const metaRoute = new Hono()
@@ -74,7 +75,7 @@ metaRoute.get('/export', (c) => {
 metaRoute.post('/seed', (c) => {
   const n = get<{ n: number }>('SELECT COUNT(*) AS n FROM notes')!.n
   const a = get<{ n: number }>('SELECT COUNT(*) AS n FROM assets')!.n
-  if (n > 0 || a > 0) return c.json({ ok: false, error: '已有数据，未载入示例' })
+  if (n > 0 || a > 0) return c.json({ ok: false, error: t('已有数据，未载入示例') })
 
   const day = (offset: number) => {
     const d = new Date()
@@ -83,8 +84,8 @@ metaRoute.post('/seed', (c) => {
   }
   const iso = (offsetMin: number) => new Date(Date.now() - offsetMin * 60000).toISOString()
 
-  run('INSERT INTO field_defs (key, label, type, options, sort) VALUES (?,?,?,?,?)', 'secret_at', '密钥/凭证位置', 'text', '[]', 10)
-  run('INSERT INTO field_defs (key, label, type, options, sort) VALUES (?,?,?,?,?)', 'renew_cycle', '续费周期', 'select', JSON.stringify(['月付', '季付', '年付', '买断']), 20)
+  run('INSERT INTO field_defs (key, label, type, options, sort) VALUES (?,?,?,?,?)', 'secret_at', t('密钥/凭证位置'), 'text', '[]', 10)
+  run('INSERT INTO field_defs (key, label, type, options, sort) VALUES (?,?,?,?,?)', 'renew_cycle', t('续费周期'), 'select', JSON.stringify([t('月付'), t('季付'), t('年付'), t('买断')]), 20)
 
   const addAsset = (o: any) => {
     const now = nowIso()
@@ -99,42 +100,42 @@ metaRoute.post('/seed', (c) => {
   }
 
   const srv = addAsset({
-    name: '我的服务器', kind: 'server', status: 'active', location: '云厂商 · 北京',
-    vendor: '阿里云', price: 99, currency: 'CNY', expiresAt: day(133),
-    url: 'https://example.com', notes: '示例：一台云服务器，nginx 反代两个服务，证书 acme.sh 自动续。',
-    custom: { secret_at: 'C:\\Users\\you\\.ssh\\config', renew_cycle: '年付' },
-    tags: ['服务器', '运维'],
+    name: t('我的服务器'), kind: 'server', status: 'active', location: t('云厂商 · 北京'),
+    vendor: t('阿里云'), price: 99, currency: 'CNY', expiresAt: day(133),
+    url: 'https://example.com', notes: t('示例：一台云服务器，nginx 反代两个服务，证书 acme.sh 自动续。'),
+    custom: { secret_at: 'C:\\Users\\you\\.ssh\\config', renew_cycle: t('年付') },
+    tags: [t('服务器'), t('运维')],
   })
   addAsset({
-    name: 'ThinkPad X1 Carbon', kind: 'device', status: 'active', location: '书房',
+    name: 'ThinkPad X1 Carbon', kind: 'device', status: 'active', location: t('书房'),
     vendor: 'Lenovo', serial: 'PF3XXXXX', price: 12999, currency: 'CNY',
-    purchasedAt: day(-530), expiresAt: day(565), notes: '主力开发机，三年上门保修。',
-    custom: { renew_cycle: '买断' }, tags: ['硬件'],
+    purchasedAt: day(-530), expiresAt: day(565), notes: t('主力开发机，三年上门保修。'),
+    custom: { renew_cycle: t('买断') }, tags: [t('硬件')],
   })
   addAsset({
-    name: 'example.com', kind: 'domain', status: 'active', vendor: '域名注册商',
+    name: 'example.com', kind: 'domain', status: 'active', vendor: t('域名注册商'),
     price: 0, currency: 'USD', expiresAt: day(32), url: 'https://example.com',
-    notes: '示例：未备案，走 443。', custom: { renew_cycle: '年付' }, tags: ['域名'],
+    notes: t('示例：未备案，走 443。'), custom: { renew_cycle: t('年付') }, tags: [t('域名')],
   })
   addAsset({
     name: 'ChatGPT Plus', kind: 'account', status: 'active', vendor: 'OpenAI',
-    price: 20, currency: 'USD', expiresAt: day(14), notes: '每月自动续，主账号。',
-    custom: { secret_at: '1Password / AI', renew_cycle: '月付' }, tags: ['订阅'],
+    price: 20, currency: 'USD', expiresAt: day(14), notes: t('每月自动续，主账号。'),
+    custom: { secret_at: '1Password / AI', renew_cycle: t('月付') }, tags: [t('订阅')],
   })
 
   const addNote = (content: string, pinned: boolean, assetId: number | null, minsAgo: number) => {
-    const t = iso(minsAgo)
+    const at = iso(minsAgo)
     const { id } = run(
       'INSERT INTO notes (content, pinned, archived, asset_id, created_at, updated_at) VALUES (?,?,?,?,?,?)',
-      content, pinned ? 1 : 0, 0, assetId, t, t,
+      content, pinned ? 1 : 0, 0, assetId, at, at,
     )
     syncNoteTags(id, content)
   }
 
-  addNote('把散落在各处的脚本按主题归拢，**能复现的**才留档，其余进 tmp/ 直接删。#整理', true, null, 30)
-  addNote('my-server 的证书下个月到期，续期前先跑一次 dry-run。#运维 #待办', true, srv, 120)
-  addNote('便签和资产其实是同一件事：都是「我拥有的东西」，一个是信息，一个是物件。所以标签应该共用一套。#想法', false, null, 300)
-  addNote('阅读笔记：所谓「坏味道」，就是那些让你每次读都要重新推理一遍的地方。#阅读', false, null, 1500)
+  addNote(t('把散落在各处的脚本按主题归拢，**能复现的**才留档，其余进 tmp/ 直接删。#整理'), true, null, 30)
+  addNote(t('my-server 的证书下个月到期，续期前先跑一次 dry-run。#运维 #待办'), true, srv, 120)
+  addNote(t('便签和资产其实是同一件事：都是「我拥有的东西」，一个是信息，一个是物件。所以标签应该共用一套。#想法'), false, null, 300)
+  addNote(t('阅读笔记：所谓「坏味道」，就是那些让你每次读都要重新推理一遍的地方。#阅读'), false, null, 1500)
 
   return c.json({ ok: true })
 })

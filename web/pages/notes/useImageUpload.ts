@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { ChangeEvent, ClipboardEvent, DragEvent, RefObject } from 'react'
 import { api } from '../../lib/api'
 import { imageMarkdown, insertSnippet, pickImageFiles } from '../../lib/images'
+import { t } from '../../lib/i18n'
 
 /** 超过这个体积才压：小图再压只会掉画质 */
 const COMPRESS_ABOVE_BYTES = 300 * 1024
@@ -60,7 +61,7 @@ export function useImageUpload({ value, onChange, taRef, onError }: Options) {
   async function addFiles(files: File[]) {
     const imgs = pickImageFiles(files)
     if (!imgs.length) {
-      if (files.length) onError('只能插入 PNG / JPEG / WebP / GIF 图片')
+      if (files.length) onError(t('只能插入 PNG / JPEG / WebP / GIF 图片'))
       return
     }
     const ta = taRef.current
@@ -74,7 +75,7 @@ export function useImageUpload({ value, onChange, taRef, onError }: Options) {
         const up = await api.attachments.upload(blob, file.name)
         snippets.push(imageMarkdown(up.id))
       } catch (e: any) {
-        onError(e && e.message ? '图片上传失败：' + e.message : '图片上传失败')
+        onError(e && e.message ? t('图片上传失败：{msg}', { msg: e.message }) : t('图片上传失败'))
       } finally {
         setPending((n) => Math.max(0, n - 1))
       }

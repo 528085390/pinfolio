@@ -1,6 +1,8 @@
 // 便签图片的纯逻辑：类型识别、正文引用解析、文件名与 Markdown 拼装。
 // 无副作用、不碰文件系统与数据库，单测直接打这里（tests/unit/attachments-core.test.mts）。
 
+import { t } from '../i18n.js'
+
 /** 单张图上限。手机原图压完通常 100–400 KB，10 MB 是给「不压也硬传」留的兜底 */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -64,7 +66,7 @@ export function imageMarkdown(id: number, alt = ''): string {
  */
 export function imagesAsText(content: string): string {
   return String(content || '').replace(/!\[([^\]]*)\]\(([^)\s]*\/attachments\/\d+[^)\s]*)\)/g, (_all, alt: string) =>
-    alt ? '[图片：' + alt + ']' : '[图片]',
+    alt ? t('[图片：{alt}]', { alt }) : t('[图片]'),
   )
 }
 

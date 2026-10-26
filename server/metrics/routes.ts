@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { t } from '../i18n.js'
 import { Hono } from 'hono'
 import { isJsonContentType } from '../kuma/http.js'
 import { addMonitor, deleteGroup, deleteMonitor, ensureGroup, kumaCliPath, kumaCliReady } from '../kuma/kuma-cli.js'
@@ -78,7 +79,7 @@ async function buildPayload() {
 hostsRoute.get('/', async (c) => {
   const cfg = metricsConfig()
   if (!cfg.base) {
-    return c.json({ error: '还没配指标源：在 data/metrics.json 里写 base 和 hosts', hosts: [] }, 500)
+    return c.json({ error: t('还没配指标源：在 data/metrics.json 里写 base 和 hosts'), hosts: [] }, 500)
   }
   // 库里一行都没有（刚部署 / 刚清库）时等这一次拉取，否则后台补拉，不让首屏卡 8 秒
   if (sampleCount() === 0) await pollAll(true).catch(() => {})
@@ -87,7 +88,7 @@ hostsRoute.get('/', async (c) => {
 })
 
 hostsRoute.post('/refresh', async (c) => {
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '需要 application/json' }, 415)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('需要 application/json') }, 415)
   await pollAll(true)
   return c.json(await buildPayload())
 })
@@ -118,19 +119,19 @@ function readTemplates(body: any): Templates {
     if (!unit) continue
     const user = String(s?.user ?? '').trim()
     const keyPath = String(s?.keyPath ?? '').trim()
-    if (!user) throw new Error('systemd 探测要填 SSH 用户名（' + unit + '）')
-    if (!keyPath) throw new Error('systemd 探测要填 SSH 私钥路径（' + unit + '）')
+    if (!user) throw new Error(t('systemd 探测要填 SSH 用户名（{unit}）', { unit }))
+    if (!keyPath) throw new Error(t('systemd 探测要填 SSH 私钥路径（{unit}）', { unit }))
     let key: string
     try {
       key = readFileSync(keyPath, 'utf8')
     } catch {
-      throw new Error('读不到私钥：' + keyPath)
+      throw new Error(t('读不到私钥：{path}', { path: keyPath }))
     }
     // keyPath 是请求体给的，等于「任意文件读取」的入口：只收真私钥、限大小，
     // 免得被拿来读 data/secret.key 之类的东西再顺着 Kuma 观测项带出去（坑 50）。
-    if (key.length > KEY_MAX) throw new Error('私钥文件太大（超过 64 KB）：' + keyPath)
+    if (key.length > KEY_MAX) throw new Error(t('私钥文件太大（超过 64 KB）：{path}', { path: keyPath }))
     if (!/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(key)) {
-      throw new Error('这个文件不是 OpenSSH / PEM 私钥：' + keyPath)
+      throw new Error(t('这个文件不是 OpenSSH / PEM 私钥：{path}', { path: keyPath }))
     }
     services.push({ unit, ssh: { user, key } })
   }
@@ -138,7 +139,7 @@ function readTemplates(body: any): Templates {
 }
 
 hostsRoute.post('/', async (c) => {
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '需要 application/json' }, 415)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('需要 application/json') }, 415)
   const body: any = await c.req.json().catch(() => ({}))
   let templates: Templates
   try {
@@ -148,11 +149,11 @@ hostsRoute.post('/', async (c) => {
   }
   const address = String(body?.address ?? '').trim()
   const wantsMonitors = templates.port !== undefined || Boolean(templates.http) || templates.services.length > 0
-  if (wantsMonitors && !address) return c.json({ error: '勾了观测项就要填主机地址（IP 或域名）' }, 400)
+  if (wantsMonitors && !address) return c.json({ error: t('勾了观测项就要填主机地址（IP 或域名）') }, 400)
 
   const r = addHost(metricsConfig().hosts, { ...body, address })
   // 重名是冲突（409），其余是参数不对（400）
-  if (!r.ok) return c.json({ error: r.error }, r.error.startsWith('已经有这台主机') ? 409 : 400)
+  if (!r.ok) return c.json({ error: r.error }, r.error.startsWith(t('已经有这台主机：')) ? 409 : 400)
   saveHosts(r.hosts)
   const host = r.hosts.find((h) => h.id === String(body?.id ?? '').trim()) || r.hosts[r.hosts.length - 1]
 
@@ -169,7 +170,7 @@ hostsRoute.post('/', async (c) => {
         http: templates.http,
         services: templates.services,
       })
-      if (!kumaCliReady()) throw new Error('找不到 kuma-monitor：' + kumaCliPath())
+      if (!kumaCliReady()) throw new Error(t('找不到 kuma-monitor：{path}', { path: kumaCliPath() }))
       const groupId = await ensureGroup(groupName)
       const created: { id: number; name: string; unit?: string }[] = []
       try {
@@ -207,7 +208,7 @@ hostsRoute.get('/:id/onboard', (c) => {
   const cfg = metricsConfig()
   const want = c.req.param('id').trim().toLowerCase()
   const host = cfg.hosts.find((h) => h.id.toLowerCase() === want)
-  if (!host) return c.json({ error: '没有这台主机：' + c.req.param('id') }, 404)
+  if (!host) return c.json({ error: t('没有这台主机：') + c.req.param('id') }, 404)
   let ingestUrl: string
   try {
     ingestUrl = buildIngestUrl(cfg.base)
@@ -237,11 +238,11 @@ hostsRoute.get('/:id/onboard', (c) => {
 })
 
 hostsRoute.patch('/:id', async (c) => {
-  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: '需要 application/json' }, 415)
+  if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('需要 application/json') }, 415)
   const body: any = await c.req.json().catch(() => ({}))
   const r = patchHost(metricsConfig().hosts, c.req.param('id'), body)
   // 纯函数只回一句中文错误，这里按前缀分状态码（没有这台机 = 404，参数不对 = 400）
-  if (!r.ok) return c.json({ error: r.error }, r.error.startsWith('没有这台主机') ? 404 : 400)
+  if (!r.ok) return c.json({ error: r.error }, r.error.startsWith(t('没有这台主机：')) ? 404 : 400)
   saveHosts(r.hosts)
   // 恢复暂停后立刻补一帧：采集端一直在推，最新数据就在 指标源 上
   if (body?.paused === false) await pollAll(true).catch(() => {})
@@ -252,7 +253,7 @@ hostsRoute.delete('/:id', async (c) => {
   const id = c.req.param('id')
   const confirm = (c.req.query('confirm') || '').trim()
   if (!confirm || confirm.toLowerCase() !== id.trim().toLowerCase()) {
-    return c.json({ error: '要手输主机 id（' + id + '）确认删除' }, 400)
+    return c.json({ error: t('要手输主机 id（{id}）确认删除', { id }) }, 400)
   }
   const cfg = metricsConfig()
   const target = cfg.hosts.find((h) => h.id.toLowerCase() === id.trim().toLowerCase())

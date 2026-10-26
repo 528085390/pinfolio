@@ -4,6 +4,7 @@ import { cx } from '../../lib/cx'
 import { relativeTime } from '../../lib/format'
 import { shortGroup, shortName } from '../../lib/monitors'
 import { pct, tone, typeLabel } from './status'
+import { t } from '../../lib/i18n'
 
 /** 表格视图：行 id 同样是 `monitor-<id>`，异常通知跳过来也能定位 */
 export function MonitorTable({ shown, onOpen }: { shown: Monitor[]; onOpen: (id: number) => void }) {
@@ -12,7 +13,7 @@ export function MonitorTable({ shown, onOpen }: { shown: Monitor[]; onOpen: (id:
       <table className="data">
         <thead>
           <tr>
-            <th>观测项</th><th>机器</th><th>类型</th><th>状态</th><th>响应</th><th>24h</th><th>最近检查</th>
+            <th>{t('观测项')}</th><th>{t('机器')}</th><th>{t('类型')}</th><th>{t('状态')}</th><th>{t('响应')}</th><th>24h</th><th>{t('最近检查')}</th>
           </tr>
         </thead>
         <tbody>
@@ -36,9 +37,9 @@ export function MonitorTable({ shown, onOpen }: { shown: Monitor[]; onOpen: (id:
                   {m.active ? (
                     <span className="status-pill">
                       <span className="status-dot" style={{ background: st ? st.color : 'var(--muted)' }} />
-                      {st ? st.label : '无数据'}
+                      {st ? st.label : t('无数据')}
                     </span>
-                  ) : <span className="monitor-chip">已暂停</span>}
+                  ) : <span className="monitor-chip">{t('已暂停')}</span>}
                 </td>
                 <td className="mono">{m.ping === null ? '—' : m.ping + ' ms'}</td>
                 <td className="mono" style={{ color: m.uptime24 !== null && m.uptime24 < 0.99 ? 'var(--warn)' : undefined }}>{pct(m.uptime24)}</td>

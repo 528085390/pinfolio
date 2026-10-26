@@ -2,6 +2,7 @@ import { all, get, run, nowIso, DATA_DIR } from '../db.js'
 import { loadKey } from '../secrets/key.js'
 import { encryptText, isEncrypted, readSecret } from '../secrets/crypto.js'
 import { normalizeProxy } from './proxy.js'
+import { t } from '../i18n.js'
 
 // 代理地址规范化在 proxy.ts（纯函数，可单测）；这里再导出，老的 './store.js' 调用点不用改。
 export { normalizeProxy }
@@ -98,11 +99,11 @@ export function normalizeAccountInput(body: AccountInput) {
   const enabled = body.enabled === undefined ? 1 : (body.enabled === true || body.enabled === 1 || body.enabled === '1' ? 1 : 0)
   const sort = Number(body.sort ?? 0)
 
-  if (!host) return { error: '请填写 IMAP 服务器地址' as string }
-  if (!/^[a-zA-Z0-9.\-_:\[\]]+$/.test(host)) return { error: '服务器地址格式不正确' as string }
-  if (!username) return { error: '请填写用户名' as string }
-  if (!Number.isFinite(port) || port < 1 || port > 65535) return { error: '端口必须是 1-65535 之间的数字' as string }
-  if (security !== 'ssl' && security !== 'starttls' && security !== 'none') return { error: '加密方式只能是 SSL/TLS、STARTTLS 或（调试用）不加密' as string }
+  if (!host) return { error: t('请填写 IMAP 服务器地址') as string }
+  if (!/^[a-zA-Z0-9.\-_:\[\]]+$/.test(host)) return { error: t('服务器地址格式不正确') as string }
+  if (!username) return { error: t('请填写用户名') as string }
+  if (!Number.isFinite(port) || port < 1 || port > 65535) return { error: t('端口必须是 1-65535 之间的数字') as string }
+  if (security !== 'ssl' && security !== 'starttls' && security !== 'none') return { error: t('加密方式只能是 SSL/TLS、STARTTLS 或（调试用）不加密') as string }
   return {
     value: {
       host,

@@ -1,5 +1,6 @@
 // 主机清单的纯逻辑：data/metrics.json 里 hosts 数组的校验、增删改，以及写回时的合并。
 // 文件读写（含原子写）在 config.ts；这里不碰 fs，所以能直接单测。
+import { t } from '../i18n.js'
 import { parseDisks, parseUnits } from './onboard.js'
 
 // units / disks / address 是「装采集端」要用的参数，跟 id 一起存进 data/metrics.json：
@@ -90,13 +91,13 @@ export function parseHosts(raw: any): HostMeta[] {
 /** 新主机 / 改名备注的校验。错误文案直接给用户看，所以写成中文整句。 */
 export function normalizeHostInput(input: any): { ok: true; host: HostMeta } | { ok: false; error: string } {
   const id = String(input?.id ?? '').trim()
-  if (!id) return { ok: false, error: '主机 id 不能为空' }
-  if (id.length > ID_MAX) return { ok: false, error: '主机 id 最长 ' + ID_MAX + ' 位' }
-  if (!ID_RE.test(id)) return { ok: false, error: '主机 id 只能用字母、数字、点、下划线、短横线' }
+  if (!id) return { ok: false, error: t('主机 id 不能为空') }
+  if (id.length > ID_MAX) return { ok: false, error: t('主机 id 最长 {n} 位', { n: ID_MAX }) }
+  if (!ID_RE.test(id)) return { ok: false, error: t('主机 id 只能用字母、数字、点、下划线、短横线') }
   const label = String(input?.label ?? '').trim() || id
-  if (label.length > LABEL_MAX) return { ok: false, error: '名字最长 ' + LABEL_MAX + ' 字' }
+  if (label.length > LABEL_MAX) return { ok: false, error: t('名字最长 {n} 字', { n: LABEL_MAX }) }
   const note = String(input?.note ?? '').trim()
-  if (note.length > NOTE_MAX) return { ok: false, error: '备注最长 ' + NOTE_MAX + ' 字' }
+  if (note.length > NOTE_MAX) return { ok: false, error: t('备注最长 {n} 字', { n: NOTE_MAX }) }
   const host: HostMeta = { id, label, note }
   const extra = applyCollectorFields(host, input)
   if (!extra.ok) return extra
@@ -139,7 +140,7 @@ function applyCollectorFields(host: HostMeta, patch: any): { ok: true; host: Hos
   }
   if (patch?.address !== undefined) {
     const address = String(patch.address ?? '').trim()
-    if (address.length > 100) return { ok: false, error: '地址最长 100 字' }
+    if (address.length > 100) return { ok: false, error: t('地址最长 100 字') }
     if (address) next.address = address
     else delete next.address
   }
@@ -150,12 +151,12 @@ function applyFields(base: HostMeta, patch: any): { ok: true; host: HostMeta } |
   const host: HostMeta = { ...base }
   if (patch?.label !== undefined) {
     const label = String(patch.label).trim() || base.id
-    if (label.length > LABEL_MAX) return { ok: false, error: '名字最长 ' + LABEL_MAX + ' 字' }
+    if (label.length > LABEL_MAX) return { ok: false, error: t('名字最长 {n} 字', { n: LABEL_MAX }) }
     host.label = label
   }
   if (patch?.note !== undefined) {
     const note = String(patch.note).trim()
-    if (note.length > NOTE_MAX) return { ok: false, error: '备注最长 ' + NOTE_MAX + ' 字' }
+    if (note.length > NOTE_MAX) return { ok: false, error: t('备注最长 {n} 字', { n: NOTE_MAX }) }
     host.note = note
   }
   return { ok: true, host }
@@ -165,7 +166,7 @@ export function addHost(hosts: HostMeta[], input: any): HostResult {
   const n = normalizeHostInput(input)
   if (!n.ok) return n
   if (hosts.some((h) => h.id.toLowerCase() === n.host.id.toLowerCase())) {
-    return { ok: false, error: '已经有这台主机：' + n.host.id }
+    return { ok: false, error: t('已经有这台主机：') + n.host.id }
   }
   return { ok: true, hosts: [...hosts, n.host] }
 }
@@ -174,7 +175,7 @@ export function addHost(hosts: HostMeta[], input: any): HostResult {
 export function patchHost(hosts: HostMeta[], id: string, patch: any): HostResult {
   const want = String(id ?? '').trim()
   const idx = hosts.findIndex((h) => h.id.toLowerCase() === want.toLowerCase())
-  if (idx < 0) return { ok: false, error: '没有这台主机：' + want }
+  if (idx < 0) return { ok: false, error: t('没有这台主机：') + want }
   const f = applyFields(hosts[idx], patch)
   if (!f.ok) return f
   const c = applyCollectorFields(f.host, patch)
@@ -188,7 +189,7 @@ export function patchHost(hosts: HostMeta[], id: string, patch: any): HostResult
 export function removeHost(hosts: HostMeta[], id: string): HostResult {
   const want = String(id ?? '').trim()
   const idx = hosts.findIndex((h) => h.id.toLowerCase() === want.toLowerCase())
-  if (idx < 0) return { ok: false, error: '没有这台主机：' + want }
+  if (idx < 0) return { ok: false, error: t('没有这台主机：') + want }
   return { ok: true, hosts: hosts.filter((_, i) => i !== idx) }
 }
 

@@ -32,6 +32,14 @@ pnpm test:e2e
   自己设 `PINBOARD_TOKEN`（`node --import tsx server/index.ts --new-token e2e` 打印一次）。
 - 实例没设密码（首次启动还没 `/setup`）时，`login()` 会直接放过，不用设这两个变量。
 
+### 语言（2026-10-26 起）
+
+界面默认跟随浏览器语言，设置页「外观」里能手动切成中文 / English（存 `localStorage` 的 `pinboard-locale`）。
+断言写的是中文文案的脚本靠 `login()` 把语言钉成中文（`addInitScript` 每次导航都重写一遍 localStorage）；
+**测语言切换的用例必须传 `login(page, B, { pin: false })`**，否则切到英文后一刷新就被拉回中文——
+`tests/e2e-i18n.mjs` 就是这么写的，它靠 `newContext({ locale: 'zh-CN' })` 让首次访问自然落在中文。
+那个用例同时验服务端：同一个不存在的便签，`Accept-Language: en` 拿到英文报错、`zh` 拿到中文报错。
+
 ## 单测（`tests/unit/`，2026-10-21 新增）
 
 `pnpm test:unit` 用 Node 自带的 `node:test` 跑 `tests/unit/*.test.mts`（经 tsx 转译，零新依赖，秒级）。
@@ -66,7 +74,11 @@ SNAPSHOT.md 的渲染（`server/snapshot/markdown.ts`：概览计数、中文类
 以及设置页的纯逻辑（`web/pages/settings/fields.ts`：类型表、未知类型原样显示、选项中英文逗号、
 新建字段校验、导出文件名、标签名去 `#`、删除确认文案），
 以及应用外壳的标题与副标题（`web/app/titles.ts`：五个页面标题、拿不到汇总数据时给静态说明而不是 0、
-观测页四段拼接的按需出现）。
+观测页四段拼接的按需出现）、
+以及双语内核（`shared/i18n/core.ts`：`interpolate` 缺的占位符保留原样、`translate` 中文永远回落源码原文但照样插值、
+英文命中函数条目时收到 vars、`pickLocale` 按 q 值取最高优先 / 认不出的语言当英文 / q 值写坏就跳过那一段），
+外加**英文字典的完整性**（`tests/unit/i18n-core.test.mts`：没有空键空译文、字符串条目的 `{占位符}` 必须和中文原文一致、
+函数条目缺 vars 也不抛错）——并行翻译时最容易犯的就是 `{n}` 写成 `{count}`，界面上只会安静地少一个数字。
 
 这些函数原来埋在 `db.ts` / `store.ts` / `client.ts` / `feed.ts` / `meta.ts` / `snapshot.ts` 里，那几个模块**一 import 就有副作用**
 （打开 SQLite、连 socket、热状态页），单测碰不得，所以整理时把它们挪成独立纯模块，原模块再导出一次保持调用点不变。
@@ -85,7 +97,7 @@ node tests/run.mjs --only=mail
 
 | 套件 | 需要什么 |
 |---|---|
-| `core`（smoke / e2e / done / filter / archive / tagbar / router / tagpop） | 什么都不用准备：`run.mjs` 自己起隔离实例 |
+| `core`（smoke / e2e / done / filter / archive / tagbar / router / tagpop / i18n） | 什么都不用准备：`run.mjs` 自己起隔离实例 |
 | `ci`（core 全部 + monitor-empty） | 同上；`monitor-empty` 自己再起一个**没接 Kuma**的实例（`KUMA_SLUG` 设成不存在的值），验证引导卡。**不需要 Kuma / 邮箱 / 采集端** |
 | `monitor`（monitor-note / monitor-drawer / alert） | 同上；`monitor-drawer` 还需要 Kuma 在 `http://127.0.0.1:3001`（它会临时建观测项并在结束时清理） |
 | `mail`（e2e-mail / mail-api-smoke） | 另需 `MAIL_E2E_BASE` 指向一个隔离实例 + `tests/fakeimap` 的依赖（见下） |

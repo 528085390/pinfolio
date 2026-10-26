@@ -1,5 +1,6 @@
 import { Camera, ExternalLink, Globe, Link2 } from 'lucide-react'
 import type { QuickLink } from '../../lib/api'
+import { t } from '../../lib/i18n'
 
 function hostOf(url: string): string {
   try {
@@ -24,8 +25,8 @@ export function QuickLinks({ links }: { links: QuickLink[] }) {
   return (
     <>
       <div className="quick-head">
-        快捷入口
-        <span>不参与观测</span>
+        {t('快捷入口')}
+        <span>{t('不参与观测')}</span>
       </div>
       <div className="asset-grid monitor-grid quick-grid">
         {links.map((l) => (

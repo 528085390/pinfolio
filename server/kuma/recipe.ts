@@ -1,3 +1,5 @@
+import { t } from '../i18n.js'
+
 /**
  * 「立即观测」配方的**纯逻辑**：解析 monitor-actions.json 的内容、挑配方、判置灰原因、算每步超时。
  * 这里不碰网络、不 spawn 进程，所以能单测；执行在 runner.ts。
@@ -54,7 +56,9 @@ export function normalizeSteps(steps: any[] | undefined): ActionStep[] {
     .map((s) => ({
       ...s,
       type: String(s.type),
-      label: typeof s.label === 'string' && s.label ? s.label : (STEP_LABEL[s.type] || '步骤：' + s.type),
+      label: typeof s.label === 'string' && s.label
+        ? s.label
+        : (STEP_LABEL[s.type] ? t(STEP_LABEL[s.type]) : t('步骤：{type}', { type: String(s.type) })),
       hint: typeof s.hint === 'string' ? s.hint : undefined,
     }))
 }
@@ -71,8 +75,8 @@ export function resolveFromRules(rules: Rule[], m: { id: number; name: string; t
     const steps = normalizeSteps(hit.steps)
     const unknown = steps.find((s) => !STEP_LABEL[s.type])
     const reason = hit.disabledReason
-      || (unknown ? '配方里有不认识的步骤类型：' + unknown.type : null)
-      || (steps.length === 0 ? '配方里没有步骤' : null)
+      || (unknown ? t('配方里有不认识的步骤类型：{type}', { type: String(unknown.type) }) : null)
+      || (steps.length === 0 ? t('配方里没有步骤') : null)
     return { source: 'config', steps, disabledReason: reason }
   }
 
@@ -81,13 +85,13 @@ export function resolveFromRules(rules: Rule[], m: { id: number; name: string; t
     return {
       source: 'none',
       steps: [],
-      disabledReason: '推送型观测项由外部心跳驱动，Kuma 没有「立刻探一次」这回事；要在抽屉里点按钮，请给它在 monitor-actions.json 里配一条配方。',
+      disabledReason: t('推送型观测项由外部心跳驱动，Kuma 没有「立刻探一次」这回事；要在抽屉里点按钮，请给它在 monitor-actions.json 里配一条配方。'),
     }
   }
 
   return {
     source: 'default',
-    steps: [{ type: 'kuma-check', label: STEP_LABEL['kuma-check'], hint: '重启检查循环，Kuma 会马上跑一次真实探测' }],
+    steps: [{ type: 'kuma-check', label: t(STEP_LABEL['kuma-check']), hint: t('重启检查循环，Kuma 会马上跑一次真实探测') }],
     disabledReason: null,
   }
 }
@@ -102,11 +106,11 @@ export function timeoutOf(step: ActionStep, budgetMs: number): number {
 
 /** 压成一行并截断（抽屉里一行一条，不能换行）。 */
 export function clip(s: unknown, max = 300): string {
-  const t = String(s ?? '').replace(/\s+/g, ' ').trim()
-  return t.length > max ? t.slice(0, max) + '…' : t
+  const x = String(s ?? '').replace(/\s+/g, ' ').trim()
+  return x.length > max ? x.slice(0, max) + '…' : x
 }
 
 /** Kuma 的状态码说人话（0 DOWN / 1 UP / 2 PENDING / 3 MAINTENANCE）。 */
 export function statusText(s: number): string {
-  return s === 1 ? '正常' : s === 0 ? '故障' : s === 2 ? '待定' : s === 3 ? '维护' : '未知'
+  return s === 1 ? t('正常') : s === 0 ? t('故障') : s === 2 ? t('待定') : s === 3 ? t('维护') : t('未知')
 }

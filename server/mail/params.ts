@@ -3,6 +3,7 @@
  * 这里不碰 IMAP、不碰数据库，所以能单测；路由只负责取账号、调 client、拼响应。
  */
 
+import { t } from '../i18n.js'
 export const DEFAULT_FOLDER = 'INBOX'
 
 const DEFAULT_LIMIT = 50
@@ -68,7 +69,7 @@ export function parseAttachmentQuery(q: Record<string, string | undefined>): Att
   const folder = (q.folder || DEFAULT_FOLDER).trim() || DEFAULT_FOLDER
   const uid = Number(q.uid)
   const index = Number(q.index)
-  if (!Number.isFinite(uid) || uid <= 0 || !Number.isFinite(index) || index < 0) return { error: '参数不合法' }
+  if (!Number.isFinite(uid) || uid <= 0 || !Number.isFinite(index) || index < 0) return { error: t('参数不合法') }
   return { folder, uid, index }
 }
 

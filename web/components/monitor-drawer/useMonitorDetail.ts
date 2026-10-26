@@ -6,6 +6,7 @@ import { api, type MonitorActionStepResult, type MonitorDetail } from '../../lib
 import {
   buildPatch, canSaveForm, confirmMatches, emptyForm, runDisabledOf, toForm, type MonitorForm,
 } from './form'
+import { t } from '../../lib/i18n'
 
 export function useMonitorDetail({ id, onClose, onChanged }: {
   id: number | null
@@ -84,7 +85,7 @@ export function useMonitorDetail({ id, onClose, onChanged }: {
       // 只发改过的字段：Kuma 的 editMonitor 是全量覆盖，传得越少越不容易踩到没带回的字段
       await api.monitors.update(id, buildPatch(form, base))
       await reload(id)
-      setSaveMsg('已保存')
+      setSaveMsg(t('已保存'))
       onChanged?.()
     } catch (e: any) {
       setSaveErr(e?.message || String(e))
@@ -102,7 +103,7 @@ export function useMonitorDetail({ id, onClose, onChanged }: {
       if (m.active) await api.monitors.pause(id)
       else await api.monitors.resume(id)
       await reload(id)
-      setSaveMsg(m.active ? '已暂停' : '已恢复')
+      setSaveMsg(m.active ? t('已暂停') : t('已恢复'))
       onChanged?.()
     } catch (e: any) {
       setSaveErr(e?.message || String(e))

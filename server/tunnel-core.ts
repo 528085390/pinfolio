@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { getSetting, setSetting } from './auth/store.js'
+import { t } from './i18n.js'
 
 // 公网映射（frp / 任意反代）的探活：设置页填了公网地址后，本机每 60s 请求一次
 // <公网地址>/api/health，返回的实例 id 必须等于自己，才能确认「这条路通到的是我」。
@@ -29,9 +30,9 @@ export function normalizePublicUrl(raw: unknown): string {
   try {
     u = new URL(text)
   } catch {
-    throw new Error('地址格式不对，示例：https://example.com/pinfolio')
+    throw new Error(t('地址格式不对，示例：https://example.com/pinfolio'))
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('只支持 http / https')
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error(t('只支持 http / https'))
   return (u.origin + u.pathname).replace(/\/+$/, '')
 }
 
@@ -74,11 +75,11 @@ export async function checkTunnel(database: DatabaseSync, timeoutMs = 5000): Pro
     const body = (await res.json().catch(() => null)) as any
     const latencyMs = Date.now() - started
     if (!res.ok) throw new Error('HTTP ' + res.status)
-    if (!body || body.ok !== true) throw new Error('健康检查返回异常')
-    if (body.id !== instanceId(database)) throw new Error('公网地址指向的不是这台机器')
+    if (!body || body.ok !== true) throw new Error(t('健康检查返回异常'))
+    if (body.id !== instanceId(database)) throw new Error(t('公网地址指向的不是这台机器'))
     last = { online: true, checkedAt, okAt: checkedAt, latencyMs, error: null }
   } catch (e: any) {
-    const msg = e?.name === 'TimeoutError' ? '超时（' + timeoutMs + 'ms）' : String(e?.message ?? e)
+    const msg = e?.name === 'TimeoutError' ? t('超时（{ms}ms）', { ms: timeoutMs }) : String(e?.message ?? e)
     last = { online: false, checkedAt, okAt: last.okAt, latencyMs: null, error: msg }
   }
   return getTunnel(database)

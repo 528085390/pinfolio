@@ -18,7 +18,7 @@ export type MonitorAlert = {
 
 /** 「出问题」的唯一判定：Kuma DOWN，或四态心跳消息带 [红]。和观测卡片 .down 用同一套规则 */
 export function isDown(m: Monitor) {
-  return m.status === 0 || (m.msg || '').startsWith('[红]')
+  return m.status === 0 || (m.msg || '').startsWith('[\u7ea2]') // [红]
 }
 
 // 组名去掉地区后缀：「my-server (阿里云)」→「my-server」
@@ -34,7 +34,7 @@ export function shortName(m: Monitor) {
 
 /** 心跳消息去掉四态前缀，通知里只显示故障本身 */
 export function plainMsg(msg: string) {
-  return (msg || '').replace(/^\[(绿|黄|红|灰)\]\s*/, '').trim()
+  return (msg || '').replace(/^\[([\u7eff\u9ec4\u7ea2\u7070])\]\s*/, '').trim() // 绿/黄/红/灰
 }
 
 /**
@@ -81,8 +81,8 @@ export function useMonitorAlerts() {
 
   useEffect(() => {
     void check()
-    const t = setInterval(() => { void check() }, ALERT_POLL_MS)
-    return () => clearInterval(t)
+    const timer = setInterval(() => { void check() }, ALERT_POLL_MS)
+    return () => clearInterval(timer)
   }, [check])
 
   const dismiss = useCallback((id: number) => {

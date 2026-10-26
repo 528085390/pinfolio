@@ -1,5 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react'
 import type { MonitorAlert } from '../lib/monitors'
+import { t } from '../lib/i18n'
 
 /** 最多同时显示几条，多出来的折叠成「还有 N 条」 */
 const MAX_VISIBLE = 4
@@ -23,7 +24,7 @@ export function AlertStack({
   const rest = alerts.length - shown.length
 
   return (
-    <div className="alert-stack" role="region" aria-label="观测异常通知">
+    <div className="alert-stack" role="region" aria-label={t('观测异常通知')}>
       {shown.map((a) => (
         <div
           key={a.id}
@@ -31,7 +32,7 @@ export function AlertStack({
           data-monitor-id={a.id}
           role="button"
           tabIndex={0}
-          title="点击跳到观测台对应卡片"
+          title={t('点击跳到观测台对应卡片')}
           onClick={() => onOpen(a.id)}
           onKeyDown={(ev) => {
             if (ev.key === 'Enter' || ev.key === ' ') {
@@ -45,8 +46,8 @@ export function AlertStack({
             <span className="alert-item-name">{a.name}</span>
             <button
               className="alert-item-close"
-              title="关闭通知"
-              aria-label="关闭通知"
+              title={t('关闭通知')}
+              aria-label={t('关闭通知')}
               onClick={(ev) => {
                 ev.stopPropagation()
                 onDismiss(a.id)
@@ -61,8 +62,8 @@ export function AlertStack({
         </div>
       ))}
       {rest > 0 ? (
-        <button className="alert-more" onClick={() => onOpen(null)} title="打开观测台看全部">
-          还有 {rest} 条异常 · 查看全部
+        <button className="alert-more" onClick={() => onOpen(null)} title={t('打开观测台看全部')}>
+          {t('还有 {n} 条异常 · 查看全部', { n: rest })}
         </button>
       ) : null}
     </div>

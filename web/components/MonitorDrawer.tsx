@@ -6,6 +6,7 @@ import { AdvancedSection } from './monitor-drawer/AdvancedSection'
 import { RunSection } from './monitor-drawer/RunSection'
 import { DangerSection } from './monitor-drawer/DangerSection'
 import { useMonitorDetail } from './monitor-drawer/useMonitorDetail'
+import { t } from '../lib/i18n'
 
 /** 观测项详情抽屉：改名字 / 介绍 / 频率，暂停恢复，删除，立即观测。外壳走 FormDrawer，内部分五段。 */
 export function MonitorDrawer({ id, flavor = 'fork', onClose, onChanged }: {
@@ -25,8 +26,8 @@ export function MonitorDrawer({ id, flavor = 'fork', onClose, onChanged }: {
       size="md"
       title={(
         <div className="monitor-drawer-title">
-          <span className="monitor-drawer-kicker">观测项详情</span>
-          <span className="monitor-drawer-name" title={m?.name}>{m ? m.name : (loading ? '读取中…' : '观测项')}</span>
+          <span className="monitor-drawer-kicker">{t('观测项详情')}</span>
+          <span className="monitor-drawer-name" title={m?.name}>{m ? m.name : (loading ? t('读取中…') : t('观测项'))}</span>
         </div>
       )}
       loading={!detail && !error}
@@ -60,7 +61,7 @@ export function MonitorDrawer({ id, flavor = 'fork', onClose, onChanged }: {
           {detail.link ? (
             <div style={{ marginTop: 14 }}>
               <a className="monitor-link" href={detail.link.url} target="_blank" rel="noreferrer noopener" title={detail.link.label}>
-                打开项目管理页 <ExternalLink size={11} className="monitor-link-icon" />
+                {t('打开项目管理页')} <ExternalLink size={11} className="monitor-link-icon" />
               </a>
             </div>
           ) : null}

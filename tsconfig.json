@@ -22,6 +22,7 @@
   "include": [
     "server",
     "web",
+    "shared",
     "tests/unit"
   ]
 }

@@ -1,3 +1,4 @@
+import { t } from '../i18n.js'
 import { metricsConfig } from './config.js'
 import { pruneOld, saveSample } from './store.js'
 
@@ -22,7 +23,7 @@ export async function pollAll(force = false): Promise<PollResult> {
   if (inflight) return inflight
   const cfg = metricsConfig()
   if (!cfg.base) {
-    last = { at: Date.now(), ok: 0, failed: [{ id: '*', error: '没配指标源 base（data/metrics.json）' }] }
+    last = { at: Date.now(), ok: 0, failed: [{ id: '*', error: t('没配指标源 base（data/metrics.json）') }] }
     return last
   }
   if (!force && Date.now() - last.at < MIN_GAP_MS) return last
@@ -40,11 +41,11 @@ export async function pollAll(force = false): Promise<PollResult> {
           })
           if (!res.ok) throw new Error('HTTP ' + res.status)
           const j: any = await res.json()
-          if (!j || typeof j.ts !== 'number' || typeof j.host !== 'string') throw new Error('不是指标 JSON')
+          if (!j || typeof j.ts !== 'number' || typeof j.host !== 'string') throw new Error(t('不是指标 JSON'))
           saveSample(h.id, Math.floor(j.ts), j)
           return null
         } catch (e: any) {
-          const msg = String(e?.name === 'TimeoutError' ? '超时' : e?.message || e)
+          const msg = String(e?.name === 'TimeoutError' ? t('超时') : e?.message || e)
           return { id: h.id, error: msg }
         }
       }),

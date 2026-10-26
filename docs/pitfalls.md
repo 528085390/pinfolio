@@ -100,3 +100,14 @@
 60. **便签列表里的图片必须限高，别让 `<img>` 按原始像素铺开**（2026-10-26 收紧便签卡片时）：`markdown.css` 原来只有 `.prose img { max-width: 100% }`，于是**竖图按原比例把一屏吃满**（实测一张 350×515 的截图让那条便签高 570px，1440×900 下一屏只剩它），用户的原话是「有图片就要翻页才能看到下面的便签」。修法在 `notes.css`：`.note-body .prose img { max-height: 180px; width: auto; max-width: 100% }` —— `max-width` + `max-height` 同时给、宽高都是 `auto` 时浏览器会**等比缩到两者都满足**，所以整张图都在、不裁切（比 `object-fit: cover` 好：裁切后横图只剩中间一截，反而看不出是什么）。**别只在 `.prose` 上写**：`.prose` 还喂着别的渲染点，限高只该作用在便签列表里，灯箱和编辑框都不能受影响。
     同一条便签里的多张图，用 `.note-body .prose p:has(> img:only-child) { display: inline-block; margin: 0 8px 8px 0; vertical-align: top }` 让它们**并排**：一张图一个 `<p>`，inline-block 的相邻段落会落在同一行、放不下自动换行。`:has()` 不支持时退回竖排，功能不受影响。
     量效果别量 `document.documentElement.scrollHeight`（见坑 53，它恒等于视口），要量 `.content` 或逐张卡片的 `getBoundingClientRect().height`：实测双图便签 1245 → 288px、竖图便签 963 → 288px、列表总高 3447 → 1379px。截图对照时**先把旧样式用 `addStyleTag` 盖回去再拍一张**，否则「改前」这张拍不出来（`dist/web` 已经是新样式了）。
+
+61. **中文原文当字典 key 时，扫描器会替你数一遍——但正则和多行模板会误报**（2026-10-26 做中英双语时）：`tools/i18n-scan.mjs` 用字符状态机区分「字符串 / 注释 / 裸文本」，报出所有没包 `t()` 的中文。两类误报必须认得出来，否则会白翻：① **正则字面量里出现引号**（`/["']/`）会让状态机误入字符串态，把后面的 JSDoc 当成待翻文案（`web/lib/images.ts:59`、`server/metrics/onboard.ts`、`server/kuma/redact.ts` 三处）；② **多行模板字面量**（`web/pages/settings/TunnelCard.tsx` 的 FRPC 配置模板）没法做成单行字典键，故意不翻。
+    另一半是**中文协议常量**：心跳四态前缀「绿 / 黄 / 红 / 灰」（`server/kuma/beat.ts` 解析、前端着色）和 `server/mail/errors.ts` 里匹配「超时」的正则，都是**数据不是文案**——改写成 `'\u7eff'` / `\u8d85\u65f6` 转义，线上协议不变，扫描器也不再当待翻。
+
+62. **服务端「拿错误文案前缀判状态码」在 i18n 后会退化，两边必须用同一个 `t()`**（同一天）：`server/services/routes.ts` 与 `server/metrics/routes.ts` 原来写 `err.message.startsWith('没有')` 来决定 404 / 409。切到英文后 message 变成 `No such server`，前缀永远不匹配 → 本该 404 的请求回 400。修法**不是**改回中文，而是两边取同一个前缀：`r.error.startsWith(t('没有'))`——同一请求内 locale 一致（`AsyncLocalStorage` 注入），成立。根治办法是让纯函数返回**错误码**而不是整句文案（`server/services/edit.ts` 这次没改，因为 `{ ok:false, error:'中文整句' }` 已经被前端原样显示）。
+
+63. **模块级常量表别在定义时调 `t()`，`.label` 写成 getter**（同一天）：`KIND_META` / `STATUS_META` / `STATUS` / `TONE` / `THEMES` / `LOCALES` / `FIELD_TYPES` / `PRESETS` / `STEP_LABEL` / `TITLES` 都在模块顶层求值，那时调 `t()` 会把「加载时的语言」冻住，切语言不生效。统一改成**常量里存中文原文、渲染时过 `t()`**；需要 `.label` 直接用的地方写成 `get label() { return t('设备') }`，十几个消费点一行都不用改。
+    还有一条：**别用空译文表达「英文不需要这个后缀」**。`'个': ''` 让统计条多出一个空格、还让「译文不能为空」的测试红；要用整句占位符条目 `'{n}个': (v) => \`${v.n}\``，调用点改成 `t('{n}个', { n })`。
+
+64. **e2e 快照只拷文件，会把 `data/uploads/` 丢掉**（同一天跑 core 套件时暴露）：`tests/run.mjs` 的 `startIsolated()` 原来只 `statSync(s).isFile()` 才 `copyFileSync`，而便签图片存在 `data/uploads/` **目录**里 → 隔离实例里带图便签的 `<img src="/api/attachments/1">` 一律 404，`e2e-tagpop` / `e2e-router` / `e2e-tagpop-outside` 这三套「不许有 console 报错」的断言全红，功能本身却没毛病。改成目录走 `cpSync(s, dst, { recursive: true })`。
+    **判据**：失败项写着 `console: Failed to load resource: … 404` 时，先挂 `page.on('response', r => r.status() >= 400 && …)` 把 URL 打出来，再判断是代码问题还是快照缺东西——别急着改业务代码。

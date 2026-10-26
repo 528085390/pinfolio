@@ -5,6 +5,7 @@ import { CORE_SCHEMA } from './schema/core.js'
 import { MAIL_SCHEMA } from './schema/mail.js'
 import { METRICS_SCHEMA } from './schema/metrics.js'
 import { PRESET_TAGS } from './tags.js'
+import { t } from './i18n.js'
 
 // 表结构演进：只追加、不改旧步，每步一个事务。
 // 版本号存在 PRAGMA user_version 里；老库（user_version = 0）由 v1 兜底归一。
@@ -104,7 +105,7 @@ export function migrate(db: DatabaseSync, migrations: Migration[] = MIGRATIONS, 
       if (file) console.log('  迁移前已备份  ->  ' + file)
     } catch (err) {
       // 拍不了快照就不升级：宁可不升，也不要留下没有退路的半迁移库
-      throw new Error('迁移前备份失败，已中止升级：' + (err instanceof Error ? err.message : String(err)))
+      throw new Error(t('迁移前备份失败，已中止升级：') + (err instanceof Error ? err.message : String(err)))
     }
   }
   for (const m of pending) {

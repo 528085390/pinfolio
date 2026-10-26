@@ -1,6 +1,7 @@
 // 极简 ustar 读写：只为了把几个文件打成一个 tar.gz，不引第三方依赖。
 // 支持普通文件（typeflag '0'），路径长度 <= 100（备份包里的名字都很短）。
 
+import { t } from '../i18n.js'
 export type TarEntry = { name: string; data: Buffer; mtime?: Date; mode?: number }
 
 const BLOCK = 512
@@ -13,7 +14,7 @@ function octal(n: number, width: number): string {
 function header(e: TarEntry): Buffer {
   const h = Buffer.alloc(BLOCK, 0)
   const name = Buffer.from(e.name, 'utf8')
-  if (name.length > 100) throw new Error('tar 路径太长: ' + e.name)
+  if (name.length > 100) throw new Error(t('tar 路径太长: ') + e.name)
   name.copy(h, 0)
   h.write(octal(e.mode ?? 0o644, 8), 100, 'latin1')
   h.write(octal(0, 8), 108, 'latin1')

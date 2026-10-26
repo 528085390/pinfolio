@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { all, get, run, tagColor } from '../db.js'
+import { t } from '../i18n.js'
 
 export const tagsRoute = new Hono()
 
@@ -16,8 +17,8 @@ tagsRoute.get('/', (c) => {
 tagsRoute.post('/', async (c) => {
   const b: any = await c.req.json().catch(() => ({}))
   const name = String(b.name ?? '').trim().replace(/^#/, '')
-  if (!name) return c.json({ error: '标签名不能为空' }, 400)
-  if (get('SELECT id FROM tags WHERE name = ?', name)) return c.json({ error: '标签已存在' }, 409)
+  if (!name) return c.json({ error: t('标签名不能为空') }, 400)
+  if (get('SELECT id FROM tags WHERE name = ?', name)) return c.json({ error: t('标签已存在') }, 409)
   const { id } = run('INSERT INTO tags (name, color) VALUES (?, ?)', name, String(b.color || tagColor(name)))
   return c.json(get('SELECT * FROM tags WHERE id = ?', id), 201)
 })

@@ -2,6 +2,7 @@ import type { Hono } from 'hono'
 import { readFile } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { ROOT } from './db.js'
+import { t } from './i18n.js'
 
 const WEB_DIR = join(ROOT, 'dist', 'web')
 
@@ -51,7 +52,7 @@ export function mountStatic(app: Hono) {
         // 否则浏览器可能把某个页面的 HTML 缓存住，切页后刷新拿到旧壳。
         return c.body(html, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' })
       } catch {
-        return c.text('前端还没构建：先在项目目录跑 pnpm build', 404)
+        return c.text(t('前端还没构建：先在项目目录跑 pnpm build'), 404)
       }
     }
   })

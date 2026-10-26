@@ -9,6 +9,7 @@ import { MonitorCard } from './monitors/MonitorCard'
 import { MonitorTable } from './monitors/MonitorTable'
 import { QuickLinks } from './monitors/QuickLinks'
 import { KumaGuide } from './monitors/KumaGuide'
+import { t } from '../lib/i18n'
 
 export function MonitorsPage({
   onSummary,
@@ -64,16 +65,16 @@ export function MonitorsPage({
       ) : !M.data ? (
         <Empty
           icon={<Activity size={22} />}
-          title="读不到观测项"
-          text={M.error || 'Uptime Kuma 可能没在跑（默认 http://127.0.0.1:3001）。'}
-          action={<Button size="sm" onClick={() => M.load(true)}>重试</Button>}
+          title={t('读不到观测项')}
+          text={M.error || t('Uptime Kuma 可能没在跑（默认 http://127.0.0.1:3001）。')}
+          action={<Button size="sm" onClick={() => M.load(true)}>{t('重试')}</Button>}
         />
       ) : M.shown.length === 0 ? (
         <Empty
           icon={<Activity size={22} />}
-          title="没有匹配的观测项"
-          text="换个筛选条件试试。"
-          action={<Button size="sm" onClick={M.clearFilters}>清空筛选</Button>}
+          title={t('没有匹配的观测项')}
+          text={t('换个筛选条件试试。')}
+          action={<Button size="sm" onClick={M.clearFilters}>{t('清空筛选')}</Button>}
         />
       ) : M.view === 'grid' ? (
         <div className="asset-grid monitor-grid" style={{ marginTop: 14 }}>

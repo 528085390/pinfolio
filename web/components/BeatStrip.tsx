@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { cx } from '../lib/api'
 import { relativeTime, stamp } from '../lib/format'
 import { STATUS, TONE } from '../pages/monitors/status'
+import { t, useLocale } from '../lib/i18n'
 
 // 心跳条：卡片和抽屉共用一份渲染逻辑，免得两处各写一套四态判断。
 // 四态监视器（每日打卡那种按天心跳）靠心跳消息前缀上色，Kuma 的 status 只有 up/down 区分不出来。
@@ -12,10 +13,11 @@ export type BeatCell = { status: number | null; tone: string | null }
 export type BeatDetail = { time?: string | null; msg?: string | null; ping?: number | null }
 
 export function beatClass(b: BeatCell, type: string): string {
-  if (b.tone === '绿') return 's1'
-  if (b.tone === '黄') return 's2'
-  if (b.tone === '红') return 's0'
-  if (b.tone === '灰') return 's3'
+  // 四态前缀是心跳消息里的中文标签（数据，不是界面文案），写成 \u 转义，免得被 i18n 巡检当成待翻译
+  if (b.tone === '\u7eff') return 's1' // 绿
+  if (b.tone === '\u9ec4') return 's2' // 黄
+  if (b.tone === '\u7ea2') return 's0' // 红
+  if (b.tone === '\u7070') return 's3' // 灰
   if (type === 'push') return 's-none'
   if (b.status === 1) return 's1'
   if (b.status === 0) return 's0'
@@ -52,6 +54,7 @@ export function BeatStrip({ cells, type, title, details }: {
   /** 与 cells 一一对应；缺项（null）的那一拍不弹提示 */
   details?: (BeatDetail | null)[]
 }) {
+  useLocale() // 组件被 React.memo 包着时要自己订阅语言，切语言才重渲染
   const [hit, setHit] = useState<Hit | null>(null)
   const hasDetail = !!details && details.length > 0
   const open = hit !== null
@@ -115,13 +118,13 @@ export function BeatStrip({ cells, type, title, details }: {
             <div className="beat-tip" style={tipStyle}>
               <div className="beat-tip-head">
                 <span className="status-dot" style={{ background: info ? info.color : 'var(--muted)' }} />
-                <span className="beat-tip-status">{info ? info.label : '无数据'}</span>
+                <span className="beat-tip-status">{info ? info.label : t('无数据')}</span>
                 <span className="beat-tip-time">{d.time ? stamp(d.time) : '—'}</span>
               </div>
               <div className="beat-tip-sub">
-                <span>{d.time ? relativeTime(d.time) : '时间未知'}</span>
+                <span>{d.time ? relativeTime(d.time) : t('时间未知')}</span>
                 {typeof d.ping === 'number' ? <span>{d.ping} ms</span> : null}
-                <span className="beat-tip-idx">第 {hit.i + 1}/{cells.length} 拍</span>
+                <span className="beat-tip-idx">{t('第 {i}/{n} 拍', { i: hit.i + 1, n: cells.length })}</span>
               </div>
               {d.msg ? <div className="beat-tip-msg">{d.msg}</div> : null}
             </div>,

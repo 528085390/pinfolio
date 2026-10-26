@@ -1,4 +1,5 @@
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cx } from '../lib/api'
@@ -81,7 +82,7 @@ export function Modal({ open, onClose, title, children, footer, width }: {
         <div className="modal-card" style={width ? { width: 'min(' + width + 'px, 100%)' } : undefined}>
           <div className="modal-head">
             <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
-            <Button variant="ghost" size="sm" icon style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="关闭">
+            <Button variant="ghost" size="sm" icon style={{ marginLeft: 'auto' }} onClick={onClose} aria-label={t('关闭')}>
               <X size={16} />
             </Button>
           </div>
@@ -109,7 +110,7 @@ export function Drawer({ open, onClose, title, children, footer }: {
       <aside className="drawer" role="dialog" aria-modal="true">
         <div className="drawer-head">
           <div className="grow" style={{ minWidth: 0 }}>{title}</div>
-          <Button variant="ghost" size="sm" icon onClick={onClose} aria-label="关闭">
+          <Button variant="ghost" size="sm" icon onClick={onClose} aria-label={t('关闭')}>
             <X size={16} />
           </Button>
         </div>

@@ -18,6 +18,7 @@ import {
   type ServiceRec,
   type ServicesData,
 } from './parse.js'
+import { t } from '../i18n.js'
 
 export type EditResult = { ok: true; data: ServicesData } | { ok: false; error: string }
 
@@ -61,25 +62,25 @@ function obj(input: unknown): Record<string, unknown> {
 /** 读 id：一律转小写（Sv 与 sv 看着一样，留两条只会互相打架）。 */
 function readId(raw: unknown): { id: string } | { error: string } {
   const id = txt(raw, LEN.id).toLowerCase()
-  if (!id) return { error: 'id 不能为空' }
-  if (!ID_RE.test(id)) return { error: 'id 只能用字母、数字、点、下划线、短横线，并以字母或数字开头：' + id }
+  if (!id) return { error: t('id 不能为空') }
+  if (!ID_RE.test(id)) return { error: t('id 只能用字母、数字、点、下划线、短横线，并以字母或数字开头：') + id }
   return { id }
 }
 
-function readName(raw: unknown, what: string): { name: string } | { error: string } {
+function readName(raw: unknown, msg: string): { name: string } | { error: string } {
   const name = txt(raw, LEN.name)
-  if (!name) return { error: what + '要填名字' }
+  if (!name) return { error: msg }
   return { name }
 }
 
 /** 观测项 id：正整数数组，去重排序（同一份数据每次渲染顺序都一致）。 */
 export function readMonitors(raw: unknown): { ids: number[] } | { error: string } {
   if (raw === undefined || raw === null) return { ids: [] }
-  if (!Array.isArray(raw)) return { error: '观测项要写成数组（例如 [1, 2]）' }
+  if (!Array.isArray(raw)) return { error: t('观测项要写成数组（例如 [1, 2]）') }
   const out = new Set<number>()
   for (const v of raw) {
     const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v.trim()) : NaN
-    if (!Number.isInteger(n) || n <= 0) return { error: '观测项 id 只能是正整数：' + String(v) }
+    if (!Number.isInteger(n) || n <= 0) return { error: t('观测项 id 只能是正整数：') + String(v) }
     out.add(n)
   }
   return { ids: [...out].sort((a, b) => a - b) }
@@ -89,7 +90,7 @@ export function readMonitors(raw: unknown): { ids: number[] } | { error: string 
 function readUrl(raw: unknown): { url?: string } | { error: string } {
   const url = txt(raw, 500)
   if (!url) return { url: undefined }
-  if (!isHttpUrl(url)) return { error: '管理页要写 http:// 或 https:// 开头的地址' }
+  if (!isHttpUrl(url)) return { error: t('管理页要写 http:// 或 https:// 开头的地址') }
   return { url }
 }
 
@@ -97,7 +98,7 @@ function readKind(raw: unknown, fallback: DeployKind): { kind: DeployKind } | { 
   const raw2 = txt(raw, 20)
   if (!raw2) return { kind: fallback }
   const kind = raw2 as DeployKind
-  if (!DEPLOY_KINDS.includes(kind)) return { error: '种类只能是 ' + DEPLOY_KINDS.join(' / ') }
+  if (!DEPLOY_KINDS.includes(kind)) return { error: t('种类只能是 ') + DEPLOY_KINDS.join(' / ') }
   return { kind }
 }
 
@@ -111,8 +112,8 @@ function nameOfServer(data: ServicesData, id: string): string {
 
 /** 列表里前几条名字 + 「等」，错误文案里给用户看清是哪几条挡着。 */
 function listNames(names: string[]): string {
-  const head = names.slice(0, 4).join('、')
-  return names.length > 4 ? head + ' 等 ' + names.length + ' 条' : head
+  const head = names.slice(0, 4).join(t('、'))
+  return names.length > 4 ? t('{head} 等 {n} 条', { head, n: names.length }) : head
 }
 
 // ---------- 服务器 ----------
@@ -121,9 +122,9 @@ export function addServer(data: ServicesData, input: unknown): EditResult {
   const b = obj(input)
   const idr = readId(b.id)
   if ('error' in idr) return fail(idr.error)
-  if (data.servers.length >= MAX_SERVERS) return fail('服务器最多 ' + MAX_SERVERS + ' 台')
-  if (data.servers.some((s) => s.id.toLowerCase() === idr.id)) return fail('已经有这台服务器：' + idr.id)
-  const name = readName(b.name, '服务器')
+  if (data.servers.length >= MAX_SERVERS) return fail(t('服务器最多 {n} 台', { n: MAX_SERVERS }))
+  if (data.servers.some((s) => s.id.toLowerCase() === idr.id)) return fail(t('已经有这台服务器：') + idr.id)
+  const name = readName(b.name, t('服务器要填名字'))
   if ('error' in name) return fail(name.error)
   const mon = readMonitors(b.monitors)
   if ('error' in mon) return fail(mon.error)
@@ -144,19 +145,19 @@ export function patchServer(data: ServicesData, id: string, patch: unknown): Edi
   const b = obj(patch)
   const want = txt(id, LEN.id).toLowerCase()
   const at = data.servers.findIndex((s) => s.id.toLowerCase() === want)
-  if (at < 0) return fail('没有这台服务器：' + id)
+  if (at < 0) return fail(t('没有这台服务器：') + id)
   const cur = data.servers[at]
   const next: ServerRec = { ...cur }
   if (has(b, 'id')) {
     const idr = readId(b.id)
     if ('error' in idr) return fail(idr.error)
     if (idr.id !== cur.id && data.servers.some((s, i) => i !== at && s.id.toLowerCase() === idr.id)) {
-      return fail('已经有这台服务器：' + idr.id)
+      return fail(t('已经有这台服务器：') + idr.id)
     }
     next.id = idr.id
   }
   if (has(b, 'name')) {
-    const name = readName(b.name, '服务器')
+    const name = readName(b.name, t('服务器要填名字'))
     if ('error' in name) return fail(name.error)
     next.name = name.name
   }
@@ -182,11 +183,11 @@ export function patchServer(data: ServicesData, id: string, patch: unknown): Edi
 export function removeServer(data: ServicesData, id: string): EditResult {
   const want = txt(id, LEN.id).toLowerCase()
   const srv = data.servers.find((s) => s.id.toLowerCase() === want)
-  if (!srv) return fail('没有这台服务器：' + id)
+  if (!srv) return fail(t('没有这台服务器：') + id)
   // 不连带删部署：删错一台机不该把几十条部署一起带走，让用户自己一条条删
   const used = data.deploys.filter((d) => d.server.toLowerCase() === srv.id.toLowerCase())
   if (used.length) {
-    return fail('「' + srv.name + '」上还有 ' + used.length + ' 条部署（' + listNames(used.map((d) => nameOfService(data, d.service))) + '），先删它们再删服务器')
+    return fail(t('「{name}」上还有 {n} 条部署（{names}），先删它们再删服务器', { name: srv.name, n: used.length, names: listNames(used.map((d) => nameOfService(data, d.service))) }))
   }
   return ok({ ...data, servers: data.servers.filter((s) => s !== srv) })
 }
@@ -197,9 +198,9 @@ export function addService(data: ServicesData, input: unknown): EditResult {
   const b = obj(input)
   const idr = readId(b.id)
   if ('error' in idr) return fail(idr.error)
-  if (data.services.length >= MAX_SERVICES) return fail('服务最多 ' + MAX_SERVICES + ' 个')
-  if (data.services.some((s) => s.id.toLowerCase() === idr.id)) return fail('已经有这个服务：' + idr.id)
-  const name = readName(b.name, '服务')
+  if (data.services.length >= MAX_SERVICES) return fail(t('服务最多 {n} 个', { n: MAX_SERVICES }))
+  if (data.services.some((s) => s.id.toLowerCase() === idr.id)) return fail(t('已经有这个服务：') + idr.id)
+  const name = readName(b.name, t('服务要填名字'))
   if ('error' in name) return fail(name.error)
   const kind = readKind(b.kind, 'service')
   if ('error' in kind) return fail(kind.error)
@@ -217,19 +218,19 @@ export function patchService(data: ServicesData, id: string, patch: unknown): Ed
   const b = obj(patch)
   const want = txt(id, LEN.id).toLowerCase()
   const at = data.services.findIndex((s) => s.id.toLowerCase() === want)
-  if (at < 0) return fail('没有这个服务：' + id)
+  if (at < 0) return fail(t('没有这个服务：') + id)
   const cur = data.services[at]
   const next: ServiceRec = { ...cur }
   if (has(b, 'id')) {
     const idr = readId(b.id)
     if ('error' in idr) return fail(idr.error)
     if (idr.id !== cur.id && data.services.some((s, i) => i !== at && s.id.toLowerCase() === idr.id)) {
-      return fail('已经有这个服务：' + idr.id)
+      return fail(t('已经有这个服务：') + idr.id)
     }
     next.id = idr.id
   }
   if (has(b, 'name')) {
-    const name = readName(b.name, '服务')
+    const name = readName(b.name, t('服务要填名字'))
     if ('error' in name) return fail(name.error)
     next.name = name.name
   }
@@ -251,10 +252,10 @@ export function patchService(data: ServicesData, id: string, patch: unknown): Ed
 export function removeService(data: ServicesData, id: string): EditResult {
   const want = txt(id, LEN.id).toLowerCase()
   const svc = data.services.find((s) => s.id.toLowerCase() === want)
-  if (!svc) return fail('没有这个服务：' + id)
+  if (!svc) return fail(t('没有这个服务：') + id)
   const used = data.deploys.filter((d) => d.service.toLowerCase() === svc.id.toLowerCase())
   if (used.length) {
-    return fail('「' + svc.name + '」还部署在 ' + used.length + ' 台机器上（' + listNames(used.map((d) => nameOfServer(data, d.server))) + '），先删这些部署再删服务')
+    return fail(t('「{name}」还部署在 {n} 台机器上（{names}），先删这些部署再删服务', { name: svc.name, n: used.length, names: listNames(used.map((d) => nameOfServer(data, d.server))) }))
   }
   return ok({ ...data, services: data.services.filter((s) => s !== svc) })
 }
@@ -282,14 +283,14 @@ function findDeploy(data: ServicesData, key: string): number {
 function readDeploy(data: ServicesData, b: Record<string, unknown>, base: DeployRec | null): { rec: DeployRec } | { error: string } {
   const serverId = (has(b, 'server') ? txt(b.server, LEN.id) : base?.server || '').toLowerCase()
   const serviceId = (has(b, 'service') ? txt(b.service, LEN.id) : base?.service || '').toLowerCase()
-  if (!serverId) return { error: '要选一台服务器' }
-  if (!serviceId) return { error: '要选一个服务' }
+  if (!serverId) return { error: t('要选一台服务器') }
+  if (!serviceId) return { error: t('要选一个服务') }
   const srv = data.servers.find((s) => s.id.toLowerCase() === serverId)
-  if (!srv) return { error: '没有这台服务器：' + serverId }
+  if (!srv) return { error: t('没有这台服务器：') + serverId }
   const svc = data.services.find((s) => s.id.toLowerCase() === serviceId)
-  if (!svc) return { error: '没有这个服务：' + serviceId }
+  if (!svc) return { error: t('没有这个服务：') + serviceId }
   const path = has(b, 'path') ? txt(b.path, LEN.path) : base?.path || ''
-  if (!path) return { error: '要填路径：这个服务在 ' + srv.name + ' 上的绝对路径' }
+  if (!path) return { error: t('要填路径：这个服务在 {name} 上的绝对路径', { name: srv.name }) }
   const mon = has(b, 'monitor') ? readMonitors(b.monitor) : { ids: base?.monitor ?? [] }
   if ('error' in mon) return { error: mon.error }
   const url = has(b, 'url') ? readUrl(b.url) : { url: base?.url }
@@ -310,20 +311,20 @@ function readDeploy(data: ServicesData, b: Record<string, unknown>, base: Deploy
 
 export function addDeploy(data: ServicesData, input: unknown): EditResult {
   const b = obj(input)
-  if (data.deploys.length >= MAX_DEPLOYS) return fail('部署最多 ' + MAX_DEPLOYS + ' 条')
+  if (data.deploys.length >= MAX_DEPLOYS) return fail(t('部署最多 {n} 条', { n: MAX_DEPLOYS }))
   const r = readDeploy(data, b, null)
   if ('error' in r) return fail(r.error)
   const dup = data.deploys.some(
     (d) => d.server.toLowerCase() === r.rec.server.toLowerCase() && d.service.toLowerCase() === r.rec.service.toLowerCase(),
   )
-  if (dup) return fail('「' + nameOfServer(data, r.rec.server) + '」上的「' + nameOfService(data, r.rec.service) + '」已经登记过了，改那一条')
+  if (dup) return fail(t('「{srv}」上的「{svc}」已经登记过了，改那一条', { srv: nameOfServer(data, r.rec.server), svc: nameOfService(data, r.rec.service) }))
   return ok({ ...data, deploys: [...data.deploys, r.rec] })
 }
 
 export function patchDeploy(data: ServicesData, key: string, patch: unknown): EditResult {
   const b = obj(patch)
   const at = findDeploy(data, key)
-  if (at < 0) return fail('没有这条部署：' + key)
+  if (at < 0) return fail(t('没有这条部署：') + key)
   const cur = data.deploys[at]
   const r = readDeploy(data, b, cur)
   if ('error' in r) return fail(r.error)
@@ -332,7 +333,7 @@ export function patchDeploy(data: ServicesData, key: string, patch: unknown): Ed
     const dup = data.deploys.some(
       (d, i) => i !== at && d.server.toLowerCase() === r.rec.server.toLowerCase() && d.service.toLowerCase() === r.rec.service.toLowerCase(),
     )
-    if (dup) return fail('「' + nameOfServer(data, r.rec.server) + '」上的「' + nameOfService(data, r.rec.service) + '」已经登记过了')
+    if (dup) return fail(t('「{srv}」上的「{svc}」已经登记过了', { srv: nameOfServer(data, r.rec.server), svc: nameOfService(data, r.rec.service) }))
   }
   const deploys = data.deploys.slice()
   deploys[at] = r.rec
@@ -341,7 +342,7 @@ export function patchDeploy(data: ServicesData, key: string, patch: unknown): Ed
 
 export function removeDeploy(data: ServicesData, key: string): EditResult {
   const at = findDeploy(data, key)
-  if (at < 0) return fail('没有这条部署：' + key)
+  if (at < 0) return fail(t('没有这条部署：') + key)
   return ok({ ...data, deploys: data.deploys.filter((_, i) => i !== at) })
 }
 

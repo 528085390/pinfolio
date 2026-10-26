@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto'
+import { t } from '../i18n.js'
 
 // 静态加密：只保护「备份 / 库文件泄漏」，防不了进程被控（能读内存就照样拿到明文）。
 //
@@ -31,8 +32,8 @@ export function parseSecret(input: string): Buffer {
   const buf = Buffer.from(raw, 'base64')
   if (!raw || buf.length !== SECRET_BYTES) {
     throw new SecretError(
-      '主密钥无效：需要 32 字节 base64。设置环境变量 PINBOARD_SECRET，或删除 data/secret.key 让程序重新生成；' +
-      '生成命令：node -e "console.log(require(\'node:crypto\').randomBytes(32).toString(\'base64\'))"',
+      t('主密钥无效：需要 32 字节 base64。设置环境变量 PINBOARD_SECRET，或删除 data/secret.key 让程序重新生成；') +
+      t(`生成命令：node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`),
       'bad-key',
     )
   }
@@ -61,12 +62,12 @@ export function decryptText(stored: string, key: Buffer): string {
   if (!isEncrypted(stored)) {
     const version = String(stored ?? '').startsWith('enc:') ? String(stored).split(':')[1] : ''
     throw new SecretError(
-      version ? '不认识的加密版本 enc:' + version + '，可能是更新的版本写的' : '这段数据没有加密前缀，不能按密文解',
+      version ? t('不认识的加密版本 enc:{v}，可能是更新的版本写的', { v: version }) : t('这段数据没有加密前缀，不能按密文解'),
       'unknown-version',
     )
   }
   const parts = stored.split(':')
-  if (parts.length !== 5) throw new SecretError('密文格式损坏', 'bad-ciphertext')
+  if (parts.length !== 5) throw new SecretError(t('密文格式损坏'), 'bad-ciphertext')
   try {
     const iv = Buffer.from(parts[2], 'base64')
     const tag = Buffer.from(parts[3], 'base64')
@@ -76,7 +77,7 @@ export function decryptText(stored: string, key: Buffer): string {
     decipher.setAuthTag(tag)
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8')
   } catch (e) {
-    throw new SecretError('密文无法解密（密钥不匹配或数据损坏）', 'bad-ciphertext')
+    throw new SecretError(t('密文无法解密（密钥不匹配或数据损坏）'), 'bad-ciphertext')
   }
 }
 

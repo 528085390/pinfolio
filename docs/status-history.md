@@ -467,4 +467,19 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 
 验证：`pnpm typecheck` 0 错误；`pnpm test:unit` **470/470**（新增 `tests/unit/attachments-core.test.mts` 15 例、`tests/unit/images.test.mts` 19 例、`tests/unit/attachments-store.test.mts` 14 例——第三个用 `mkdtempSync` + `process.env.PINBOARD_DATA` 后再 `await import`，见坑 59）；`node tests/run.mjs --only=core` **12/12 通过、92s**（新增 `tests/e2e-image.mjs` 已注册进 `CORE`，覆盖接口层 12 条断言 + 界面层粘贴 / 拖拽 / 选文件 / 灯箱 Esc / 行内编辑插第二张 / 删便签后图片 404）；`pnpm build` 通过（`dist/web` JS 514.78 kB / CSS 72.28 kB、`dist/server.js` 235.5 kB）。**首跑 11/12 的教训**：`dist/web` 还是加功能之前的产物，`setInputFiles` 超时 30 秒——e2e 带界面断言前必须先 `pnpm build`。
 文档同步：`features.zh.md` / `features.md` 新增「便签 / Notes」段，`api.zh.md` / `api.md` 加两个接口并把过期的「无鉴权」改成「除 `/health` 与 `/auth/*` 外都要登录 + 写接口只认 JSON、图片上传是唯一例外」，`architecture.md` 13 处（`data/uploads/`、attachments 四个模块、migrations v3、`collect.ts` 第 7 段、`Markdown.tsx` 的两步、`Lightbox.tsx`、`images.ts`），`pitfalls.md` 补坑 57（SVG 一律拒 + `image/*` 是唯一豁免 JSON 的写接口）/ 58（图片归属只能从正文推，`note_id` 只是缓存）/ 59（单测 import 服务端模块会打开真实库），两份 README 便签小节各加一条，`CHANGELOG.md` 新增 `[未发布]` 段，`AGENTS.md` 的坑数 / schema / 纯函数 / 路由 / 页面 / 九域 / 测试计数（470 单测 + 16 套 e2e）与状态段一并更新。
+**已完成（2026-10-26，界面中英双语 i18n）**：用户先问「前端有没有英文版」，确认**完全没有**（`index.html` 写死 `lang="zh-CN"`、`web/` 里 `navigator.language|i18n|Intl.` 零命中、无语言包、无 `t()`）后，列出四种方案（A 维持现状 / B 只英文化壳层 / C 全量 i18n / D 先搭骨架），**用户选 C 并指定新开分支** → `feat/i18n`。
+
+① **机制**：`shared/i18n/{core.ts,en/*.ts}` 用「中文原文当 key」的扁平字典（缺条目回落中文原文，永远不显示 key），`t(str, vars?)` 是**普通函数**（不是 hook），占位符 `{n}`，英文单复数写成**函数条目**；前端 `web/lib/i18n/index.ts` 暴露 `t` / `useLocale()` / `localeTag()`，**只在 `web/App.tsx` 根部订阅一次**，切语言整棵树重渲染；服务端 `server/i18n.ts` 用 `AsyncLocalStorage` + `Accept-Language`，路由里照旧 `import { t } from '../i18n.js'`。语言选择存 `localStorage.pinboard-locale`，没存过就跟浏览器（`zh*` → 中文，其余英文），`<html lang>` 跟着变。
+
+② **入口**：设置页「外观」卡里加了「语言 / Language」两枚 chip（中文 / English），主题那行照旧。
+
+③ **规模与分工**：便签页先做试点（验证机制），剩下的 974 处 / 101 文件按区域派给**七个并行子代理**（服务页、设置+备份、主机+观测、邮件、资产、服务端观测+指标、服务端核心），每人只改自己那份字典文件，没有互撞。收口扫描 `node tools/i18n-scan.mjs --files` 剩 **13 处 / 7 文件，全部是故意留的**（Kuma 观测项名字＝数据、`STEP_LABEL` 常量值、扫描器误报 3 处、FRPC 模板、心跳正则）。字典总量约 968 条。
+
+④ **翻译时踩的四类坑**（都写进 `docs/pitfalls.md` 61–64）：正则里的引号让扫描器误报、中文协议常量要改成 `\u` 转义、服务端用错误文案前缀判状态码在 i18n 后必须两边都 `t()`、模块级常量表存中文原文 + `.label` 写 getter（别在定义时调 `t()`）、空译文不能当「去掉后缀」用。
+
+⑤ **顺手修的**：`MonitorStats` 三处 `t('个')` 改整句占位符（`{n}个`）；`mail.ts` 与 `shell.ts` 重复的「共 {n} 封」只留 shell 一份；`command-palette/items.ts` 的 `assetSub()` 在认不出的 kind 下会拼出字面量 `undefined`（改成返回空串，测试同步改）；`tests/run.mjs` 的快照漏拷 `data/uploads/` 目录（带图便签在隔离实例里 404，坑 64）。
+
+验证：`pnpm typecheck` 0 错误；`pnpm test:unit` **490/490**（`tests/unit/i18n-core.test.mts` 20 例，含「译文里不能留中文」与「同名键译文必须一致」）；`node tests/run.mjs --only=core` **13/13 通过、129s**（新增 `tests/e2e-i18n.mjs`：设置页切英文 → 侧栏 / 标题 / 占位符 / `<html lang>` 全变英文 → 刷新仍是英文 → 切回中文全变回来，另带 `Accept-Language` 验同一个 404 接口中英两边都给对应语言的报错）；`pnpm build` 通过（`dist/server.js` 341.5 kB、`dist/web` JS 524.53 kB / CSS 72.28 kB）。**视觉验收**用一次性脚本 `tmp/i18n-shots.mjs`（隔离实例 + 真实库只读快照）把八个页面中英各截一张：英文页面上剩下的中文逐条看过，**全是数据**（便签正文、邮件主题与 IMAP 信箱名、资产名与自定义字段 label、标签名、服务器 / 服务 / 观测项的中文名）。
+
+文档同步：新增 `docs/i18n.md`（机制、占位符与复数、服务端、字典分工、巡检脚本、已知边界、测试怎么写）；`pitfalls.md` 补坑 61–64；`CHANGELOG.md` 新增「界面中英双语（新）」；`AGENTS.md` 的坑数 / 单测 / e2e 计数与表格行、两份 README 的 Global 段、`docs/features.md` / `features.zh.md` 同步。
 

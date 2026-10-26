@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { all, get, run, nowIso, syncNoteTags, toBool } from '../db.js'
 import { deleteAttachmentsForNote, syncNoteAttachments } from '../attachments/store.js'
 import { hydrateNotes, type NoteRow } from '../hydrate.js'
+import { t } from '../i18n.js'
 
 export const notesRoute = new Hono()
 
@@ -31,14 +32,14 @@ notesRoute.get('/', (c) => {
 
 notesRoute.get('/:id', (c) => {
   const row = get<NoteRow>('SELECT * FROM notes WHERE id = ?', Number(c.req.param('id')))
-  if (!row) return c.json({ error: '便签不存在' }, 404)
+  if (!row) return c.json({ error: t('便签不存在') }, 404)
   return c.json(hydrateNotes([row])[0])
 })
 
 notesRoute.post('/', async (c) => {
   const b: any = await c.req.json().catch(() => ({}))
   const content = String(b.content ?? '').trim()
-  if (!content) return c.json({ error: '内容不能为空' }, 400)
+  if (!content) return c.json({ error: t('内容不能为空') }, 400)
   const now = nowIso()
   const assetId = b.assetId ? Number(b.assetId) : null
   const { id } = run(
@@ -54,13 +55,13 @@ notesRoute.post('/', async (c) => {
 notesRoute.patch('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const existing = get<NoteRow>('SELECT * FROM notes WHERE id = ?', id)
-  if (!existing) return c.json({ error: '便签不存在' }, 404)
+  if (!existing) return c.json({ error: t('便签不存在') }, 404)
   const b: any = await c.req.json().catch(() => ({}))
   const sets: string[] = []
   const params: any[] = []
   if (typeof b.content === 'string') {
     const content = b.content.trim()
-    if (!content) return c.json({ error: '内容不能为空' }, 400)
+    if (!content) return c.json({ error: t('内容不能为空') }, 400)
     sets.push('content = ?'); params.push(content)
   }
   if (b.pinned !== undefined) { sets.push('pinned = ?'); params.push(toBool(b.pinned)) }

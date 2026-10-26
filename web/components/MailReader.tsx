@@ -6,6 +6,7 @@ import { MailMeta } from './mail-reader/MailMeta'
 import { MailViewbar } from './mail-reader/MailViewbar'
 import { MailAttachments } from './mail-reader/MailAttachments'
 import { buildMailDoc, EMPTY_DOC, fitWidth, loadImagePref, saveImagePref } from './mail-reader/doc'
+import { t } from '../lib/i18n'
 
 /**
  * 邮件阅读区：取信 → 清洗 HTML → 塞进 Shadow DOM。
@@ -113,7 +114,7 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
   if (error) {
     return (
       <div className="mail-reader-empty">
-        <Empty icon={<FileText size={20} />} title="这封邮件打不开" text={error} />
+        <Empty icon={<FileText size={20} />} title={t('这封邮件打不开')} text={error} />
       </div>
     )
   }
@@ -134,15 +135,15 @@ export function MailReader({ accountId, folder, uid, folderLabel }: {
       <div className="mail-reader-body" ref={scroller}>
         {!showImages && rendered.blocked > 0 ? (
           <div className="mail-img-banner">
-            <span>已拦截 {rendered.blocked} 张外部图片（防止追踪像素，不影响邮箱里的已读状态）</span>
+            <span>{t('已拦截 {n} 张外部图片（防止追踪像素，不影响邮箱里的已读状态）', { n: rendered.blocked })}</span>
             <Button size="sm" variant="ghost" onClick={toggleImages}>
-              <Eye size={13} /> 显示图片
+              <Eye size={13} /> {t('显示图片')}
             </Button>
           </div>
         ) : null}
 
         {useText ? (
-          <pre className="mail-text">{msg.text || '（这封邮件没有纯文本正文）'}</pre>
+          <pre className="mail-text">{msg.text || t('（这封邮件没有纯文本正文）')}</pre>
         ) : (
           <div className="mail-html" ref={htmlHost} />
         )}

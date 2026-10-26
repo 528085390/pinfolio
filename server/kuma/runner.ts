@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { t } from '../i18n.js'
 import { join } from 'node:path'
 import { getBeats, kickCheck } from './client.js'
 import { clip, statusText, timeoutOf, type ActionRecipe, type ActionStep } from './recipe.js'
@@ -34,16 +35,16 @@ async function runKumaCheck(id: number, step: ActionStep, budgetMs: number): Pro
     if (!last) continue
     const changed = !before || String(last.time) !== String(before.time)
     if (changed) {
-      return { ok: true, detail: statusText(Number(last.status)) + ' · ' + clip(last.msg || '（无消息）', 200) }
+      return { ok: true, detail: statusText(Number(last.status)) + ' · ' + clip(last.msg || t('（无消息）'), 200) }
     }
   }
-  return { ok: false, detail: '重启检查循环后 ' + Math.round(timeoutOf(step, budgetMs) / 1000) + ' 秒内没有产生新心跳' }
+  return { ok: false, detail: t('重启检查循环后 {n} 秒内没有产生新心跳', { n: Math.round(timeoutOf(step, budgetMs) / 1000) }) }
 }
 
 /** 发一个 HTTP 请求，优先读响应 JSON 里的 message 字段当结果。 */
 async function runHttp(step: ActionStep, budgetMs: number): Promise<{ ok: boolean; detail: string }> {
   const url = String(step.url || '')
-  if (!url) return { ok: false, detail: '配方里没写 url' }
+  if (!url) return { ok: false, detail: t('配方里没写 url') }
   const method = String(step.method || 'GET').toUpperCase()
   const headers: Record<string, string> = { ...(step.headers && typeof step.headers === 'object' ? step.headers : {}) }
   let body: string | undefined
@@ -106,14 +107,14 @@ function spawnCommand(argv: string[], cwd: string, timeoutMs: number): Promise<{
 
 async function runCommandStep(step: ActionStep, budgetMs: number): Promise<{ ok: boolean; detail: string }> {
   const argv = Array.isArray(step.argv) ? step.argv.map((a: any) => String(a)) : []
-  if (!argv.length) return { ok: false, detail: '配方里没写 argv' }
+  if (!argv.length) return { ok: false, detail: t('配方里没写 argv') }
   const cwd = step.cwd ? join(process.cwd(), String(step.cwd)) : process.cwd()
   const r = await spawnCommand(argv, cwd, timeoutOf(step, budgetMs))
-  if (r.spawnError) return { ok: false, detail: '命令起不来：' + clip(r.spawnError, 160) }
-  if (r.timedOut) return { ok: false, detail: '命令超时（' + Math.round(timeoutOf(step, budgetMs) / 1000) + ' 秒）被杀掉' }
+  if (r.spawnError) return { ok: false, detail: t('命令起不来：{msg}', { msg: clip(r.spawnError, 160) }) }
+  if (r.timedOut) return { ok: false, detail: t('命令超时（{n} 秒）被杀掉', { n: Math.round(timeoutOf(step, budgetMs) / 1000) }) }
   const tail = (r.out.trim() || r.err.trim() || '').split(/\r?\n/).filter(Boolean).slice(-1)[0] || ''
   const ok = r.code === 0
-  const detail = (ok ? '退出码 0' : '退出码 ' + r.code) + (tail ? ' · ' + clip(tail, 200) : '')
+  const detail = (ok ? t('退出码 0') : t('退出码 {code}', { code: String(r.code) })) + (tail ? ' · ' + clip(tail, 200) : '')
   return { ok, detail }
 }
 
@@ -127,7 +128,7 @@ export async function runRecipe(id: number, recipe: ActionRecipe): Promise<{ ok:
   for (const step of recipe.steps) {
     const remaining = TOTAL_BUDGET_MS - (Date.now() - startedAt)
     if (remaining <= 500) {
-      steps.push({ type: step.type, label: step.label, ok: false, detail: '整套配方超过 ' + TOTAL_BUDGET_MS / 1000 + ' 秒，后面的步骤没跑', ms: 0 })
+      steps.push({ type: step.type, label: step.label, ok: false, detail: t('整套配方超过 {n} 秒，后面的步骤没跑', { n: TOTAL_BUDGET_MS / 1000 }), ms: 0 })
       break
     }
     const t0 = Date.now()
@@ -136,7 +137,7 @@ export async function runRecipe(id: number, recipe: ActionRecipe): Promise<{ ok:
       if (step.type === 'kuma-check') r = await runKumaCheck(id, step, remaining)
       else if (step.type === 'http') r = await runHttp(step, remaining)
       else if (step.type === 'command') r = await runCommandStep(step, remaining)
-      else r = { ok: false, detail: '不认识的步骤类型：' + step.type }
+      else r = { ok: false, detail: t('不认识的步骤类型：{type}', { type: step.type }) }
     } catch (e: any) {
       r = { ok: false, detail: clip(e?.message || e, 240) }
     }

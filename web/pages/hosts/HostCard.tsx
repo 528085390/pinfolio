@@ -1,5 +1,6 @@
 import { Pause, Play, Trash2 } from 'lucide-react'
 import { cx, type Host, type HostSeriesPoint } from '../../lib/api'
+import { t } from '../../lib/i18n'
 
 // 一张卡 = 一台机。数据缺字段时全部走兜底文案，不要因为一台机少个字段就整页白屏。
 
@@ -25,17 +26,17 @@ function uptime(sec: number | undefined): string {
   if (!sec || sec <= 0) return '—'
   const d = Math.floor(sec / 86400)
   const h = Math.floor((sec % 86400) / 3600)
-  if (d > 0) return d + ' 天 ' + h + ' 小时'
+  if (d > 0) return t('{d} 天 {h} 小时', { d, h })
   const m = Math.floor((sec % 3600) / 60)
-  return h > 0 ? h + ' 小时 ' + m + ' 分' : m + ' 分钟'
+  return h > 0 ? t('{h} 小时 {m} 分', { h, m }) : t('{m} 分钟', { m })
 }
 
 export function ago(sec: number | null | undefined): string {
-  if (sec === null || sec === undefined) return '无数据'
-  if (sec < 90) return '刚刚'
-  if (sec < 3600) return Math.round(sec / 60) + ' 分钟前'
-  if (sec < 86400) return Math.round(sec / 3600) + ' 小时前'
-  return Math.round(sec / 86400) + ' 天前'
+  if (sec === null || sec === undefined) return t('无数据')
+  if (sec < 90) return t('刚刚')
+  if (sec < 3600) return t('{n} 分钟前', { n: Math.round(sec / 60) })
+  if (sec < 86400) return t('{n} 小时前', { n: Math.round(sec / 3600) })
+  return t('{n} 天前', { n: Math.round(sec / 86400) })
 }
 
 function tone(v: number | undefined): 'ok' | 'warn' | 'bad' {
@@ -45,7 +46,7 @@ function tone(v: number | undefined): 'ok' | 'warn' | 'bad' {
 
 /** 24 小时 CPU / 内存折线，两条线共用 0–100% 的纵轴。 */
 function Spark({ series }: { series: HostSeriesPoint[] }) {
-  if (!series || series.length < 2) return <div className="host-spark is-empty">还没有曲线</div>
+  if (!series || series.length < 2) return <div className="host-spark is-empty">{t('还没有曲线')}</div>
   const w = 100
   const h = 26
   const n = series.length
@@ -93,12 +94,12 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
         <span className={cx('host-dot', h.paused ? 'is-paused' : h.online ? 'is-on' : 'is-off')} />
         <span className="host-name">{h.label}</span>
         <span className="host-note">{h.note}</span>
-        {h.paused ? <span className="host-pause-tag">已暂停</span> : null}
-        <span className="host-ago">{h.paused ? '暂停采集' : ago(h.staleSec)}</span>
+        {h.paused ? <span className="host-pause-tag">{t('已暂停')}</span> : null}
+        <span className="host-ago">{h.paused ? t('暂停采集') : ago(h.staleSec)}</span>
         <div className="host-ops">
           <button
             className="host-op"
-            title={h.paused ? '恢复采集' : '暂停采集（保留卡片与历史，只是不再拉取）'}
+            title={h.paused ? t('恢复采集') : t('暂停采集（保留卡片与历史，只是不再拉取）')}
             disabled={busy}
             onClick={() => onTogglePause?.(h)}
           >
@@ -106,7 +107,7 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
           </button>
           <button
             className="host-op is-danger"
-            title={'删除这台主机（' + h.id + '）'}
+            title={t('删除这台主机（{id}）', { id: h.id })}
             disabled={busy}
             onClick={() => onDelete?.(h)}
           >
@@ -117,9 +118,9 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
 
       {h.ts === undefined ? (
         <div className="host-nodata">
-          {h.paused ? '已暂停采集，恢复后会补到最新一帧' : '还没收到这台机的上报'}
+          {h.paused ? t('已暂停采集，恢复后会补到最新一帧') : t('还没收到这台机的上报')}
           {!h.paused && onOnboard ? (
-            <button className="host-nodata-btn" onClick={() => onOnboard(h)}>接入指引</button>
+            <button className="host-nodata-btn" onClick={() => onOnboard(h)}>{t('接入指引')}</button>
           ) : null}
         </div>
       ) : (
@@ -128,20 +129,20 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
             <div className="host-fig">
               <span>CPU</span>
               <b className={'tone-' + tone(h.cpu_pct)}>{pct(h.cpu_pct)}</b>
-              <i>{h.cores ?? '—'} 核</i>
+              <i>{t('{n} 核', { n: h.cores ?? '—' })}</i>
             </div>
             <div className="host-fig">
-              <span>内存</span>
+              <span>{t('内存')}</span>
               <b className={'tone-' + tone(h.mem?.used_pct)}>{pct(h.mem?.used_pct)}</b>
               <i>{gb(memUsed)} / {gb(memTotal)}</i>
             </div>
             <div className="host-fig">
-              <span>负载 1m</span>
+              <span>{t('负载 1m')}</span>
               <b>{h.load?.[0]?.toFixed(2) ?? '—'}</b>
               <i>5m {h.load?.[1]?.toFixed(2) ?? '—'}</i>
             </div>
             <div className="host-fig">
-              <span>已运行</span>
+              <span>{t('已运行')}</span>
               <b className="host-fig-sm">{uptime(h.uptime_s)}</b>
               <i>{h.host || h.id}</i>
             </div>
@@ -158,7 +159,7 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
           <div className="host-foot">
             <span className="host-foot-os">{h.os || ''}</span>
             <span className="host-foot-top">
-              {(h.top || []).map((t) => t.comm + ' ' + Math.round(t.rss_kb / 1024) + 'M').join(' · ')}
+              {(h.top || []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')}
             </span>
           </div>
         </>

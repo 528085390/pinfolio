@@ -1,4 +1,5 @@
 import { BASE } from '../base'
+import { localeTag } from '../i18n'
 
 /** 所有 API 请求的出口：统一拼 /api 前缀、自动带 JSON 头、把后端的 error 文案抛成 Error。 */
 export const UNAUTHORIZED_EVENT = 'pb:unauthorized'
@@ -11,6 +12,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // 写方法一律带 JSON 头（DELETE 没有 body 也带，省得撞上服务端的 CSRF 校验）
   const method = (init?.method ?? 'GET').toUpperCase()
   if (init?.body || (method !== 'GET' && method !== 'HEAD')) headers['Content-Type'] = 'application/json'
+  // 服务端按这个头翻译错误文案（见 server/i18n.ts）
+  headers['Accept-Language'] = localeTag()
   const res = await fetch(API_BASE + path, { ...init, headers: { ...headers, ...(init?.headers as any) } })
   if (!res.ok) {
     // 会话过期 / 被踢下线：通知外壳切回登录页

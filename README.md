@@ -86,9 +86,10 @@ Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `t
 - Restore steps, what to do when `secret.key` is lost, and the audit CSV: [`docs/backup-restore.md`](docs/backup-restore.md).
 
 ### Global
-- **Every page has its own URL** (`/notes` `/mail` `/assets` `/monitors` `/hosts` `/backup` `/settings`): F5 stays put, back/forward work, links open directly.
+- **Every page has its own URL** (`/notes` `/mail` `/assets` `/monitors` `/hosts` `/services` `/backup` `/settings`): F5 stays put, back/forward work, links open directly.
 - **Ctrl / ⌘ + K** command palette: search notes and assets, or run "new note / open mail / add asset / open monitors / open hosts / export JSON".
 - Theme light / dark / follow system; the settings page exports everything as JSON and can seed sample data.
+- **UI in Chinese or English**: follows the browser language on first visit, switch any time under Settings → Appearance → Language. Only the interface is translated — your notes, tags, host and service names stay as you typed them (see [`docs/i18n.md`](docs/i18n.md), Chinese only for now).
 
 ## Quick start
 

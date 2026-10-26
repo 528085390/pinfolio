@@ -2,6 +2,7 @@
 // 页面组件只负责拼装，别把这些状态再搬回 MailPage.tsx。
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type MailAccount, type MailFolder, type MailRow } from '../../lib/api'
+import { t } from '../../lib/i18n'
 
 export const PAGE = 50
 
@@ -73,7 +74,11 @@ export function useInbox() {
       setUnseen(res.unseen)
       setFetchedAt(res.fetchedAt || Date.now())
       setOffset(off)
-      setListError(res.errors && res.errors.length ? res.errors.map((e) => (e.label || '账号') + '：' + e.error).join('；') : '')
+      setListError(
+        res.errors && res.errors.length
+          ? res.errors.map((e) => t('{label}：{error}', { label: e.label || t('账号'), error: e.error })).join(t('；'))
+          : '',
+      )
     } catch (e: any) {
       // 保留旧列表，避免刷新失败时整页变空
       setListError(e.message)
@@ -178,8 +183,8 @@ export function useInbox() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      const t = e.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
       const key = e.key.toLowerCase()
       if (key !== 'j' && key !== 'k') return
       if (!visible.length) return
@@ -193,7 +198,7 @@ export function useInbox() {
     return () => window.removeEventListener('keydown', onKey)
   }, [visible, sel, open])
 
-  const folderName = folders.find((f) => f.path === folder)?.name || (folder === 'INBOX' ? '收件箱' : folder)
+  const folderName = folders.find((f) => f.path === folder)?.name || (folder === 'INBOX' ? t('收件箱') : folder)
   const unseenTotal = accounts.reduce((n, a) => n + (a.unseen || 0), 0)
 
   return {

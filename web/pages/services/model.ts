@@ -6,6 +6,7 @@
  */
 
 import type { DeployKind, DeployRec, ServerRec, ServiceRec } from '../../lib/api/services'
+import { localeTag, t } from '../../lib/i18n'
 
 // 记录类型（服务器 / 服务 / 部署）定义在 API 层，跟 GET /api/services 的返回是同一份；
 // 这里再导出一次，页面与单测继续从 './services/model' 拿。
@@ -14,12 +15,19 @@ export type { DeployKind, DeployRec, ServerRec, ServiceRec } from '../../lib/api
 /** 卡片里行的顺序：项目 → 系统服务 → 站点 → 脚本 → 定时任务。 */
 export const KIND_ORDER: DeployKind[] = ['project', 'service', 'site', 'script', 'task']
 
+// label 用 getter：调用方照旧写 KIND_LABEL[k]，取值时才知道当前语言
+// （模块加载期就把 t() 的结果存进常量，等于把当时语言冻住）
 export const KIND_LABEL: Record<DeployKind, string> = {
-  project: '项目',
-  service: '服务',
-  site: '站点',
-  script: '脚本',
-  task: '任务',
+  get project() { return t('项目') },
+  get service() { return t('服务') },
+  get site() { return t('站点') },
+  get script() { return t('脚本') },
+  get task() { return t('任务') },
+}
+
+/** 列表分隔符：中文用顿号，英文用逗号（拼「观测：a、b」这类句子用） */
+export function listJoin(items: Array<string | number>): string {
+  return items.join(localeTag() === 'en' ? ', ' : '、')
 }
 
 /** 点一行会去哪儿：观测台定位某一项，或者打开这个部署自己的管理页。 */
@@ -42,7 +50,7 @@ export function deployTarget(rec: DeployRec): DeployTarget | null {
  */
 export function monitorLabel(labels: Record<string, string> | undefined | null, id: number): string {
   const hit = labels?.[String(id)]
-  return hit && hit.trim() ? hit.trim() : '观测项 ' + id
+  return hit && hit.trim() ? hit.trim() : t('观测项 {id}', { id })
 }
 
 export type ServerRow = DeployRec & { svc: ServiceRec }
@@ -80,7 +88,7 @@ export function kindRank(kind: DeployKind): number {
 function sortServerRows(rows: ServerRow[]): ServerRow[] {
   return rows
     .slice()
-    .sort((a, b) => kindRank(a.svc.kind) - kindRank(b.svc.kind) || a.svc.name.localeCompare(b.svc.name, 'zh'))
+    .sort((a, b) => kindRank(a.svc.kind) - kindRank(b.svc.kind) || a.svc.name.localeCompare(b.svc.name, localeTag()))
 }
 
 /** 服务器视角：每台机一张卡，行 = 它上面的部署。指向不存在服务的部署直接丢掉，不抛错。 */
@@ -118,7 +126,7 @@ export function groupByService(services: ServiceRec[], servers: ServerRec[], dep
   const out: ServiceGroup[] = []
   for (const service of services) {
     const rows = byService.get(service.id) ?? []
-    out.push({ service, rows: rows.slice().sort((a, b) => a.srv.name.localeCompare(b.srv.name, 'zh')) })
+    out.push({ service, rows: rows.slice().sort((a, b) => a.srv.name.localeCompare(b.srv.name, localeTag())) })
   }
   return out
 }
@@ -174,8 +182,8 @@ export function filterServiceGroups(groups: ServiceGroup[], q: string): ServiceG
  */
 export function deployTitle(rec: DeployRec, monitorLabels: string[] = []): string {
   const lines = [rec.path, rec.runtime + (rec.port ? ' · ' + rec.port : '')]
-  if (monitorLabels.length) lines.push('观测：' + monitorLabels.join('、'))
-  if (rec.url) lines.push('管理页：' + rec.url)
+  if (monitorLabels.length) lines.push(t('观测：{list}', { list: listJoin(monitorLabels) }))
+  if (rec.url) lines.push(t('管理页：{url}', { url: rec.url }))
   if (rec.note) lines.push(rec.note)
   return lines.join('\n')
 }

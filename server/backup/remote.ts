@@ -5,6 +5,7 @@ import { getSetting, setSetting, deleteSetting } from '../auth/store.js'
 import { encryptText, isEncrypted, readSecret } from '../secrets/crypto.js'
 import { loadKey } from '../secrets/key.js'
 import { DATA_DIR } from '../db.js'
+import { t } from '../i18n.js'
 
 export type RemoteType = 'mysql' | 'postgres'
 
@@ -32,13 +33,13 @@ export function normalizeConfig(input: Partial<RemoteConfig>): RemoteConfig {
   const database = String(input.database ?? '').trim()
   const user = String(input.user ?? '').trim()
   const table = String(input.table ?? DEFAULT_TABLE).trim() || DEFAULT_TABLE
-  if (!host) throw new Error('地址不能为空')
-  if (!database) throw new Error('库名不能为空')
-  if (!user) throw new Error('用户名不能为空')
-  if (!TABLE_RE.test(table)) throw new Error('表名只能用字母、数字、下划线')
+  if (!host) throw new Error(t('地址不能为空'))
+  if (!database) throw new Error(t('库名不能为空'))
+  if (!user) throw new Error(t('用户名不能为空'))
+  if (!TABLE_RE.test(table)) throw new Error(t('表名只能用字母、数字、下划线'))
   const defPort = type === 'postgres' ? 5432 : 3306
   const port = Number(input.port ?? defPort)
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error('端口不对')
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) throw new Error(t('端口不对'))
   return { type, host, port, database, user, password: String(input.password ?? ''), table }
 }
 
@@ -58,7 +59,7 @@ export function loadRemoteConfig(db: DatabaseSync): RemoteConfig | null {
 export function saveRemoteConfig(db: DatabaseSync, input: Partial<RemoteConfig>): RemoteConfig {
   const prev = loadRemoteConfig(db)
   const cfg = normalizeConfig({ ...input, password: input.password || prev?.password || '' })
-  if (!cfg.password) throw new Error('密码不能为空')
+  if (!cfg.password) throw new Error(t('密码不能为空'))
   const key = loadKey(DATA_DIR)
   setSetting(db, KEY, JSON.stringify({ ...cfg, password: isEncrypted(cfg.password) ? cfg.password : encryptText(cfg.password, key) }))
   return cfg
@@ -80,7 +81,7 @@ async function connect(cfg: RemoteConfig): Promise<Conn> {
     try {
       pg = await import('pg')
     } catch {
-      throw new Error('缺少 pg 驱动（pnpm add pg）')
+      throw new Error(t('缺少 pg 驱动（pnpm add pg）'))
     }
     const client = new pg.Client({ host: cfg.host, port: cfg.port, user: cfg.user, password: cfg.password, database: cfg.database, connectionTimeoutMillis: 8000 })
     await client.connect()
@@ -93,7 +94,7 @@ async function connect(cfg: RemoteConfig): Promise<Conn> {
   try {
     mysql = await import('mysql2/promise')
   } catch {
-    throw new Error('缺少 mysql2 驱动（pnpm add mysql2）')
+    throw new Error(t('缺少 mysql2 驱动（pnpm add mysql2）'))
   }
   const conn = await mysql.createConnection({
     host: cfg.host, port: cfg.port, user: cfg.user, password: cfg.password, database: cfg.database,
@@ -126,10 +127,10 @@ const BLOB_TYPE = { mysql: 'LONGBLOB', postgres: 'BYTEA' } as const
 const ID_TYPE = { mysql: 'VARCHAR(36)', postgres: 'VARCHAR(36)' } as const
 
 export async function ensureTable(cfg: RemoteConfig): Promise<void> {
-  const t = cfg.table
+  const tbl = cfg.table
   await withConn(cfg, async (c) => {
     await c.query(
-      'CREATE TABLE IF NOT EXISTS ' + t + ' (' +
+      'CREATE TABLE IF NOT EXISTS ' + tbl + ' (' +
         'id ' + ID_TYPE[cfg.type] + ' PRIMARY KEY, ' +
         'instance_id VARCHAR(36) NOT NULL, ' +
         'filename VARCHAR(128) NOT NULL, ' +
@@ -153,7 +154,7 @@ export async function upload(cfg: RemoteConfig, row: { id: string; instanceId: s
     const back = await c.query('SELECT size, sha256 FROM ' + cfg.table + ' WHERE id = ' + (cfg.type === 'postgres' ? '$1' : '?'), [row.id])
     const got = Array.isArray(back) ? back[0] : undefined
     if (!got || Number(got.size) !== row.data.length || String(got.sha256) !== row.sha256) {
-      throw new Error('远端回读校验失败（大小或 sha256 不一致）')
+      throw new Error(t('远端回读校验失败（大小或 sha256 不一致）'))
     }
   })
 }

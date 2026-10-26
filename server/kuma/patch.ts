@@ -1,3 +1,5 @@
+import { t } from '../i18n.js'
+
 /**
  * PATCH /api/monitors/:id 的校验与归一化 —— 纯函数，不碰网络、不碰数据库，所以能单测。
  *
@@ -87,17 +89,18 @@ export function buildMonitorPatch(
   // ---- 名字 ----
   if (body.name !== undefined) {
     const name = String(body.name ?? '').trim()
-    if (!name) return { error: '名字不能为空', status: 400 }
-    if (name.length > 120) return { error: '名字最长 120 字', status: 400 }
+    if (!name) return { error: t('名字不能为空'), status: 400 }
+    if (name.length > 120) return { error: t('名字最长 120 字'), status: 400 }
     if (name !== String(bean.name || '').trim()) {
       const dup = Object.values(beans).find((b: any) => Number(b?.id) !== id && String(b?.name || '').trim() === name)
-      if (dup) return { error: '已经有同名观测项：' + name, status: 400 }
+      if (dup) return { error: t('已经有同名观测项：{name}', { name }), status: 400 }
       const refs = policyNameRefs(beans).get(String(bean.name || '').trim())
       if (refs && refs.length) {
         return {
-          error:
-            '有策略按名字引用了「' + String(bean.name) + '」（观测项 #' + refs.join('、#') +
-            '），改名会让策略失效。请先把那些策略改成按 id 引用或改掉名字。',
+          error: t(
+            '有策略按名字引用了「{name}」（观测项 #{refs}），改名会让策略失效。请先把那些策略改成按 id 引用或改掉名字。',
+            { name: String(bean.name), refs: refs.join('、#') },
+          ),
           status: 409,
         }
       }
@@ -108,35 +111,35 @@ export function buildMonitorPatch(
   // ---- 介绍 ----
   if (body.description !== undefined) {
     const desc = String(body.description ?? '').trim()
-    if (desc.length > 500) return { error: '介绍最长 500 字', status: 400 }
+    if (desc.length > 500) return { error: t('介绍最长 500 字'), status: 400 }
     next.description = desc
   }
 
   // ---- 频率 / 超时 / 重试 ----
   if (body.interval !== undefined) {
     const v = asInt(body.interval)
-    if (v === null || v < 20 || v > 86400) return { error: '检查频率要在 20–86400 秒之间', status: 400 }
+    if (v === null || v < 20 || v > 86400) return { error: t('检查频率要在 20–86400 秒之间'), status: 400 }
     next.interval = v
   }
   if (body.timeout !== undefined) {
     const v = asInt(body.timeout)
-    if (v === null || v < 1 || v > 120) return { error: '超时要在 1–120 秒之间', status: 400 }
+    if (v === null || v < 1 || v > 120) return { error: t('超时要在 1–120 秒之间'), status: 400 }
     next.timeout = v
   }
   if (body.retryInterval !== undefined) {
     const v = asInt(body.retryInterval)
-    if (v === null || v < 1 || v > 3600) return { error: '重试间隔要在 1–3600 秒之间', status: 400 }
+    if (v === null || v < 1 || v > 3600) return { error: t('重试间隔要在 1–3600 秒之间'), status: 400 }
     next.retryInterval = v
   }
   if (body.maxretries !== undefined) {
     const v = asInt(body.maxretries)
-    if (v === null || v < 0 || v > 10) return { error: '重试次数要在 0–10 之间', status: 400 }
+    if (v === null || v < 0 || v > 10) return { error: t('重试次数要在 0–10 之间'), status: 400 }
     next.maxretries = v
   }
   // 这一条对「只改名」的请求也生效：用的是合并后的值
   if (Number(next.timeout) >= Number(next.interval)) {
     return {
-      error: '超时（' + next.timeout + 's）必须小于检查频率（' + next.interval + 's）',
+      error: t('超时（{timeout}s）必须小于检查频率（{interval}s）', { timeout: next.timeout, interval: next.interval }),
       status: 400,
     }
   }

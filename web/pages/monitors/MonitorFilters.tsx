@@ -4,6 +4,7 @@ import { cx } from '../../lib/cx'
 import { relativeTime } from '../../lib/format'
 import { shortGroup } from '../../lib/monitors'
 import { Button } from '../../components/ui'
+import { t } from '../../lib/i18n'
 
 export type MonitorFiltersProps = {
   groups: MonitorGroup[]
@@ -31,7 +32,7 @@ export function MonitorFilters({
   return (
     <div className="filters" style={{ marginTop: 18 }}>
       <button className={cx('chip', group === '' && 'active')} onClick={() => onGroup('')}>
-        全部<span className="chip-count">{allCount}</span>
+        {t('全部')}<span className="chip-count">{allCount}</span>
       </button>
       {groups.map((g) => (
         <button
@@ -46,10 +47,10 @@ export function MonitorFilters({
       ))}
       <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
       <select className="select input-sm" style={{ width: 104 }} value={status} onChange={(e) => onStatus(e.target.value)}>
-        <option value="">所有状态</option>
-        <option value="up">正常</option>
-        <option value="down">故障</option>
-        <option value="pending">待定</option>
+        <option value="">{t('所有状态')}</option>
+        <option value="up">{t('正常')}</option>
+        <option value="down">{t('故障')}</option>
+        <option value="pending">{t('待定')}</option>
       </select>
       <div className="grow" />
       <div style={{ position: 'relative', width: 180 }}>
@@ -57,23 +58,23 @@ export function MonitorFilters({
         <input
           className="input input-sm"
           style={{ paddingLeft: 27 }}
-          placeholder="搜索观测项"
+          placeholder={t('搜索观测项')}
           value={searchInput}
           onChange={(e) => onSearchInput(e.target.value)}
         />
       </div>
-      <button className={cx('chip', auto && 'active')} onClick={onToggleAuto} title="每 30 秒自动刷新">
-        自动刷新
+      <button className={cx('chip', auto && 'active')} onClick={onToggleAuto} title={t('每 30 秒自动刷新')}>
+        {t('自动刷新')}
       </button>
       <div className="row" style={{ gap: 2 }}>
-        <Button variant={view === 'grid' ? 'default' : 'ghost'} size="sm" icon onClick={() => onView('grid')} title="卡片视图">
+        <Button variant={view === 'grid' ? 'default' : 'ghost'} size="sm" icon onClick={() => onView('grid')} title={t('卡片视图')}>
           <LayoutGrid size={14} />
         </Button>
-        <Button variant={view === 'table' ? 'default' : 'ghost'} size="sm" icon onClick={() => onView('table')} title="表格视图">
+        <Button variant={view === 'table' ? 'default' : 'ghost'} size="sm" icon onClick={() => onView('table')} title={t('表格视图')}>
           <List size={14} />
         </Button>
       </div>
-      <Button variant="ghost" size="sm" icon onClick={onRefresh} title="立即刷新">
+      <Button variant="ghost" size="sm" icon onClick={onRefresh} title={t('立即刷新')}>
         <RefreshCw size={14} className={loading ? 'spin' : undefined} />
       </Button>
       {updatedAt ? <span className="monitor-updated">{relativeTime(updatedAt)}</span> : null}

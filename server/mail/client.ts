@@ -14,6 +14,7 @@ import {
   type BodyEntry, type Snapshot,
 } from './cache.js'
 import { compareRows, filterSelectable, sortFolders, toRow } from './rows.js'
+import { t } from '../i18n.js'
 
 const MAX_MESSAGE_BYTES = 25 * 1024 * 1024
 const CHUNK = 50
@@ -25,16 +26,16 @@ export async function testConnection(input: {
 }): Promise<{ server: string; folders: number; encrypted: boolean }> {
   const client = makeClient(input as any)
   try {
-    await withTimeout(client.connect(), OP_TIMEOUT, '连接 IMAP 服务器')
+    await withTimeout(client.connect(), OP_TIMEOUT, t('连接 IMAP 服务器'))
     if (input.security === 'starttls' && !isEncrypted(client)) {
-      throw new Error('服务器不支持 STARTTLS，请改用 SSL/TLS（993 端口）')
+      throw new Error(t('服务器不支持 STARTTLS，请改用 SSL/TLS（993 端口）'))
     }
-    const list = await withTimeout(client.list(), OP_TIMEOUT, '获取文件夹列表')
+    const list = await withTimeout(client.list(), OP_TIMEOUT, t('获取文件夹列表'))
     return { server: String((client as any).serverInfo?.name || ''), folders: list.length, encrypted: isEncrypted(client) }
   } catch (err) {
     throw new Error(friendlyError(err, proxyOf(input)))
   } finally {
-    try { await withTimeout(client.logout(), 3000, '断开') } catch { try { client.close() } catch { /* ignore */ } }
+    try { await withTimeout(client.logout(), 3000, t('断开')) } catch { try { client.close() } catch { /* ignore */ } }
   }
 }
 
@@ -43,7 +44,7 @@ export async function listFolders(a: MailAccountRow, fresh = false): Promise<Fol
   const hit = folderCache.get(key)
   if (!fresh && hit && Date.now() - hit.at < FOLDER_TTL) return hit.folders
   const client = await getClient(a)
-  const raw = await withTimeout(client.list(), OP_TIMEOUT, '获取文件夹列表')
+  const raw = await withTimeout(client.list(), OP_TIMEOUT, t('获取文件夹列表'))
   const folders = sortFolders(filterSelectable(raw))
   folderCache.set(key, { at: Date.now(), folders })
   return folders
@@ -169,15 +170,15 @@ export async function getMessage(a: MailAccountRow, folder: string, uid: number)
   }
   const entry = await withMailbox(a, folder, async (client) => {
     const m: any = await client.fetchOne(String(uid), { uid: true, source: true } as any, { uid: true })
-    if (!m || !m.source) throw new Error('邮件不存在，可能已被删除或移动')
-    if (m.source.length > MAX_MESSAGE_BYTES) throw new Error('邮件超过 25 MB，本页面不下载这么大的邮件')
+    if (!m || !m.source) throw new Error(t('邮件不存在，可能已被删除或移动'))
+    if (m.source.length > MAX_MESSAGE_BYTES) throw new Error(t('邮件超过 25 MB，本页面不下载这么大的邮件'))
     const parsed = await simpleParser(m.source)
     const attachments: Buffer[] = parsed.attachments.map((att: any) => Buffer.from(att.content || Buffer.alloc(0)))
     const message: MailMessage = {
       accountId: a.id,
       folder,
       uid,
-      subject: String(parsed.subject || '').trim() || '(无主题)',
+      subject: String(parsed.subject || '').trim() || t('(无主题)'),
       from: addrOne(parsed.from),
       to: addrList(parsed.to),
       cc: addrList(parsed.cc),
@@ -187,7 +188,7 @@ export async function getMessage(a: MailAccountRow, folder: string, uid: number)
       html: typeof parsed.html === 'string' && parsed.html.trim() ? parsed.html : null,
       attachments: parsed.attachments.map((att: any, i: number) => ({
         index: i,
-        filename: String(att.filename || '附件' + (i + 1)),
+        filename: String(att.filename || t('附件 {n}', { n: i + 1 })),
         size: Number(att.size || 0),
         contentType: String(att.contentType || 'application/octet-stream'),
         cid: att.cid ? String(att.cid).replace(/^<|>$/g, '') : null,

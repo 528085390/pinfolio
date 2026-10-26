@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { all, get, run } from '../db.js'
+import { t } from '../i18n.js'
 
 export const fieldsRoute = new Hono()
 
@@ -17,9 +18,9 @@ fieldsRoute.post('/', async (c) => {
   const b: any = await c.req.json().catch(() => ({}))
   const key = String(b.key ?? '').trim()
   const label = String(b.label ?? '').trim()
-  if (!key || !label) return c.json({ error: '字段 key 和名称都不能为空' }, 400)
-  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key)) return c.json({ error: 'key 只能用字母开头，字母/数字/下划线' }, 400)
-  if (get('SELECT id FROM field_defs WHERE key = ?', key)) return c.json({ error: 'key 已存在' }, 409)
+  if (!key || !label) return c.json({ error: t('字段 key 和名称都不能为空') }, 400)
+  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key)) return c.json({ error: t('key 只能用字母开头，字母/数字/下划线') }, 400)
+  if (get('SELECT id FROM field_defs WHERE key = ?', key)) return c.json({ error: t('key 已存在') }, 409)
   const type = ['text', 'number', 'date', 'url', 'select', 'bool'].includes(b.type) ? b.type : 'text'
   const options = Array.isArray(b.options) ? b.options.map(String) : []
   const maxSort = get<{ m: number }>('SELECT COALESCE(MAX(sort), 0) AS m FROM field_defs')!.m

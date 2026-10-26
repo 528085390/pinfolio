@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import type { Asset } from '../../lib/api'
 import { cx } from '../../lib/cx'
 import { KIND_META, STATUS_META, expiry, money } from '../../lib/format'
+import { t } from '../../lib/i18n'
 
 /** 表格视图：名称 / 类型 / 状态 / 位置 / 供应商 / 到期 / 价格 */
 export function AssetTable({ assets, onOpen }: { assets: Asset[]; onOpen: (id: number) => void }) {
@@ -10,7 +11,7 @@ export function AssetTable({ assets, onOpen }: { assets: Asset[]; onOpen: (id: n
       <table className="data">
         <thead>
           <tr>
-            <th>名称</th><th>类型</th><th>状态</th><th>位置</th><th>供应商</th><th>到期</th><th>价格</th>
+            <th>{t('名称')}</th><th>{t('类型')}</th><th>{t('状态')}</th><th>{t('位置')}</th><th>{t('供应商')}</th><th>{t('到期')}</th><th>{t('价格')}</th>
           </tr>
         </thead>
         <tbody>

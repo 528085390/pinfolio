@@ -3,12 +3,13 @@
 import { ImapFlow } from 'imapflow'
 import type { MailAccountRow } from './store.js'
 import { proxyOf } from './errors.js'
+import { t } from '../i18n.js'
 
 export const OP_TIMEOUT = 20_000
 
 export function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(label + '超时（' + Math.round(ms / 1000) + ' 秒）')), ms)
+    const timer = setTimeout(() => reject(new Error(label + t('超时（{s} 秒）', { s: Math.round(ms / 1000) }))), ms)
     p.then(
       (v) => { clearTimeout(timer); resolve(v) },
       (e) => { clearTimeout(timer); reject(e) },
@@ -75,10 +76,10 @@ export async function getClient(a: MailAccountRow): Promise<ImapFlow> {
     const cur = pool.get(a.id)
     if (cur && cur.client === client) pool.delete(a.id)
   })
-  await withTimeout(client.connect(), OP_TIMEOUT, '连接 IMAP 服务器')
+  await withTimeout(client.connect(), OP_TIMEOUT, t('连接 IMAP 服务器'))
   if (a.security === 'starttls' && !isEncrypted(client)) {
     try { client.close() } catch { /* ignore */ }
-    throw new Error('服务器不支持 STARTTLS，已中止连接（避免用明文发送密码），请改用 SSL/TLS')
+    throw new Error(t('服务器不支持 STARTTLS，已中止连接（避免用明文发送密码），请改用 SSL/TLS'))
   }
   pool.set(a.id, { client, sig })
   return client
@@ -86,9 +87,9 @@ export async function getClient(a: MailAccountRow): Promise<ImapFlow> {
 
 export async function withMailbox<T>(a: MailAccountRow, folder: string, fn: (client: ImapFlow) => Promise<T>): Promise<T> {
   const client = await getClient(a)
-  const lock = await withTimeout(client.getMailboxLock(folder, { readOnly: true } as any), OP_TIMEOUT, '打开文件夹 ' + folder)
+  const lock = await withTimeout(client.getMailboxLock(folder, { readOnly: true } as any), OP_TIMEOUT, t('打开文件夹 {name}', { name: folder }))
   try {
-    return await withTimeout(fn(client), OP_TIMEOUT, '读取邮件')
+    return await withTimeout(fn(client), OP_TIMEOUT, t('读取邮件'))
   } finally {
     try { lock.release() } catch { /* ignore */ }
   }

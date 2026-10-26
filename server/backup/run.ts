@@ -5,6 +5,7 @@ import { getSetting, setSetting } from '../auth/store.js'
 import { instanceId } from '../tunnel-core.js'
 import { archiveHeartbeats, buildPackage, listLocal, pruneLocal, writeLocal, KEEP } from './local.js'
 import { loadRemoteConfig, pruneRows, upload, type RemoteConfig } from './remote.js'
+import { t } from '../i18n.js'
 
 export type DestState = { ok: boolean; at: string; detail?: string; error?: string; count?: number }
 
@@ -44,7 +45,7 @@ export async function runBackup(db: DatabaseSync, opts: { only?: 'local' | 'remo
     try {
       pkg = await buildPackage(db, now, id)
     } catch (e) {
-      const err = '打包失败：' + String((e as Error).message ?? e)
+      const err = t('打包失败：') + String((e as Error).message ?? e)
       if (needLocal) report.local = { ok: false, at, error: err }
       if (remoteCfg) report.remote = { ok: false, at, error: err }
     }
@@ -55,7 +56,7 @@ export async function runBackup(db: DatabaseSync, opts: { only?: 'local' | 'remo
       const { size } = writeLocal(pkg)
       const removed = pruneLocal(KEEP)
       const count = listLocal().length
-      const s: DestState = { ok: true, at, detail: pkg.name + ' · ' + Math.round(size / 1024) + ' KB' + (removed.length ? ' · 清理 ' + removed.length + ' 份' : ''), count }
+      const s: DestState = { ok: true, at, detail: pkg.name + ' · ' + Math.round(size / 1024) + ' KB' + (removed.length ? t(' · 清理 {n} 份', { n: removed.length }) : ''), count }
       writeState(db, LOCAL_STATE, s)
       report.local = s
     } catch (e) {
@@ -70,7 +71,7 @@ export async function runBackup(db: DatabaseSync, opts: { only?: 'local' | 'remo
       const sha = createHash('sha256').update(pkg.data).digest('hex')
       await upload(remoteCfg, { id: randomUUID(), instanceId: id, filename: pkg.name, createdAt: at, sha256: sha, data: pkg.data })
       const pruned = await pruneRows(remoteCfg, KEEP)
-      const s: DestState = { ok: true, at, detail: pkg.name + ' · ' + Math.round(pkg.data.length / 1024) + ' KB' + (pruned ? ' · 清理 ' + pruned + ' 份' : '') }
+      const s: DestState = { ok: true, at, detail: pkg.name + ' · ' + Math.round(pkg.data.length / 1024) + ' KB' + (pruned ? t(' · 清理 {n} 份', { n: pruned }) : '') }
       writeState(db, REMOTE_STATE, s)
       report.remote = s
     } catch (e) {

@@ -2,6 +2,7 @@ import { CircleAlert, Pencil, Trash2 } from 'lucide-react'
 import type { MailAccount } from '../../lib/api'
 import { Button } from '../ui'
 import { securityLabel } from './form'
+import { t } from '../../lib/i18n'
 
 /** 账号列表：一行一个，编辑 / 删除（删除要二次确认，且会清掉它的本地缓存与已读标记） */
 export function AccountList({ accounts, confirmId, onConfirm, onEdit, onRemove }: {
@@ -15,7 +16,7 @@ export function AccountList({ accounts, confirmId, onConfirm, onEdit, onRemove }
     <div className="mail-acc-list">
       {accounts.length === 0 ? (
         <div className="mail-acc-empty">
-          还没有邮箱。点下面的「添加邮箱」，Gmail 用应用专用密码，QQ / 163 用授权码。
+          {t('还没有邮箱。点下面的「添加邮箱」，Gmail 用应用专用密码，QQ / 163 用授权码。')}
         </div>
       ) : null}
       {accounts.map((a) => (
@@ -27,7 +28,7 @@ export function AccountList({ accounts, confirmId, onConfirm, onEdit, onRemove }
             </div>
             {a.passwordError ? (
               <div className="mail-acc-err">
-                <CircleAlert size={12} /> 密码解不开（主密钥换过或数据被改），请点编辑重填一次
+                <CircleAlert size={12} /> {t('密码解不开（主密钥换过或数据被改），请点编辑重填一次')}
               </div>
             ) : null}
             {a.error ? (
@@ -40,18 +41,18 @@ export function AccountList({ accounts, confirmId, onConfirm, onEdit, onRemove }
             {confirmId === a.id ? (
               <>
                 <Button size="sm" variant="danger" onClick={() => onRemove(a.id)}>
-                  确认删除
+                  {t('确认删除')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => onConfirm(null)}>
-                  取消
+                  {t('取消')}
                 </Button>
               </>
             ) : (
               <>
                 <Button size="sm" variant="ghost" onClick={() => onEdit(a)}>
-                  <Pencil size={13} /> 编辑
+                  <Pencil size={13} /> {t('编辑')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => onConfirm(a.id)} title="删除账号（同时清掉它的本地缓存和已读标记）">
+                <Button size="sm" variant="ghost" onClick={() => onConfirm(a.id)} title={t('删除账号（同时清掉它的本地缓存和已读标记）')}>
                   <Trash2 size={13} />
                 </Button>
               </>

@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
+import { t } from '../i18n.js'
 import { kumaPass } from './secret.js'
 
 // 观测项的「可写」通道：Kuma 的公开状态页接口只能读，改名 / 暂停 / 删除 / 立即探测
@@ -43,18 +44,18 @@ function openSocket(): Promise<Socket> {
       clearTimeout(timer)
       try { s.close() } catch { /* ignore */ }
       if (socket === s) socket = null
-      reject(new KumaError('连不上 Kuma（' + KUMA_URL + '）：' + msg, 'offline'))
+      reject(new KumaError(t('连不上 Kuma（{url}）：{msg}', { url: KUMA_URL, msg }), 'offline'))
     }
-    const timer = setTimeout(() => fail('登录超时'), 12000)
+    const timer = setTimeout(() => fail(t('登录超时')), 12000)
     s.on('connect_error', (e: any) => fail(String(e?.message || e)))
     s.on('connect', () => {
       const pass = currentPass()
       if (!pass) {
-        return fail('没有配置 Kuma 口令：设置环境变量 KUMA_PASS，或把口令写进 data/kuma-pass.txt')
+        return fail(t('没有配置 Kuma 口令：设置环境变量 KUMA_PASS，或把口令写进 data/kuma-pass.txt'))
       }
       s.emit('login', { username: KUMA_USER, password: pass }, (res: any) => {
         if (settled) return
-        if (!res || !res.ok) return fail(res?.msg ? String(res.msg) : '登录被拒（检查 KUMA_USER / KUMA_PASS）')
+        if (!res || !res.ok) return fail(res?.msg ? String(res.msg) : t('登录被拒（检查 KUMA_USER / KUMA_PASS）'))
         settled = true
         clearTimeout(timer)
         socket = s
@@ -77,10 +78,10 @@ export function connect(): Promise<Socket> {
 /** 调一个 Kuma 事件并等 ack。ack 里 ok === false 一律当失败抛出。 */
 export function call<T = any>(event: string, ...args: any[]): Promise<T> {
   return connect().then((s) => new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new KumaError('Kuma 无响应：' + event, 'timeout')), CALL_TIMEOUT)
+    const timer = setTimeout(() => reject(new KumaError(t('Kuma 无响应：{event}', { event }), 'timeout')), CALL_TIMEOUT)
     s.emit(event, ...args, (res: any) => {
       clearTimeout(timer)
-      if (res && res.ok === false) return reject(new KumaError(String(res.msg || ('Kuma 拒绝了 ' + event)), 'rejected'))
+      if (res && res.ok === false) return reject(new KumaError(String(res.msg || t('Kuma 拒绝了 {event}', { event })), 'rejected'))
       resolve(res as T)
     })
   }))
@@ -97,7 +98,7 @@ export async function listMonitors(): Promise<Record<string, any>> {
     }
     const timer = setTimeout(() => {
       s.off('monitorList', onList)
-      reject(new KumaError('拿观测项列表超时', 'timeout'))
+      reject(new KumaError(t('拿观测项列表超时'), 'timeout'))
     }, CALL_TIMEOUT)
     s.on('monitorList', onList)
     s.emit('getMonitorList', () => { /* ack 里没数据 */ })
@@ -106,7 +107,7 @@ export async function listMonitors(): Promise<Record<string, any>> {
 
 export async function getMonitor(id: number): Promise<any> {
   const res = await call<any>('getMonitor', id)
-  if (!res?.monitor) throw new KumaError('Kuma 没有观测项 #' + id, 'notfound')
+  if (!res?.monitor) throw new KumaError(t('Kuma 没有观测项 #{id}', { id }), 'notfound')
   return res.monitor
 }
 

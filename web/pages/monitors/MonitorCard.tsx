@@ -5,6 +5,7 @@ import { relativeTime, fullTime } from '../../lib/format'
 import { BeatStrip } from '../../components/BeatStrip'
 import { isDown, shortGroup, shortName } from '../../lib/monitors'
 import { pct, tone, typeLabel } from './status'
+import { t } from '../../lib/i18n'
 
 function TypeIcon({ type, size = 15 }: { type: string; size?: number }) {
   if (type === 'ssh') return <Terminal size={size} />
@@ -26,7 +27,7 @@ export function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
       role="button"
       tabIndex={0}
       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onOpen() } }}
-      title="点开看详情"
+      title={t('点开看详情')}
     >
       <div className="asset-card-head">
         <div className="asset-icon"><TypeIcon type={m.type} /></div>
@@ -53,7 +54,7 @@ export function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
         </div>
         <span className="status-pill">
           <span className="status-dot" style={{ background: st ? st.color : 'var(--muted)' }} />
-          {st ? st.label : '无数据'}
+          {st ? st.label : t('无数据')}
         </span>
       </div>
 
@@ -63,31 +64,31 @@ export function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
         details={m.beatTimes && m.beatTimes.length > 0
           ? m.beats.map((_, i) => ({ time: m.beatTimes?.[i] ?? null, msg: m.beatMsgs?.[i] ?? '', ping: m.beatPings?.[i] ?? null }))
           : undefined}
-        title={'最近 ' + m.beats.length + ' 次心跳'}
+        title={t('最近 {n} 次心跳', { n: m.beats.length })}
       />
 
       {m.showMsg && m.msg ? (
         <div className="monitor-note" title={m.msg}>
-          <span className="monitor-note-label">本次观测情况</span>
+          <span className="monitor-note-label">{t('本次观测情况')}</span>
           <span className="monitor-note-text">{m.msg}</span>
         </div>
       ) : null}
 
       <div className="asset-meta">
         <div className="asset-meta-row">
-          <span className="asset-meta-key">响应</span>
+          <span className="asset-meta-key">{t('响应')}</span>
           <span className="asset-meta-val">{m.ping === null ? '—' : m.ping + ' ms'}</span>
         </div>
         <div className="asset-meta-row">
-          <span className="asset-meta-key">检查</span>
+          <span className="asset-meta-key">{t('检查')}</span>
           <span className="asset-meta-val" title={m.time ? fullTime(m.time) : undefined}>{m.time ? relativeTime(m.time) : '—'}</span>
         </div>
       </div>
 
       <div className="asset-foot">
-        {!m.active ? <span className="monitor-chip">已暂停</span> : null}
+        {!m.active ? <span className="monitor-chip">{t('已暂停')}</span> : null}
         <span className="monitor-chip">24h {pct(m.uptime24)}</span>
-        {m.downCount > 0 ? <span className="monitor-chip bad">{m.downCount} 次异常</span> : null}
+        {m.downCount > 0 ? <span className="monitor-chip bad">{t('{n} 次异常', { n: m.downCount })}</span> : null}
         {m.msg && !m.showMsg ? <span className="monitor-msg" title={m.msg}>{m.msg}</span> : null}
       </div>
     </div>

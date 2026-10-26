@@ -26,6 +26,7 @@ import { scheduleSnapshot, writeSnapshot } from './snapshot.js'
 import { loadKey } from './secrets/key.js'
 import { migrateSecrets } from './secrets/migrate.js'
 import { mountStatic } from './static.js'
+import { pickLocale, withLocale, t } from './i18n.js'
 
 const app = new Hono()
 const api = new Hono()
@@ -42,6 +43,13 @@ app.use('*', async (c, next) => {
   c.header('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'")
   // 只有真的是 HTTPS（直连或反代声明）才发 HSTS，别在 http 上误导浏览器
   if (isHttps(c)) c.header('Strict-Transport-Security', 'max-age=31536000')
+})
+
+// 界面语言跟着请求头走：前端每次请求都带 Accept-Language（见 web/lib/api/http.ts）。
+// 用 AsyncLocalStorage 传下去，路由里直接 t('…') 就行，不用一路传 locale。
+app.use('*', async (c, next) => {
+  const locale = pickLocale(c.req.header('accept-language'))
+  await withLocale(locale, () => next())
 })
 
 // 除白名单外，/api/* 一律要登录（见 server/auth/middleware.ts）
@@ -91,8 +99,8 @@ if (process.argv.includes('--reset-password')) {
 // --new-token <名字>：给脚本 / e2e 发一个 API token，明文只打印这一次
 if (process.argv.includes('--new-token')) {
   const i = process.argv.indexOf('--new-token')
-  const t = createApiToken(db, process.argv[i + 1] || 'cli')
-  console.log(t.token)
+  const token = createApiToken(db, process.argv[i + 1] || 'cli')
+  console.log(token.token)
   process.exit(0)
 }
 
@@ -101,7 +109,7 @@ if (process.argv.includes('--backup')) {
   const only = process.argv.includes('--local') ? 'local' : process.argv.includes('--remote') ? 'remote' : undefined
   const report = await runBackup(db, { only })
   for (const [dest, r] of Object.entries(report)) {
-    console.log('  ' + (dest === 'local' ? '本机文件' : '远端数据库') + '  ->  ' + (r.ok ? '成功：' + (r.detail || '') : '失败：' + (r.error || '')))
+    console.log('  ' + (dest === 'local' ? t('本机文件') : t('远端数据库')) + '  ->  ' + (r.ok ? t('成功：') + (r.detail || '') : t('失败：') + (r.error || '')))
   }
   if (!Object.keys(report).length) console.log('  没有可用的备份目的地（本机已关且未配置远端库）')
   process.exit(0)

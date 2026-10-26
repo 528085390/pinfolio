@@ -7,6 +7,7 @@ import { Button, TagChip } from '../../components/ui'
 import { Markdown } from '../../components/Markdown'
 import { KindIcon } from '../../components/KindIcon'
 import { useImageUpload } from './useImageUpload'
+import { t } from '../../lib/i18n'
 
 export type NoteCardProps = {
   note: Note
@@ -40,13 +41,13 @@ export function NoteCard(p: NoteCardProps) {
     <article
       className={cx('note', n.pinned && 'pinned', n.done && 'done')}
       onDoubleClick={p.archivedMode ? undefined : p.onCardDoubleClick}
-      title={p.archivedMode ? '已归档（只读）' : n.done ? '双击取消完成' : '双击标记完成'}
+      title={p.archivedMode ? t('已归档（只读）') : n.done ? t('双击取消完成') : t('双击标记完成')}
     >
       <div className="note-head">
         {p.archivedMode ? null : (
           <button
             className={cx('note-check', n.done && 'on')}
-            title={n.done ? '标记为未完成' : '标记为已完成'}
+            title={n.done ? t('标记为未完成') : t('标记为已完成')}
             onClick={p.onToggleDone}
             type="button"
           >
@@ -55,27 +56,27 @@ export function NoteCard(p: NoteCardProps) {
         )}
         {n.pinned ? <Pin size={12} style={{ color: 'var(--accent)' }} /> : null}
         <span title={fullTime(n.createdAt)}>{relativeTime(n.createdAt)}</span>
-        {n.updatedAt !== n.createdAt ? <span className="muted">· 已编辑</span> : null}
-        {n.done ? <span className="done-pill">已完成</span> : null}
+        {n.updatedAt !== n.createdAt ? <span className="muted">{t('· 已编辑')}</span> : null}
+        {n.done ? <span className="done-pill">{t('已完成')}</span> : null}
         <div className="note-actions">
           {p.archivedMode ? (
             <>
-              <Button variant="ghost" size="sm" icon title="恢复" onClick={p.onRestore}>
+              <Button variant="ghost" size="sm" icon title={t('恢复')} onClick={p.onRestore}>
                 <RotateCcw size={14} />
               </Button>
-              <Button variant="danger" size="sm" icon title="永久删除" onClick={p.onRemove}>
+              <Button variant="danger" size="sm" icon title={t('永久删除')} onClick={p.onRemove}>
                 <Trash2 size={14} />
               </Button>
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" icon title={n.pinned ? '取消置顶' : '置顶'} onClick={p.onTogglePin}>
+              <Button variant="ghost" size="sm" icon title={n.pinned ? t('取消置顶') : t('置顶')} onClick={p.onTogglePin}>
                 {n.pinned ? <PinOff size={14} /> : <Pin size={14} />}
               </Button>
-              <Button variant="ghost" size="sm" icon title="编辑" onClick={p.onStartEdit}>
+              <Button variant="ghost" size="sm" icon title={t('编辑')} onClick={p.onStartEdit}>
                 <Pencil size={14} />
               </Button>
-              <Button variant="ghost" size="sm" icon title="归档" onClick={p.onArchive}>
+              <Button variant="ghost" size="sm" icon title={t('归档')} onClick={p.onArchive}>
                 <Archive size={14} />
               </Button>
             </>
@@ -99,16 +100,16 @@ export function NoteCard(p: NoteCardProps) {
             style={{ minHeight: 90 }}
           />
           <div className="row" style={{ marginTop: 8 }}>
-            <Button size="sm" variant="primary" onClick={p.onSaveEdit}><Check size={13} /> 保存</Button>
-            <Button size="sm" variant="ghost" onClick={p.onCancelEdit}><X size={13} /> 取消</Button>
+            <Button size="sm" variant="primary" onClick={p.onSaveEdit}><Check size={13} /> {t('保存')}</Button>
+            <Button size="sm" variant="ghost" onClick={p.onCancelEdit}><X size={13} /> {t('取消')}</Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={img.pickFiles}
               disabled={img.pending > 0}
-              title="插入图片（也可以直接粘贴或拖进来）"
+              title={t('插入图片（也可以直接粘贴或拖进来）')}
             >
-              <ImagePlus size={13} /> {img.pending > 0 ? '上传中…' : '图片'}
+              <ImagePlus size={13} /> {img.pending > 0 ? t('上传中…') : t('图片')}
             </Button>
             <input
               ref={img.fileRef}
@@ -118,7 +119,7 @@ export function NoteCard(p: NoteCardProps) {
               hidden
               onChange={img.onFileChange}
             />
-            <span className="muted" style={{ fontSize: 11 }}>Ctrl/⌘ + Enter 保存</span>
+            <span className="muted" style={{ fontSize: 11 }}>{t('Ctrl/⌘ + Enter 保存')}</span>
           </div>
         </div>
       ) : (
@@ -130,14 +131,14 @@ export function NoteCard(p: NoteCardProps) {
       {(n.asset || n.tags.length > 0) && (
         <div className="note-foot">
           {n.asset ? (
-            <button className="note-asset" onClick={() => p.onOpenAsset(n.asset!.id)} title="打开关联资产">
+            <button className="note-asset" onClick={() => p.onOpenAsset(n.asset!.id)} title={t('打开关联资产')}>
               <KindIcon kind={n.asset.kind} size={12} />
               {n.asset.name}
               <Link2 size={11} />
             </button>
           ) : null}
-          {n.tags.map((t) => (
-            <TagChip key={t.id} name={'#' + t.name} color={t.color} onClick={() => p.onTagClick(t.name)} active={p.activeTag === t.name} />
+          {n.tags.map((tg) => (
+            <TagChip key={tg.id} name={'#' + tg.name} color={tg.color} onClick={() => p.onTagClick(tg.name)} active={p.activeTag === tg.name} />
           ))}
         </div>
       )}

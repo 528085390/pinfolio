@@ -21,6 +21,16 @@
 - **卡片密度收紧**：内边距 15/17 → 12/14px、正文 14.5 → 14px（行高 1.78 → 1.7）、头尾间距各减 2px。实测同一屏（1440×900，6 条便签其中 3 条带图）：列表总高 3447px → 1379px，双图便签 1245px → 288px，竖屏图便签 963px → 288px。
 - 只改展示样式，数据与接口没动。
 
+### 界面中英双语（新）
+
+- **整个界面支持中文 / 英文**，默认跟随浏览器语言（`Accept-Language` 里 `zh*` 就是中文，其余英文），在「设置 → 外观 → 语言」里手动选过之后记在 `localStorage` 的 `pinboard-locale`，刷新不丢。
+- **中文原文就是字典 key**（`t('保存')` → `Save`）：缺条目自动回落中文原文，不会显示 key、也不会报错，所以以后新加文案不翻译也不会坏页面。字典在 `shared/i18n/en/`，按区域拆文件（`common` / `format` / `shell` / 各页 / `server-*`），`index.ts` 统一合并。
+- **服务端也跟着变**：`server/i18n.ts` 用 `AsyncLocalStorage` 按请求的 `Accept-Language` 取语言，接口错误、校验提示、快照句子都返回对应语言；前端每个请求（含登录页的裸 `fetch`）都带这个头，`curl` 不带就是中文。
+- **数字与日期跟着语言走**：`toLocaleString` / `toLocaleTimeString` / `localeCompare` 里写死的 `'zh-CN'` 全换成 `localeTag()`（`zh-CN` / `en`）。
+- **英文复数用函数条目**：`'{n} 条便签': (v) => `${v.n} ${Number(v.n) === 1 ? 'note' : 'notes'}``，占位符缺变量不抛错。
+- **巡检脚本 `tools/i18n-scan.mjs`**：列出没包 `t()` 的中文、字典里缺的条目、按文件汇总；`--check` 可以进 CI。**数据不翻**（便签正文、标签名、资产名、服务名、Kuma 里的观测项名字与描述），日志也不翻（`console.*` 的参数扫描器直接忽略）。
+- 已知边界：IMAP 信箱名（`草稿` / `已发送` …）是服务器给的，原样显示；`SNAPSHOT.md` 是仓库文档，不随界面语言变。
+
 ### 文档
 - `docs/features.zh.md` / `features.md` 新增「便签」章节：粘贴 / 拖拽 / 选文件、压缩、类型限制、灯箱、孤儿回收、备份。
 - `docs/api.zh.md` / `api.md` 加 `POST /attachments` 与 `GET /attachments/:id`，并把过期的「无鉴权（只监听本机）」改成「除 `/health` 与 `/auth/*` 外都要登录；写接口只认 JSON，图片上传是唯一例外」。

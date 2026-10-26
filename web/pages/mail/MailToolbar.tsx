@@ -1,6 +1,7 @@
 import { CircleAlert, FolderOpen, RefreshCw, Search, Settings2 } from 'lucide-react'
 import { cx, type MailAccount, type MailFolder } from '../../lib/api'
 import { POLL_MS } from './useInbox'
+import { localeTag, t } from '../../lib/i18n'
 
 /** 顶部两行：账号 chips + 文件夹/刷新/邮箱管理，然后是在已加载邮件里筛选。 */
 export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTotal, folders, folder, onFolder, fetchedAt, refreshing, onRefresh, onOpenAccounts, loadedCount, q, onQ, unreadOnly, onUnreadOnly }: {
@@ -26,7 +27,7 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
       <div className="mail-toolbar">
         <div className="mail-chips">
           <button type="button" className={cx('chip', accountFilter === 'all' && 'active')} onClick={() => onAccountFilter('all')}>
-            全部
+            {t('全部')}
             {unseenTotal ? <span className="chip-count">{unseenTotal}</span> : null}
           </button>
           {accounts.map((a) => (
@@ -51,9 +52,9 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
               className="select input-sm"
               value={folder}
               onChange={(e) => onFolder(e.target.value)}
-              title="选择文件夹（只读）"
+              title={t('选择文件夹（只读）')}
             >
-              {(folders.length ? folders : [{ path: 'INBOX', name: '收件箱', delimiter: '/', specialUse: null }]).map((f) => (
+              {(folders.length ? folders : [{ path: 'INBOX', name: t('收件箱'), delimiter: '/', specialUse: null }]).map((f) => (
                 <option key={f.path} value={f.path}>
                   {f.name}
                 </option>
@@ -63,9 +64,9 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
           {fetchedAt ? (
             <span
               className="mail-updated"
-              title={'每 ' + Math.round(POLL_MS / 1000) + ' 秒自动刷新；页面切到后台时暂停。这个时间是数据从邮箱服务器取回的时刻（可能命中 60 秒缓存）。'}
+              title={t('每 {n} 秒自动刷新；页面切到后台时暂停。这个时间是数据从邮箱服务器取回的时刻（可能命中 60 秒缓存）。', { n: Math.round(POLL_MS / 1000) })}
             >
-              数据截至 {new Date(fetchedAt).toLocaleTimeString('zh-CN', { hour12: false })}
+              {t('数据截至 {time}', { time: new Date(fetchedAt).toLocaleTimeString(localeTag(), { hour12: false }) })}
             </span>
           ) : null}
           <button
@@ -73,13 +74,13 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
             className="btn btn-ghost btn-sm"
             onClick={onRefresh}
             disabled={refreshing}
-            title="立即刷新（绕过 60 秒缓存）"
+            title={t('立即刷新（绕过 60 秒缓存）')}
           >
             <RefreshCw size={14} className={cx(refreshing && 'spin')} />
-            {refreshing ? '刷新中' : '刷新'}
+            {refreshing ? t('刷新中') : t('刷新')}
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onOpenAccounts} title="管理邮箱账号">
-            <Settings2 size={14} /> 邮箱
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onOpenAccounts} title={t('管理邮箱账号')}>
+            <Settings2 size={14} /> {t('邮箱')}
           </button>
         </div>
       </div>
@@ -88,12 +89,12 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
         <Search size={14} className="mail-search-icon" />
         <input
           className="input input-sm"
-          placeholder={'在当前已加载的 ' + loadedCount + ' 封里筛选（发件人 / 主题 / 摘要）'}
+          placeholder={t('在当前已加载的 {n} 封里筛选（发件人 / 主题 / 摘要）', { n: loadedCount })}
           value={q}
           onChange={(e) => onQ(e.target.value)}
         />
         <label className="mail-check">
-          <input type="checkbox" checked={unreadOnly} onChange={(e) => onUnreadOnly(e.target.checked)} /> 只看未读
+          <input type="checkbox" checked={unreadOnly} onChange={(e) => onUnreadOnly(e.target.checked)} /> {t('只看未读')}
         </label>
       </div>
     </>

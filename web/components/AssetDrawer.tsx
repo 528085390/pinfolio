@@ -6,6 +6,7 @@ import { FormDrawer } from './FormDrawer'
 import { BasicFields } from './asset-drawer/BasicFields'
 import { LinkedNotes } from './asset-drawer/LinkedNotes'
 import { blank, buildPayload, toForm, type AssetFormState } from './asset-drawer/form'
+import { t } from '../lib/i18n'
 
 /** 资产详情 / 登记抽屉：外壳走 FormDrawer，内部是主表单 + 关联便签两段。 */
 export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
@@ -50,7 +51,7 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
       const a = await api.assets.get(id) as Asset & { linkedNotes?: Note[] }
       setCurrentId(a.id)
       setForm(toForm(a))
-      setTagsText((a.tags || []).map((t) => t.name).join(' '))
+      setTagsText((a.tags || []).map((tg) => tg.name).join(' '))
       setLinked(a.linkedNotes || [])
       setMeta({ createdAt: a.createdAt, updatedAt: a.updatedAt })
       setError('')
@@ -71,7 +72,7 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
 
   async function save() {
     if (!form.name.trim()) {
-      setError('名称不能为空')
+      setError(t('名称不能为空'))
       return
     }
     setSaving(true)
@@ -95,7 +96,7 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
 
   async function remove() {
     if (currentId === null) return
-    if (!confirm('删除「' + form.name + '」？关联的便签会保留，但会解除关联。')) return
+    if (!confirm(t('删除「{name}」？关联的便签会保留，但会解除关联。', { name: form.name }))) return
     try {
       await api.assets.remove(currentId)
       onSaved()
@@ -128,13 +129,13 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
     <FormDrawer
       open={open}
       onClose={onClose}
-      title={currentId === null ? '登记新资产' : '资产详情'}
+      title={currentId === null ? t('登记新资产') : t('资产详情')}
       loading={loading}
       error={error}
       onSave={save}
       saving={saving}
       leading={currentId !== null ? (
-        <Button variant="danger" size="sm" onClick={remove}><Trash2 size={14} /> 删除</Button>
+        <Button variant="danger" size="sm" onClick={remove}><Trash2 size={14} /> {t('删除')}</Button>
       ) : null}
     >
       <BasicFields

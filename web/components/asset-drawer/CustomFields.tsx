@@ -1,6 +1,7 @@
 import type { FieldDef } from '../../lib/api'
 import { Field } from '../ui'
 import type { AssetFormState } from './form'
+import { t } from '../../lib/i18n'
 
 /** 自定义字段（field_defs 里配的）：select / bool / number / date / text 五种。 */
 export function CustomFields({ fields, form, setCustom }: {
@@ -22,7 +23,7 @@ export function CustomFields({ fields, form, setCustom }: {
             ) : f.type === 'bool' ? (
               <label className="row" style={{ gap: 6, height: 34, fontSize: 13 }}>
                 <input type="checkbox" checked={!!v} onChange={(e) => setCustom(f.key, e.target.checked)} />
-                是
+                {t('是')}
               </label>
             ) : (
               <input

@@ -1,3 +1,5 @@
+import { t } from '../i18n.js'
+
 /**
  * IMAP 账号的代理地址规范化。纯函数，单独放一个文件是为了能单测（store.ts 依赖 db.ts）。
  */
@@ -16,16 +18,16 @@ export function normalizeProxy(raw: unknown): { value: string } | { error: strin
   try {
     url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : 'socks5://' + text)
   } catch {
-    return { error: '代理地址格式不对，应形如 socks5://127.0.0.1:10808' }
+    return { error: t('代理地址格式不对，应形如 socks5://127.0.0.1:10808') }
   }
   const scheme = url.protocol.replace(/:$/, '').toLowerCase()
   if (!PROXY_SCHEMES.includes(scheme)) {
-    return { error: '代理只支持 socks5 / socks4 / socks4a / socks / http / https' }
+    return { error: t('代理只支持 socks5 / socks4 / socks4a / socks / http / https') }
   }
-  if (!url.hostname) return { error: '代理地址缺少主机名' }
-  if (url.pathname && url.pathname !== '/') return { error: '代理地址不要带路径' }
+  if (!url.hostname) return { error: t('代理地址缺少主机名') }
+  if (url.pathname && url.pathname !== '/') return { error: t('代理地址不要带路径') }
   if (url.port && !(Number(url.port) >= 1 && Number(url.port) <= 65535)) {
-    return { error: '代理端口必须是 1-65535 之间的数字' }
+    return { error: t('代理端口必须是 1-65535 之间的数字') }
   }
   const auth = url.username
     ? url.username + (url.password ? ':' + url.password : '') + '@'

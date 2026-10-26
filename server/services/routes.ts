@@ -14,6 +14,7 @@ import {
   type EditResult,
 } from './edit.js'
 import { loadServices, saveServices } from './store.js'
+import { t } from '../i18n.js'
 
 // 服务栏：读 + 写 data/services.json。
 // GET 把文件解析后整份返回；写接口每次都返回整份 payload，前端拿到直接替换，不用再拉一次。
@@ -25,7 +26,7 @@ servicesRoute.get('/', (c) => c.json(loadServices()))
 /** 写接口统一收口：状态码按错误文案前缀分（没有…=404，已经有…=409，其余 400）。 */
 function done(c: Context, r: EditResult, monitorNames?: unknown) {
   if (!r.ok) {
-    const code: 400 | 404 | 409 = r.error.startsWith('没有') ? 404 : r.error.startsWith('已经有') ? 409 : 400
+    const code: 400 | 404 | 409 = r.error.startsWith(t('没有')) ? 404 : r.error.startsWith(t('已经有')) ? 409 : 400
     return c.json({ error: r.error }, code)
   }
   return c.json(saveServices(monitorNames === undefined ? r.data : mergeMonitorNames(r.data, monitorNames)))
@@ -58,19 +59,19 @@ function param(c: Context, name: string): string {
 
 servicesRoute.post('/servers', async (c) => {
   const body = await bodyOf(c)
-  if (!body) return c.json({ error: '需要 application/json' }, 415)
+  if (!body) return c.json({ error: t('需要 application/json') }, 415)
   return done(c, addServer(loadServices(), body), body.monitorNames)
 })
 
 servicesRoute.patch('/servers/:id', async (c) => {
   const body = await bodyOf(c)
-  if (!body) return c.json({ error: '需要 application/json' }, 415)
+  if (!body) return c.json({ error: t('需要 application/json') }, 415)
   return done(c, patchServer(loadServices(), param(c, 'id'), body), body.monitorNames)
 })
 
 servicesRoute.delete('/servers/:id', (c) => {
   const id = param(c, 'id')
-  if (!confirmed(c, id)) return c.json({ error: '要手输服务器 id（' + id + '）确认删除' }, 400)
+  if (!confirmed(c, id)) return c.json({ error: t('要手输服务器 id（{id}）确认删除', { id }) }, 400)
   return done(c, removeServer(loadServices(), id))
 })
 
@@ -78,19 +79,19 @@ servicesRoute.delete('/servers/:id', (c) => {
 
 servicesRoute.post('/catalog', async (c) => {
   const body = await bodyOf(c)
-  if (!body) return c.json({ error: '需要 application/json' }, 415)
+  if (!body) return c.json({ error: t('需要 application/json') }, 415)
   return done(c, addService(loadServices(), body))
 })
 
 servicesRoute.patch('/catalog/:id', async (c) => {
   const body = await bodyOf(c)
-  if (!body) return c.json({ error: '需要 application/json' }, 415)
+  if (!body) return c.json({ error: t('需要 application/json') }, 415)
   return done(c, patchService(loadServices(), param(c, 'id'), body))
 })
 
 servicesRoute.delete('/catalog/:id', (c) => {
   const id = param(c, 'id')
-  if (!confirmed(c, id)) return c.json({ error: '要手输服务 id（' + id + '）确认删除' }, 400)
+  if (!confirmed(c, id)) return c.json({ error: t('要手输服务 id（{id}）确认删除', { id }) }, 400)
   return done(c, removeService(loadServices(), id))
 })
 
@@ -98,18 +99,18 @@ servicesRoute.delete('/catalog/:id', (c) => {
 
 servicesRoute.post('/deploys', async (c) => {
   const body = await bodyOf(c)
-  if (!body) return c.json({ error: '需要 application/json' }, 415)
+  if (!body) return c.json({ error: t('需要 application/json') }, 415)
   return done(c, addDeploy(loadServices(), body), body.monitorNames)
 })
 
 servicesRoute.patch('/deploys/:key', async (c) => {
   const body = await bodyOf(c)
-  if (!body) return c.json({ error: '需要 application/json' }, 415)
+  if (!body) return c.json({ error: t('需要 application/json') }, 415)
   return done(c, patchDeploy(loadServices(), param(c, 'key'), body), body.monitorNames)
 })
 
 servicesRoute.delete('/deploys/:key', (c) => {
   const key = param(c, 'key')
-  if (!confirmed(c, key)) return c.json({ error: '要手输部署（' + key + '）确认删除' }, 400)
+  if (!confirmed(c, key)) return c.json({ error: t('要手输部署（{key}）确认删除', { key }) }, 400)
   return done(c, removeDeploy(loadServices(), key))
 })

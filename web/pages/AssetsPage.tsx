@@ -8,6 +8,7 @@ import { AssetFilters } from './assets/AssetFilters'
 import { AssetTagBar } from './assets/AssetTagBar'
 import { AssetCard } from './assets/AssetCard'
 import { AssetTable } from './assets/AssetTable'
+import { t } from '../lib/i18n'
 
 export function AssetsPage({ tags, fields, stats, refreshMeta, openAssetId, setOpenAssetId }: {
   tags: Tag[]
@@ -44,9 +45,9 @@ export function AssetsPage({ tags, fields, stats, refreshMeta, openAssetId, setO
       ) : A.assets.length === 0 ? (
         <Empty
           icon={<Package size={22} />}
-          title={A.filtered ? '没有匹配的资产' : '还没有登记资产'}
-          text={A.filtered ? '换个筛选条件试试。' : '设备、服务器、域名、订阅账号——都记在这里。字段可以自己加。'}
-          action={<Button variant="primary" size="sm" onClick={() => setOpenAssetId('new')}><Plus size={14} /> 登记第一件</Button>}
+          title={A.filtered ? t('没有匹配的资产') : t('还没有登记资产')}
+          text={A.filtered ? t('换个筛选条件试试。') : t('设备、服务器、域名、订阅账号——都记在这里。字段可以自己加。')}
+          action={<Button variant="primary" size="sm" onClick={() => setOpenAssetId('new')}><Plus size={14} /> {t('登记第一件')}</Button>}
         />
       ) : A.view === 'grid' ? (
         <div className="asset-grid" style={{ marginTop: 14 }}>

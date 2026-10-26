@@ -2,6 +2,7 @@ import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, u
 import { ArrowLeftRight, Boxes, ExternalLink, LayoutGrid, List, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react'
 import { Button, Empty, Spinner } from '../components/ui'
 import { cx } from '../lib/cx'
+import { t } from '../lib/i18n'
 import { api, type DeployRec, type ServerRec, type ServiceRec, type ServicesPayload } from '../lib/api'
 import {
   KIND_LABEL,
@@ -41,7 +42,7 @@ type DelTarget =
   | { kind: 'deploy'; server: string; service: string }
 
 /** 观测项显示名：页面从 data/services.json 的 monitors 表建一个查表函数，子组件用 context 取。 */
-const MonNames = createContext<(id: number) => string>((id) => '观测项 ' + id)
+const MonNames = createContext<(id: number) => string>((id) => t('观测项 {id}', { id }))
 
 /** 紧凑（默认，一屏看全）/ 详细（带路径与启动方式）。选过就记住，下次进来还是那个。 */
 const DENSITY_KEY = 'pinboard-svc-density'
@@ -78,7 +79,7 @@ function MonChips({ ids, onOpen, quiet }: { ids?: number[]; onOpen?: (id: number
           key={id}
           type="button"
           className="svc-mon"
-          title={'去观测台看「' + mon(id) + '」'}
+          title={t('去观测台看「{name}」', { name: mon(id) })}
           onClick={() => onOpen?.(id)}
         >
           <span>{mon(id)}</span>
@@ -91,8 +92,8 @@ function MonChips({ ids, onOpen, quiet }: { ids?: number[]; onOpen?: (id: number
 /** 管理页入口：和观测标签同一格。没挂观测时它就是这一格唯一的内容。 */
 function ManageLink({ url }: { url: string }) {
   return (
-    <a className="svc-manage" href={url} target="_blank" rel="noreferrer noopener" title={'打开管理页：' + url}>
-      管理页
+    <a className="svc-manage" href={url} target="_blank" rel="noreferrer noopener" title={t('打开管理页：{url}', { url })}>
+      {t('管理页')}
       <ExternalLink size={10} />
     </a>
   )
@@ -107,11 +108,11 @@ function NameCell({ name, summary, target, onOpen }: {
 }) {
   const mon = useContext(MonNames)
   if (!target) {
-    return <span className="svc-name is-static" title={summary + '（没挂观测也没有管理页，点了不跳）'}>{name}</span>
+    return <span className="svc-name is-static" title={t('{summary}（没挂观测也没有管理页，点了不跳）', { summary })}>{name}</span>
   }
   const tip = target.kind === 'monitor'
-    ? summary + '（点一下去观测台看「' + mon(target.id) + '」）'
-    : summary + '（点一下打开管理页 ' + target.url + '）'
+    ? t('{summary}（点一下去观测台看「{name}」）', { summary, name: mon(target.id) })
+    : t('{summary}（点一下打开管理页 {url}）', { summary, url: target.url })
   return (
     <button
       type="button"
@@ -152,16 +153,16 @@ function ServerDeployRow({ row, ops, onOpen, onService }: {
         {row.url ? <ManageLink url={row.url} /> : null}
       </span>
       <span className="svc-row-ops">
-        <button type="button" className="svc-op" title="改这条部署" onClick={() => ops.editDeploy(row)}>
+        <button type="button" className="svc-op" title={t('改这条部署')} onClick={() => ops.editDeploy(row)}>
           <Pencil size={11} />
         </button>
-        <button type="button" className="svc-op" title="删这条部署" onClick={() => ops.delDeploy(row)}>
+        <button type="button" className="svc-op" title={t('删这条部署')} onClick={() => ops.delDeploy(row)}>
           <Trash2 size={11} />
         </button>
         <button
           type="button"
           className="svc-swap"
-          title={'换到服务视角：看「' + row.svc.name + '」都部署在哪几台'}
+          title={t('换到服务视角：看「{name}」都部署在哪几台', { name: row.svc.name })}
           onClick={() => onService('svc-card-svc-' + row.service)}
         >
           <ArrowLeftRight size={12} />
@@ -193,16 +194,16 @@ function ServiceDeployRow({ row, ops, onOpen, onServer }: {
         {row.url ? <ManageLink url={row.url} /> : null}
       </span>
       <span className="svc-row-ops">
-        <button type="button" className="svc-op" title="改这条部署" onClick={() => ops.editDeploy(row)}>
+        <button type="button" className="svc-op" title={t('改这条部署')} onClick={() => ops.editDeploy(row)}>
           <Pencil size={11} />
         </button>
-        <button type="button" className="svc-op" title="删这条部署" onClick={() => ops.delDeploy(row)}>
+        <button type="button" className="svc-op" title={t('删这条部署')} onClick={() => ops.delDeploy(row)}>
           <Trash2 size={11} />
         </button>
         <button
           type="button"
           className="svc-swap"
-          title={'换到服务器视角：看「' + row.srv.name + '」上都部署了什么'}
+          title={t('换到服务器视角：看「{name}」上都部署了什么', { name: row.srv.name })}
           onClick={() => onServer('svc-card-srv-' + row.server)}
         >
           <ArrowLeftRight size={12} />
@@ -238,10 +239,10 @@ function MiniRow({
   const mon = useContext(MonNames)
   const linked = target !== null
   const tip = !target
-    ? detail + '\n没挂观测也没有管理页，点了不跳'
+    ? detail + '\n' + t('没挂观测也没有管理页，点了不跳')
     : target.kind === 'monitor'
-      ? detail + '\n点一下 → 观测台看「' + mon(target.id) + '」'
-      : detail + '\n点一下 → 打开管理页 ' + target.url
+      ? detail + '\n' + t('点一下 → 观测台看「{name}」', { name: mon(target.id) })
+      : detail + '\n' + t('点一下 → 打开管理页 {url}', { url: target.url })
   const go = () => {
     if (!target) return
     if (target.kind === 'monitor') onOpen?.(target.id)
@@ -287,20 +288,20 @@ function MiniServerCard({ g, flash, ops, onOpen }: {
           <button
             type="button"
             className="svc-op"
-            title={'在「' + g.server.name + '」上加一条部署'}
+            title={t('在「{name}」上加一条部署', { name: g.server.name })}
             onClick={() => ops.addDeploy({ server: g.server.id })}
           >
             <Plus size={12} />
           </button>
-          <button type="button" className="svc-op" title="改这台服务器" onClick={() => ops.editServer(g.server)}>
+          <button type="button" className="svc-op" title={t('改这台服务器')} onClick={() => ops.editServer(g.server)}>
             <Pencil size={11} />
           </button>
-          <button type="button" className="svc-op" title="删这台服务器" onClick={() => ops.delServer(g.server)}>
+          <button type="button" className="svc-op" title={t('删这台服务器')} onClick={() => ops.delServer(g.server)}>
             <Trash2 size={11} />
           </button>
         </span>
       </header>
-      {g.rows.length === 0 ? <p className="svc-mini-empty">还没登记部署</p> : null}
+      {g.rows.length === 0 ? <p className="svc-mini-empty">{t('还没登记部署')}</p> : null}
       <ul className="svc-mini-rows">
         {g.rows.map((row) => (
           <MiniRow
@@ -317,7 +318,7 @@ function MiniServerCard({ g, flash, ops, onOpen }: {
                 <button
                   type="button"
                   className="svc-op"
-                  title="改这条部署"
+                  title={t('改这条部署')}
                   onClick={(e) => {
                     e.stopPropagation()
                     ops.editDeploy(row)
@@ -328,7 +329,7 @@ function MiniServerCard({ g, flash, ops, onOpen }: {
                 <button
                   type="button"
                   className="svc-op"
-                  title="删这条部署"
+                  title={t('删这条部署')}
                   onClick={(e) => {
                     e.stopPropagation()
                     ops.delDeploy(row)
@@ -348,7 +349,7 @@ function MiniServerCard({ g, flash, ops, onOpen }: {
               key={id}
               type="button"
               className="svc-mini-mon is-foot"
-              title={'服务器观测：去观测台看「' + mon(id) + '」'}
+              title={t('服务器观测：去观测台看「{name}」', { name: mon(id) })}
               onClick={() => onOpen?.(id)}
             >
               <span>{mon(id)}</span>
@@ -374,10 +375,12 @@ function ServiceListRow({ g, flash, ops, onOpen, onJump }: {
   // 服务视角的名字只有一个入口：优先取第一条挂了观测/有管理页的部署
   const target = g.rows.map(deployTarget).find((t) => t !== null) ?? null
   const tip = !target
-    ? g.service.summary + (g.rows.length ? '（没挂观测也没有管理页，点了不跳）' : '（还没部署到任何服务器）')
+    ? g.rows.length
+      ? t('{summary}（没挂观测也没有管理页，点了不跳）', { summary: g.service.summary })
+      : t('{summary}（还没部署到任何服务器）', { summary: g.service.summary })
     : target.kind === 'monitor'
-      ? g.service.summary + '（点一下去观测台看「' + mon(target.id) + '」）'
-      : g.service.summary + '（点一下打开管理页 ' + target.url + '）'
+      ? t('{summary}（点一下去观测台看「{name}」）', { summary: g.service.summary, name: mon(target.id) })
+      : t('{summary}（点一下打开管理页 {url}）', { summary: g.service.summary, url: target.url })
   return (
     <li id={cardId} className={cx('svc-srow', flash === cardId && 'is-flash')}>
       <span className={cx('svc-dot', 'kind-' + g.service.kind)} />
@@ -395,16 +398,16 @@ function ServiceListRow({ g, flash, ops, onOpen, onJump }: {
           {g.service.name}
         </span>
       )}
-      <span className="svc-srow-count">{g.rows.length ? g.rows.length + ' 台' : '还没部署'}</span>
+      <span className="svc-srow-count">{g.rows.length ? t('{n} 台', { n: g.rows.length }) : t('还没部署')}</span>
       <span className="svc-srow-srvs">
-        {g.rows.length === 0 ? <span className="svc-srow-none">点右边 + 挑一台服务器</span> : null}
+        {g.rows.length === 0 ? <span className="svc-srow-none">{t('点右边 + 挑一台服务器')}</span> : null}
         {g.rows.map((row, i) => (
           <Fragment key={row.server}>
             {i > 0 ? <span className="svc-srow-sep">·</span> : null}
             <button
               type="button"
               className="svc-schip"
-              title={row.srv.vendor + ' · ' + row.srv.ip + ' · ' + row.srv.user + '（点一下换到服务器视角看这台机）'}
+              title={t('{vendor} · {ip} · {user}（点一下换到服务器视角看这台机）', { vendor: row.srv.vendor, ip: row.srv.ip, user: row.srv.user })}
               onClick={() => onJump('server', 'svc-card-srv-' + row.server)}
             >
               {row.srv.name}
@@ -414,13 +417,13 @@ function ServiceListRow({ g, flash, ops, onOpen, onJump }: {
         ))}
       </span>
       <span className="svc-row-ops">
-        <button type="button" className="svc-op" title={'给「' + g.service.name + '」再加一条部署'} onClick={() => ops.addDeploy({ service: g.service.id })}>
+        <button type="button" className="svc-op" title={t('给「{name}」再加一条部署', { name: g.service.name })} onClick={() => ops.addDeploy({ service: g.service.id })}>
           <Plus size={12} />
         </button>
-        <button type="button" className="svc-op" title="改这个服务" onClick={() => ops.editService(g.service)}>
+        <button type="button" className="svc-op" title={t('改这个服务')} onClick={() => ops.editService(g.service)}>
           <Pencil size={11} />
         </button>
-        <button type="button" className="svc-op" title="删这个服务" onClick={() => ops.delService(g.service)}>
+        <button type="button" className="svc-op" title={t('删这个服务')} onClick={() => ops.delService(g.service)}>
           <Trash2 size={11} />
         </button>
       </span>
@@ -518,9 +521,9 @@ export function ServicesPage({ onOpenMonitor }: {
       if (!s) return null
       const on = deploys.filter((d) => d.server === del.id)
       return {
-        title: '删除服务器：' + s.name,
+        title: t('删除服务器：{name}', { name: s.name }),
         need: s.id,
-        warning: '「' + s.name + '」会从 data/services.json 里删掉（写回前自动备份一份到 data/services-backups/）。',
+        warning: t('「{name}」会从 data/services.json 里删掉（写回前自动备份一份到 data/services-backups/）。', { name: s.name }),
         blockers: on.length
           ? on.map((d) => (svcRecs.find((x) => x.id === d.service)?.name ?? d.service) + ' · ' + d.path)
           : undefined,
@@ -532,9 +535,9 @@ export function ServicesPage({ onOpenMonitor }: {
       if (!v) return null
       const on = deploys.filter((d) => d.service === del.id)
       return {
-        title: '删除服务：' + v.name,
+        title: t('删除服务：{name}', { name: v.name }),
         need: v.id,
-        warning: '「' + v.name + '」会从 data/services.json 里删掉（写回前自动备份一份到 data/services-backups/）。',
+        warning: t('「{name}」会从 data/services.json 里删掉（写回前自动备份一份到 data/services-backups/）。', { name: v.name }),
         blockers: on.length
           ? on.map((d) => (srvRecs.find((x) => x.id === d.server)?.name ?? d.server) + ' · ' + d.path)
           : undefined,
@@ -545,11 +548,11 @@ export function ServicesPage({ onOpenMonitor }: {
     const sName = srvRecs.find((x) => x.id === del.server)?.name ?? del.server
     const vName = svcRecs.find((x) => x.id === del.service)?.name ?? del.service
     return {
-      title: '删除部署：' + vName,
+      title: t('删除部署：{name}', { name: vName }),
       need: del.server + ':' + del.service,
-      warning:
-        '把「' + vName + '」从「' + sName + '」上移除' + (d ? '（' + d.path + '）' : '') +
-        '。只删这条登记，不动服务器上的文件。',
+      warning: d
+        ? t('把「{service}」从「{server}」上移除（{path}）。只删这条登记，不动服务器上的文件。', { service: vName, server: sName, path: d.path })
+        : t('把「{service}」从「{server}」上移除。只删这条登记，不动服务器上的文件。', { service: vName, server: sName }),
       blockers: undefined,
       run: () => api.services.removeDeploy(del.server + ':' + del.service).then(setData),
     }
@@ -563,16 +566,16 @@ export function ServicesPage({ onOpenMonitor }: {
         <div className="svc-toolbar">
           <div className="svc-sum">
             <span className="svc-sum-num">{sum.servers}</span>
-            <span className="svc-sum-label">台服务器</span>
+            <span className="svc-sum-label">{t('台服务器', { n: sum.servers })}</span>
             <span className="svc-sum-sep">·</span>
             <span className="svc-sum-num">{sum.services}</span>
-            <span className="svc-sum-label">个服务</span>
+            <span className="svc-sum-label">{t('个服务', { n: sum.services })}</span>
             <span className="svc-sum-sep">·</span>
-            <span className="svc-sum-dim">{sum.deploys} 条部署</span>
+            <span className="svc-sum-dim">{t('{n} 条部署', { n: sum.deploys })}</span>
             <span className="svc-sum-sep">·</span>
-            <span className="svc-sum-dim">{sum.linked} 条挂了观测（共 {sum.monitors} 项）</span>
+            <span className="svc-sum-dim">{t('{n} 条挂了观测（共 {m} 项）', { n: sum.linked, m: sum.monitors })}</span>
             <span className="svc-sum-sep">·</span>
-            <span className="svc-sum-dim">{sum.manage} 条能打开管理页</span>
+            <span className="svc-sum-dim">{t('{n} 条能打开管理页', { n: sum.manage })}</span>
           </div>
           <div className="svc-actions">
             <Button
@@ -585,7 +588,7 @@ export function ServicesPage({ onOpenMonitor }: {
               }
             >
               <Plus size={13} />
-              {view === 'server' ? '加服务器' : '加服务'}
+              {view === 'server' ? t('加服务器') : t('加服务')}
             </Button>
             <div className="svc-tabs">
               <button
@@ -593,32 +596,32 @@ export function ServicesPage({ onOpenMonitor }: {
                 className={cx('svc-tab', view === 'server' && 'is-on')}
                 onClick={() => setView('server')}
               >
-                <Server size={13} />服务器视角
+                <Server size={13} />{t('服务器视角')}
               </button>
               <button
                 type="button"
                 className={cx('svc-tab', view === 'service' && 'is-on')}
                 onClick={() => setView('service')}
               >
-                <Boxes size={13} />服务视角
+                <Boxes size={13} />{t('服务视角')}
               </button>
             </div>
             <div className="svc-tabs is-density">
               <button
                 type="button"
                 className={cx('svc-tab', dense && 'is-on')}
-                title="紧凑：一屏看全所有部署"
+                title={t('紧凑：一屏看全所有部署')}
                 onClick={() => setDensity(true)}
               >
-                <LayoutGrid size={13} />紧凑
+                <LayoutGrid size={13} />{t('紧凑')}
               </button>
               <button
                 type="button"
                 className={cx('svc-tab', !dense && 'is-on')}
-                title="详细：带路径与启动方式"
+                title={t('详细：带路径与启动方式')}
                 onClick={() => setDensity(false)}
               >
-                <List size={13} />详细
+                <List size={13} />{t('详细')}
               </button>
             </div>
             <label className="svc-search">
@@ -626,7 +629,7 @@ export function ServicesPage({ onOpenMonitor }: {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder={view === 'server' ? '搜服务器 / 服务 / 路径' : '搜服务 / 服务器'}
+                placeholder={view === 'server' ? t('搜服务器 / 服务 / 路径') : t('搜服务 / 服务器')}
               />
             </label>
           </div>
@@ -636,47 +639,44 @@ export function ServicesPage({ onOpenMonitor }: {
           {dense ? (
             view === 'server' ? (
               <>
-                只登记部署关系，<b>不做任何探测</b>。点任意一行：挂了观测的去观测台，没观测但有管理页的打开管理页，
-                都没有的点不动；服务器级观测在卡片底部；路径 / 启动方式 / 端口看悬停提示。
+                {t('只登记部署关系，')}<b>{t('不做任何探测')}</b>{t('。点任意一行：挂了观测的去观测台，没观测但有管理页的打开管理页，都没有的点不动；服务器级观测在卡片底部；路径 / 启动方式 / 端口看悬停提示。')}
               </>
             ) : (
               <>
-                只登记部署关系，<b>不做任何探测</b>。点服务名：有观测去观测台，没观测就打开它的管理页（都没有的点不动）；
-                点右边的机名小标签换到服务器视角，看那台机上还部署了什么。
+                {t('只登记部署关系，')}<b>{t('不做任何探测')}</b>{t('。点服务名：有观测去观测台，没观测就打开它的管理页（都没有的点不动）；点右边的机名小标签换到服务器视角，看那台机上还部署了什么。')}
               </>
             )
           ) : (
             <>
-              这一栏只登记部署关系，<b>不做任何探测</b>。点名字：有观测去观测台，没观测就打开管理页（都没有的点了不跳）；
-              行尾的 <ArrowLeftRight size={11} className="svc-hint-ico" /> 换到另一个视角。
+              {t('这一栏只登记部署关系，')}<b>{t('不做任何探测')}</b>{t('。点名字：有观测去观测台，没观测就打开管理页（都没有的点了不跳）；行尾的')} <ArrowLeftRight size={11} className="svc-hint-ico" /> {t('换到另一个视角。')}
             </>
           )}
         </p>
 
         {loading && !data ? (
           <p className="svc-loading">
-            <Spinner /> 正在读服务清单…
+            <Spinner /> {t('正在读服务清单…')}
           </p>
         ) : error ? (
           <Empty
             icon={<Boxes size={20} />}
-            title="读不到服务清单"
+            title={t('读不到服务清单')}
             text={error}
-            action={<Button onClick={() => void load()}>重试</Button>}
+            action={<Button onClick={() => void load()}>{t('重试')}</Button>}
           />
         ) : !srvRecs.length ? (
           <Empty
             icon={<Boxes size={20} />}
-            title="还没有登记任何部署"
-            text={'在 ' + (data?.file || 'data/services.json') + ' 里按 services.example.json 的格式写：servers（哪几台机）、services（哪些服务）、deploys（谁部署在谁上面）。改完刷新页面即生效。'}
-            action={<Button onClick={() => void load()}>重新读取</Button>}
+            title={t('还没有登记任何部署')}
+            text={t('在 {file} 里按 services.example.json 的格式写：servers（哪几台机）、services（哪些服务）、deploys（谁部署在谁上面）。改完刷新页面即生效。', { file: data?.file || 'data/services.json' })}
+            action={<Button onClick={() => void load()}>{t('重新读取')}</Button>}
           />
         ) : total === 0 ? (
           <Empty
             icon={<Search size={20} />}
-            title="没有匹配的部署"
-            text={'没找到「' + q + '」，换个关键词试试。'}
-            action={<Button onClick={() => setQ('')}>清空搜索</Button>}
+            title={t('没有匹配的部署')}
+            text={t('没找到「{q}」，换个关键词试试。', { q })}
+            action={<Button onClick={() => setQ('')}>{t('清空搜索')}</Button>}
           />
         ) : dense && view === 'server' ? (
           <div className="svc-board">
@@ -700,35 +700,35 @@ export function ServicesPage({ onOpenMonitor }: {
                       <header className="svc-head">
                         <h3 className="svc-title is-static">{g.server.name}</h3>
                         <span className="svc-meta">{g.server.vendor} · {g.server.ip} · {g.server.user}</span>
-                        <span className="svc-count">{g.rows.length} 项部署</span>
+                        <span className="svc-count">{t('{n} 项部署', { n: g.rows.length })}</span>
                         <span className="svc-row-ops">
                           <button
                             type="button"
                             className="svc-op"
-                            title={'在「' + g.server.name + '」上加一条部署'}
+                            title={t('在「{name}」上加一条部署', { name: g.server.name })}
                             onClick={() => ops.addDeploy({ server: g.server.id })}
                           >
                             <Plus size={12} />
                           </button>
-                          <button type="button" className="svc-op" title="改这台服务器" onClick={() => ops.editServer(g.server)}>
+                          <button type="button" className="svc-op" title={t('改这台服务器')} onClick={() => ops.editServer(g.server)}>
                             <Pencil size={11} />
                           </button>
-                          <button type="button" className="svc-op" title="删这台服务器" onClick={() => ops.delServer(g.server)}>
+                          <button type="button" className="svc-op" title={t('删这台服务器')} onClick={() => ops.delServer(g.server)}>
                             <Trash2 size={11} />
                           </button>
                         </span>
                       </header>
                       {g.server.note ? <p className="svc-sub">{g.server.note}</p> : null}
                       {g.rows.length === 0 ? (
-                        <p className="svc-sub">这台机还没登记部署。</p>
+                        <p className="svc-sub">{t('这台机还没登记部署。')}</p>
                       ) : (
                         <>
                           <div className="svc-rows-head">
-                            <span>种类</span>
-                            <span>服务</span>
-                            <span>路径</span>
-                            <span>启动 · 端口</span>
-                            <span>观测</span>
+                            <span>{t('种类')}</span>
+                            <span>{t('服务')}</span>
+                            <span>{t('路径')}</span>
+                            <span>{t('启动 · 端口')}</span>
+                            <span>{t('观测')}</span>
                             <span />
                           </div>
                           <ul className="svc-rows">
@@ -745,7 +745,7 @@ export function ServicesPage({ onOpenMonitor }: {
                         </>
                       )}
                       <footer className="svc-foot">
-                        <span className="svc-foot-label">服务器观测</span>
+                        <span className="svc-foot-label">{t('服务器观测')}</span>
                         <MonChips ids={g.monitors} onOpen={onOpenMonitor} />
                         {g.server.doc ? <span className="svc-doc" title={g.server.doc}>{g.server.doc}</span> : null}
                       </footer>
@@ -761,30 +761,30 @@ export function ServicesPage({ onOpenMonitor }: {
                         <span className={cx('svc-kind', 'is-chip', 'kind-' + g.service.kind)}>
                           {KIND_LABEL[g.service.kind]}
                         </span>
-                        <span className="svc-count">{g.rows.length} 台服务器</span>
+                        <span className="svc-count">{t('{n} 台服务器', { n: g.rows.length })}</span>
                         <span className="svc-row-ops">
                           <button
                             type="button"
                             className="svc-op"
-                            title={'给「' + g.service.name + '」再加一条部署'}
+                            title={t('给「{name}」再加一条部署', { name: g.service.name })}
                             onClick={() => ops.addDeploy({ service: g.service.id })}
                           >
                             <Plus size={12} />
                           </button>
-                          <button type="button" className="svc-op" title="改这个服务" onClick={() => ops.editService(g.service)}>
+                          <button type="button" className="svc-op" title={t('改这个服务')} onClick={() => ops.editService(g.service)}>
                             <Pencil size={11} />
                           </button>
-                          <button type="button" className="svc-op" title="删这个服务" onClick={() => ops.delService(g.service)}>
+                          <button type="button" className="svc-op" title={t('删这个服务')} onClick={() => ops.delService(g.service)}>
                             <Trash2 size={11} />
                           </button>
                         </span>
                       </header>
                       <p className="svc-sub">{g.service.summary}</p>
                       <div className="svc-rows-head is-srv">
-                        <span>服务器</span>
-                        <span>路径</span>
-                        <span>启动 · 端口</span>
-                        <span>观测</span>
+                        <span>{t('服务器')}</span>
+                        <span>{t('路径')}</span>
+                        <span>{t('启动 · 端口')}</span>
+                        <span>{t('观测')}</span>
                         <span />
                       </div>
                       <ul className="svc-rows">
@@ -800,7 +800,7 @@ export function ServicesPage({ onOpenMonitor }: {
                       </ul>
                       {g.service.doc ? (
                         <footer className="svc-foot">
-                          <span className="svc-foot-label">项目目录</span>
+                          <span className="svc-foot-label">{t('项目目录')}</span>
                           <span className="svc-doc" title={g.service.doc}>{g.service.doc}</span>
                         </footer>
                       ) : null}

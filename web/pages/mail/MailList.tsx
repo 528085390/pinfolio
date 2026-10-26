@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { cx, type MailRow } from '../../lib/api'
 import { Button, Empty, Spinner } from '../../components/ui'
 import type { MailSelection } from './useInbox'
+import { t } from '../../lib/i18n'
 
 function pad(n: number) {
   return n < 10 ? '0' + n : String(n)
@@ -18,7 +19,7 @@ export function rowTime(iso: string) {
 }
 
 export function senderName(m: MailRow) {
-  return m.from?.name || m.from?.address || '（无发件人）'
+  return m.from?.name || m.from?.address || t('（无发件人）')
 }
 
 export function MailRowItem({ m, active, onOpen }: { m: MailRow; active: boolean; onOpen: (m: MailRow) => void }) {
@@ -38,11 +39,11 @@ export function MailRowItem({ m, active, onOpen }: { m: MailRow; active: boolean
         <span className="mail-row-from">{senderName(m)}</span>
         <span className="mail-row-time">{rowTime(m.date)}</span>
       </div>
-      <div className="mail-row-subject">{m.subject || '（无主题）'}</div>
-      <div className="mail-row-snippet">{m.snippet || '（没有可预览的正文）'}</div>
+      <div className="mail-row-subject">{m.subject || t('（无主题）')}</div>
+      <div className="mail-row-snippet">{m.snippet || t('（没有可预览的正文）')}</div>
       <div className="mail-row-foot">
         <span className="mail-row-acc">{m.accountLabel}</span>
-        {m.unread && !m.localRead ? <span className="mail-dot" title="服务器上是未读" /> : null}
+        {m.unread && !m.localRead ? <span className="mail-dot" title={t('服务器上是未读')} /> : null}
       </div>
     </article>
   )
@@ -72,15 +73,15 @@ export function MailList({ listRef, visible, loadedCount, loading, folderName, s
       <div className="mail-list" ref={listRef}>
         {loading && !loadedCount ? (
           <div className="mail-loading">
-            <Spinner /> <span>正在取信…</span>
+            <Spinner /> <span>{t('正在取信…')}</span>
           </div>
         ) : null}
 
         {!loading && !visible.length ? (
           <Empty
             icon={<Inbox size={20} />}
-            title={loadedCount ? '没有符合筛选条件的邮件' : folderName + '里没有邮件'}
-            text={loadedCount ? '清空筛选条件或取消「只看未读」试试。' : '换个文件夹看看，或者点右上角刷新。'}
+            title={loadedCount ? t('没有符合筛选条件的邮件') : t('{folder} 里没有邮件', { folder: folderName })}
+            text={loadedCount ? t('清空筛选条件或取消「只看未读」试试。') : t('换个文件夹看看，或者点右上角刷新。')}
           />
         ) : null}
 
@@ -96,14 +97,16 @@ export function MailList({ listRef, visible, loadedCount, loading, folderName, s
 
       <div className="mail-pager">
         <Button size="sm" variant="ghost" disabled={offset === 0 || loading} onClick={onPrev}>
-          <ChevronLeft size={14} /> 上一页
+          <ChevronLeft size={14} /> {t('上一页')}
         </Button>
         <span className="mail-pager-info">
-          {total ? offset + 1 + '–' + Math.min(offset + pageSize, total) + ' / 共 ' + total + ' 封' : '共 0 封'}
-          {filtered ? ' · 筛选出 ' + visible.length + ' 封' : ''}
+          {total
+            ? t('{from}–{to} / 共 {total} 封', { from: offset + 1, to: Math.min(offset + pageSize, total), total })
+            : t('共 {n} 封', { n: 0 })}
+          {filtered ? ' · ' + t('筛选出 {n} 封', { n: visible.length }) : ''}
         </span>
         <Button size="sm" variant="ghost" disabled={!hasMore || loading} onClick={onNext}>
-          下一页 <ChevronRight size={14} />
+          {t('下一页')} <ChevronRight size={14} />
         </Button>
       </div>
     </section>

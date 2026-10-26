@@ -4,6 +4,7 @@ import { fullTime, money } from '../../lib/format'
 import { Button, TagChip } from '../ui'
 import { Markdown } from '../Markdown'
 import type { AssetFormState } from './form'
+import { t } from '../../lib/i18n'
 
 /** 已有资产才显示：关联便签列表 + 就地记一条 + 创建/更新时间。 */
 export function LinkedNotes({ form, linked, noteDraft, setNoteDraft, onAddNote, onUnlinkNote, meta }: {
@@ -18,11 +19,11 @@ export function LinkedNotes({ form, linked, noteDraft, setNoteDraft, onAddNote, 
   return (
     <>
       <div className="section-title" style={{ marginTop: 22 }}>
-        <StickyNote size={12} /> 关联便签 <span className="muted">({linked.length})</span>
+        <StickyNote size={12} /> {t('关联便签')} <span className="muted">({linked.length})</span>
       </div>
 
       {linked.length === 0 ? (
-        <div className="muted" style={{ fontSize: 12.5, padding: '4px 2px 8px' }}>还没有关联便签。</div>
+        <div className="muted" style={{ fontSize: 12.5, padding: '4px 2px 8px' }}>{t('还没有关联便签。')}</div>
       ) : (
         <div className="note-list">
           {linked.map((n) => (
@@ -30,14 +31,14 @@ export function LinkedNotes({ form, linked, noteDraft, setNoteDraft, onAddNote, 
               <div className="note-head" style={{ marginBottom: 6 }}>
                 <span>{fullTime(n.createdAt)}</span>
                 <div className="grow" />
-                <Button variant="ghost" size="sm" icon title="解除关联" onClick={() => onUnlinkNote(n.id)}>
+                <Button variant="ghost" size="sm" icon title={t('解除关联')} onClick={() => onUnlinkNote(n.id)}>
                   <Link2 size={13} />
                 </Button>
               </div>
               <Markdown text={n.content} />
               {n.tags.length > 0 ? (
                 <div className="note-foot">
-                  {n.tags.map((t) => <TagChip key={t.id} name={'#' + t.name} color={t.color} />)}
+                  {n.tags.map((tg) => <TagChip key={tg.id} name={'#' + tg.name} color={tg.color} />)}
                 </div>
               ) : null}
             </div>
@@ -48,7 +49,7 @@ export function LinkedNotes({ form, linked, noteDraft, setNoteDraft, onAddNote, 
       <div className="composer" style={{ marginTop: 10, padding: 10 }}>
         <textarea
           value={noteDraft}
-          placeholder="给这件资产记一条便签…"
+          placeholder={t('给这件资产记一条便签…')}
           onChange={(e) => setNoteDraft(e.target.value)}
           style={{ minHeight: 44, fontSize: 13.5 }}
           onKeyDown={(e) => {
@@ -56,18 +57,18 @@ export function LinkedNotes({ form, linked, noteDraft, setNoteDraft, onAddNote, 
           }}
         />
         <div className="composer-foot" style={{ paddingTop: 6 }}>
-          <span className="composer-hint">Ctrl/⌘ + Enter 添加</span>
+          <span className="composer-hint">{t('Ctrl/⌘ + Enter 添加')}</span>
           <div className="grow" />
           <Button size="sm" variant="primary" onClick={onAddNote} disabled={!noteDraft.trim()}>
-            <Plus size={13} /> 添加
+            <Plus size={13} /> {t('添加')}
           </Button>
         </div>
       </div>
 
       {meta ? (
         <div className="muted" style={{ fontSize: 11.5, marginTop: 18 }}>
-          创建于 {fullTime(meta.createdAt)} · 更新于 {fullTime(meta.updatedAt)}
-          {form.price !== '' ? ' · 参考价 ' + money(Number(form.price), form.currency) : ''}
+          {t('创建于 {created} · 更新于 {updated}', { created: fullTime(meta.createdAt), updated: fullTime(meta.updatedAt) })}
+          {form.price !== '' ? ' · ' + t('参考价') + ' ' + money(Number(form.price), form.currency) : ''}
         </div>
       ) : null}
     </>

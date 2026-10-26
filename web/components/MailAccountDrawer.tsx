@@ -5,6 +5,7 @@ import { Button, Drawer } from './ui'
 import { AccountForm } from './mail-account/AccountForm'
 import { AccountList } from './mail-account/AccountList'
 import { applyPreset, blankForm, buildBody, canTest, toForm, type FormState } from './mail-account/form'
+import { t } from '../lib/i18n'
 
 /**
  * 邮箱账号抽屉：列表 ↔ 添加/编辑表单，外加「测试连接」与「清除本地已读标记」。
@@ -67,7 +68,14 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
         security: form.security,
         proxy: form.proxy,
       })
-      setMsg({ kind: 'ok', text: '连接成功：' + r.server + '，看到 ' + r.folders + ' 个文件夹' + (r.encrypted ? '，连接已加密' : '') })
+      setMsg({
+        kind: 'ok',
+        text: t('连接成功：{server}，看到 {folders} 个文件夹{enc}', {
+          server: r.server,
+          folders: r.folders,
+          enc: r.encrypted ? t('，连接已加密') : '',
+        }),
+      })
     } catch (e: any) {
       setMsg({ kind: 'err', text: e.message })
     } finally {
@@ -107,7 +115,7 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
     setClearing(true)
     try {
       await api.mail.clearLocalRead('all')
-      setMsg({ kind: 'ok', text: '已清除本机全部已读标记（服务器上的邮件状态从未被改动）' })
+      setMsg({ kind: 'ok', text: t('已清除本机全部已读标记（服务器上的邮件状态从未被改动）') })
       onChanged()
     } catch (e: any) {
       setMsg({ kind: 'err', text: e.message })
@@ -118,29 +126,29 @@ export function MailAccountDrawer({ open, accounts, onClose, onChanged }: {
 
   const footer = form ? (
     <>
-      <Button onClick={() => { setForm(null); setMsg(null) }}>返回</Button>
+      <Button onClick={() => { setForm(null); setMsg(null) }}>{t('返回')}</Button>
       <div className="grow" />
       <Button onClick={test} disabled={testing || !canTest(form)}>
-        {testing ? '测试中…' : '测试连接'}
+        {testing ? t('测试中…') : t('测试连接')}
       </Button>
       <Button variant="primary" onClick={save} disabled={saving}>
-        {saving ? '保存中…' : form.id === null ? '添加' : '保存'}
+        {saving ? t('保存中…') : form.id === null ? t('添加') : t('保存')}
       </Button>
     </>
   ) : (
     <>
       <Button variant="primary" onClick={startAdd}>
-        <Plus size={14} /> 添加邮箱
+        <Plus size={14} /> {t('添加邮箱')}
       </Button>
       <div className="grow" />
       <Button variant="ghost" onClick={clearMarks} disabled={clearing}>
-        {clearing ? '清理中…' : '清除本地已读标记'}
+        {clearing ? t('清理中…') : t('清除本地已读标记')}
       </Button>
     </>
   )
 
   return (
-    <Drawer open={open} onClose={onClose} title={form ? (form.id === null ? '添加邮箱' : '编辑邮箱') : '邮箱账号'} footer={footer}>
+    <Drawer open={open} onClose={onClose} title={form ? (form.id === null ? t('添加邮箱') : t('编辑邮箱')) : t('邮箱账号')} footer={footer}>
       {msg ? (
         <div className={cx('mail-msg', msg.kind === 'ok' ? 'mail-msg-ok' : 'mail-msg-err')}>
           {msg.kind === 'ok' ? <Check size={14} /> : <CircleAlert size={14} />}

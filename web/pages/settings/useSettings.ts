@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, type FieldDef, type Tag } from '../../lib/api'
+import { t } from '../../lib/i18n'
 import { exportFilename, fieldDeletePrompt, normalizeTagName, parseFieldOptions, tagDeletePrompt, validateNewField } from './fields'
 
 // 设置页的状态与动作。四张卡片（外观/字段/标签/数据）都从这里取，卡片本身只画界面。
@@ -26,7 +27,7 @@ export function useSettings({ refreshMeta }: { refreshMeta: () => void }) {
         options: fType === 'select' ? parseFieldOptions(fOptions) : [],
       })
       setFKey(''); setFLabel(''); setFType('text'); setFOptions('')
-      setMsg('字段已添加')
+      setMsg(t('字段已添加'))
       refreshMeta()
     } catch (e: any) { setMsg(e.message) }
   }
@@ -47,9 +48,9 @@ export function useSettings({ refreshMeta }: { refreshMeta: () => void }) {
     } catch (e: any) { setMsg(e.message) }
   }
 
-  async function removeTag(t: Tag) {
-    if (!confirm(tagDeletePrompt(t.name))) return
-    await api.tags.remove(t.id)
+  async function removeTag(tag: Tag) {
+    if (!confirm(tagDeletePrompt(tag.name))) return
+    await api.tags.remove(tag.id)
     refreshMeta()
   }
 
@@ -64,7 +65,7 @@ export function useSettings({ refreshMeta }: { refreshMeta: () => void }) {
       a.download = exportFilename()
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-      setMsg('已导出 JSON 备份')
+      setMsg(t('已导出 JSON 备份'))
     } catch (e: any) { setMsg(e.message) }
     finally { setBusy('') }
   }
@@ -74,7 +75,7 @@ export function useSettings({ refreshMeta }: { refreshMeta: () => void }) {
     try {
       const r = await api.seed()
       if (r.error) setMsg(r.error)
-      else { setMsg('示例数据已写入'); refreshMeta() }
+      else { setMsg(t('示例数据已写入')); refreshMeta() }
     } catch (e: any) { setMsg(e.message) }
     finally { setBusy('') }
   }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type Note } from '../../lib/api'
+import { t } from '../../lib/i18n'
 
 export type DoneFilter = '' | '0' | '1'
 
@@ -18,8 +19,8 @@ export function useNotes(refreshMeta: () => void) {
   const [editText, setEditText] = useState('')
 
   useEffect(() => {
-    const t = setTimeout(() => setQ(searchInput.trim()), 220)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setQ(searchInput.trim()), 220)
+    return () => clearTimeout(timer)
   }, [searchInput])
 
   const load = useCallback(async () => {
@@ -84,7 +85,7 @@ export function useNotes(refreshMeta: () => void) {
   }
 
   async function remove(n: Note) {
-    if (!confirm('永久删除这条便签？不可恢复。')) return
+    if (!confirm(t('永久删除这条便签？不可恢复。'))) return
     await api.notes.remove(n.id)
     await load()
     refreshMeta()

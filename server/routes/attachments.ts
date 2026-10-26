@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { attachmentUrl, cleanFileName, MAX_UPLOAD_BYTES, sniffImage } from '../attachments/core.js'
 import { findAttachment, readAttachmentFile, saveAttachment } from '../attachments/store.js'
+import { t } from '../i18n.js'
 
 export const attachmentsRoute = new Hono()
 
@@ -10,10 +11,10 @@ export const attachmentsRoute = new Hono()
  */
 attachmentsRoute.post('/', async (c) => {
   const buf = Buffer.from(await c.req.arrayBuffer())
-  if (!buf.length) return c.json({ error: '空文件' }, 400)
-  if (buf.length > MAX_UPLOAD_BYTES) return c.json({ error: '图片太大，单张上限 10 MB' }, 413)
+  if (!buf.length) return c.json({ error: t('空文件') }, 400)
+  if (buf.length > MAX_UPLOAD_BYTES) return c.json({ error: t('图片太大，单张上限 10 MB') }, 413)
   const kind = sniffImage(buf)
-  if (!kind) return c.json({ error: '只支持 PNG / JPEG / WebP / GIF 图片' }, 415)
+  if (!kind) return c.json({ error: t('只支持 PNG / JPEG / WebP / GIF 图片') }, 415)
   const noteId = Number(c.req.query('noteId') || '') || null
   const name = cleanFileName(c.req.query('name') || c.req.header('x-file-name') || '')
   const row = saveAttachment({ data: buf, mime: kind.mime, ext: kind.ext, name, noteId })
@@ -26,11 +27,11 @@ attachmentsRoute.post('/', async (c) => {
  */
 attachmentsRoute.get('/:id', (c) => {
   const id = Number(c.req.param('id'))
-  if (!Number.isSafeInteger(id) || id <= 0) return c.json({ error: '图片不存在' }, 404)
+  if (!Number.isSafeInteger(id) || id <= 0) return c.json({ error: t('图片不存在') }, 404)
   const row = findAttachment(id)
-  if (!row) return c.json({ error: '图片不存在' }, 404)
+  if (!row) return c.json({ error: t('图片不存在') }, 404)
   const data = readAttachmentFile(row)
-  if (!data) return c.json({ error: '图片文件已丢失' }, 404)
+  if (!data) return c.json({ error: t('图片文件已丢失') }, 404)
   return new Response(new Uint8Array(data), {
     status: 200,
     headers: {

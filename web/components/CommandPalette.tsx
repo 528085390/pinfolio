@@ -3,6 +3,7 @@ import { Search, StickyNote, Mail, Package, Settings, Plus, Download, CornerDown
 import { api, cx, type Asset, type Note } from '../lib/api'
 import { KindIcon } from './KindIcon'
 import { assetSub, moveSel, noteLabel, noteSub, paletteHint } from './command-palette/items'
+import { t } from '../lib/i18n'
 
 type Item = { key: string; label: string; sub?: string; icon: React.ReactNode; run: () => void }
 
@@ -35,7 +36,7 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
     if (!term) { setNotes([]); setAssets([]); return }
     let alive = true
     setLoading(true)
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const r = await api.search(term)
         if (!alive) return
@@ -46,21 +47,21 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
         if (alive) setLoading(false)
       }
     }, 170)
-    return () => { alive = false; clearTimeout(t) }
+    return () => { alive = false; clearTimeout(timer) }
   }, [q, open])
 
   const items: Item[] = useMemo(() => {
     const out: Item[] = []
     if (!q.trim()) {
-      out.push({ key: 'a1', label: '新建便签', sub: '回到便签页，直接写', icon: <StickyNote size={15} />, run: () => onNavigate('notes') })
-      out.push({ key: 'a2m', label: '邮件', sub: '多邮箱合并收件箱（只读）', icon: <Mail size={15} />, run: () => onNavigate('mail') })
-      out.push({ key: 'a2', label: '登记资产', sub: '打开资产登记表单', icon: <Plus size={15} />, run: () => { onNavigate('assets'); onOpenAsset('new') } })
-      out.push({ key: 'a3', label: '观测台', sub: '看所有观测项的实时状态', icon: <Activity size={15} />, run: () => onNavigate('monitors') })
-      out.push({ key: 'a3h', label: '主机', sub: '6 台服务器的 CPU / 内存 / 磁盘 / 服务', icon: <Server size={15} />, run: () => onNavigate('hosts') })
-      out.push({ key: 'a3s', label: '服务', sub: '服务器 ↔ 服务的部署关系（不做探测）', icon: <Boxes size={15} />, run: () => onNavigate('services') })
-      out.push({ key: 'a4', label: '设置', sub: '自定义字段 / 标签 / 主题', icon: <Settings size={15} />, run: () => onNavigate('settings') })
+      out.push({ key: 'a1', label: t('新建便签'), sub: t('回到便签页，直接写'), icon: <StickyNote size={15} />, run: () => onNavigate('notes') })
+      out.push({ key: 'a2m', label: t('邮件'), sub: t('多邮箱合并收件箱（只读）'), icon: <Mail size={15} />, run: () => onNavigate('mail') })
+      out.push({ key: 'a2', label: t('登记资产'), sub: t('打开资产登记表单'), icon: <Plus size={15} />, run: () => { onNavigate('assets'); onOpenAsset('new') } })
+      out.push({ key: 'a3', label: t('观测台'), sub: t('看所有观测项的实时状态'), icon: <Activity size={15} />, run: () => onNavigate('monitors') })
+      out.push({ key: 'a3h', label: t('主机'), sub: t('6 台服务器的 CPU / 内存 / 磁盘 / 服务'), icon: <Server size={15} />, run: () => onNavigate('hosts') })
+      out.push({ key: 'a3s', label: t('服务'), sub: t('服务器 ↔ 服务的部署关系（不做探测）'), icon: <Boxes size={15} />, run: () => onNavigate('services') })
+      out.push({ key: 'a4', label: t('设置'), sub: t('自定义字段 / 标签 / 主题'), icon: <Settings size={15} />, run: () => onNavigate('settings') })
       out.push({
-        key: 'a5', label: '导出 JSON 备份', icon: <Download size={15} />, run: async () => {
+        key: 'a5', label: t('导出 JSON 备份'), icon: <Download size={15} />, run: async () => {
           const data = await api.exportAll()
           const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
           const url = URL.createObjectURL(blob)
@@ -131,7 +132,7 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
           <input
             ref={inputRef}
             className="palette-input"
-            placeholder="搜索便签、资产，或执行命令…"
+            placeholder={t('搜索便签、资产，或执行命令…')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -139,7 +140,7 @@ export function CommandPalette({ open, onClose, onNavigate, onOpenAsset }: {
         </div>
 
         <div className="palette-list" ref={listRef}>
-          {loading ? <div className="palette-group">搜索中…</div> : null}
+          {loading ? <div className="palette-group">{t('搜索中…')}</div> : null}
           {hint.empty ? <div className="palette-group">{hint.empty}</div> : null}
           {hint.group ? <div className="palette-group">{hint.group}</div> : null}
           {items.map((it, i) => (

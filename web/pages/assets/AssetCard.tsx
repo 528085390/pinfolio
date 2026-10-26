@@ -4,6 +4,7 @@ import { KIND_META, STATUS_META, expiry, money } from '../../lib/format'
 import { TagChip } from '../../components/ui'
 import { KindIcon } from '../../components/KindIcon'
 import { cardMeta } from './meta'
+import { t } from '../../lib/i18n'
 
 /** 卡片视图的一件资产。e2e 依赖 .asset-card / .asset-name / .asset-icon */
 export function AssetCard({ asset, fields, onClick }: { asset: Asset; fields: FieldDef[]; onClick: () => void }) {
@@ -19,7 +20,7 @@ export function AssetCard({ asset, fields, onClick }: { asset: Asset; fields: Fi
           <div className="asset-sub">
             {KIND_META[asset.kind]?.label || asset.kind}
             {asset.price !== null ? ' · ' + money(asset.price, asset.currency) : ''}
-            {asset.noteCount > 0 ? ' · ' + asset.noteCount + ' 条便签' : ''}
+            {asset.noteCount > 0 ? ' · ' + t('{n} 条便签', { n: asset.noteCount }) : ''}
           </div>
         </div>
         <span className="status-pill" title={STATUS_META[asset.status]?.label}>
@@ -46,11 +47,11 @@ export function AssetCard({ asset, fields, onClick }: { asset: Asset; fields: Fi
             {ex.text}
           </span>
         ) : null}
-        {asset.tags.map((t) => <TagChip key={t.id} name={'#' + t.name} color={t.color} />)}
+        {asset.tags.map((tg) => <TagChip key={tg.id} name={'#' + tg.name} color={tg.color} />)}
         {asset.url ? (
           <a className="asset-link" href={asset.url} target="_blank" rel="noreferrer" title={asset.url}
             onClick={(e) => e.stopPropagation()}>
-            打开 <ExternalLink size={11} />
+            {t('打开')} <ExternalLink size={11} />
           </a>
         ) : null}
       </div>

@@ -7,6 +7,7 @@ import { HostCard, ago } from './hosts/HostCard'
 import { AddHostDrawer } from './hosts/AddHostDrawer'
 import { DeleteHostModal } from './hosts/DeleteHostModal'
 import { OnboardModal } from './hosts/OnboardModal'
+import { t } from '../lib/i18n'
 
 export function HostsPage({ onSummary }: {
   onSummary?: (s: HostSummary) => void
@@ -28,7 +29,7 @@ export function HostsPage({ onSummary }: {
   const onAdded = (next: HostsPayload, id: string) => {
     H.apply(next)
     if (next.provision && !next.provision.ok) {
-      setOpErr('主机加好了，但观测项没建成：' + (next.provision.error || '未知错误'))
+      setOpErr(t('主机加好了，但观测项没建成：{msg}', { msg: next.provision.error || t('未知错误') }))
     }
     setOnboardId(id)
   }
@@ -51,25 +52,25 @@ export function HostsPage({ onSummary }: {
       <div className="host-toolbar">
         <div className="host-sum">
           <span className="host-sum-num">{online}/{hosts.length}</span>
-          <span className="host-sum-label">在线</span>
+          <span className="host-sum-label">{t('在线')}</span>
           {paused ? (
             <>
               <span className="host-sum-sep">·</span>
-              <span className="host-sum-dim">{paused} 台已暂停</span>
+              <span className="host-sum-dim">{t('{n} 台已暂停', { n: paused })}</span>
             </>
           ) : null}
           <span className="host-sum-sep">·</span>
-          <span className="host-sum-dim">每 5 分钟采集一次</span>
+          <span className="host-sum-dim">{t('每 5 分钟采集一次')}</span>
           {H.data?.polledAt ? (
             <>
               <span className="host-sum-sep">·</span>
-              <span className="host-sum-dim">上次拉取 {ago(polledSec)}</span>
+              <span className="host-sum-dim">{t('上次拉取 {ago}', { ago: ago(polledSec) })}</span>
             </>
           ) : null}
           {H.data?.samples ? (
             <>
               <span className="host-sum-sep">·</span>
-              <span className="host-sum-dim">{H.data.samples} 个样本</span>
+              <span className="host-sum-dim">{t('{n} 个样本', { n: H.data.samples })}</span>
             </>
           ) : null}
         </div>
@@ -77,16 +78,16 @@ export function HostsPage({ onSummary }: {
           <button
             className={'host-auto' + (H.auto ? ' is-on' : '')}
             onClick={() => H.setAuto((v) => !v)}
-            title="每 60 秒自动刷新本页"
+            title={t('每 60 秒自动刷新本页')}
           >
             <span className="host-auto-dot" />
-            自动刷新
+            {t('自动刷新')}
           </button>
           <Button size="sm" onClick={() => H.load(true)} disabled={H.loading}>
-            <RefreshCw size={14} /> 立即拉取
+            <RefreshCw size={14} /> {t('立即拉取')}
           </Button>
           <Button size="sm" variant="primary" onClick={() => setAddOpen(true)}>
-            <Plus size={14} /> 添加主机
+            <Plus size={14} /> {t('添加主机')}
           </Button>
         </div>
       </div>
@@ -95,7 +96,10 @@ export function HostsPage({ onSummary }: {
 
       {pollFailed.length ? (
         <div className="alert" style={{ marginTop: 12 }}>
-          有 {pollFailed.length} 台没拉到：{pollFailed.map((f) => f.id + '（' + f.error + '）').join('、')}
+          {t('有 {n} 台没拉到：{list}', {
+            n: pollFailed.length,
+            list: pollFailed.map((f) => t('{id}（{error}）', { id: f.id, error: f.error })).join(t('、')),
+          })}
         </div>
       ) : null}
 
@@ -104,16 +108,16 @@ export function HostsPage({ onSummary }: {
       ) : H.error && !H.data ? (
         <Empty
           icon={<Server size={22} />}
-          title="读不到主机指标"
+          title={t('读不到主机指标')}
           text={H.error}
-          action={<Button size="sm" onClick={() => H.load(true)}>重试</Button>}
+          action={<Button size="sm" onClick={() => H.load(true)}>{t('重试')}</Button>}
         />
       ) : hosts.length === 0 ? (
         <Empty
           icon={<Server size={22} />}
-          title="还没有主机"
-          text="点右上角「添加主机」加一台，采集脚本见 tools/node-metrics/。"
-          action={<Button size="sm" variant="primary" onClick={() => setAddOpen(true)}><Plus size={14} /> 添加主机</Button>}
+          title={t('还没有主机')}
+          text={t('点右上角「添加主机」加一台，采集脚本见 tools/node-metrics/。')}
+          action={<Button size="sm" variant="primary" onClick={() => setAddOpen(true)}><Plus size={14} /> {t('添加主机')}</Button>}
         />
       ) : (
         <div className="host-grid">
@@ -137,7 +141,7 @@ export function HostsPage({ onSummary }: {
         onDeleted={(next) => {
           H.apply(next)
           if (next.monitorsFailed?.length) {
-            setOpErr('主机删了，但观测项没删掉：' + next.monitorsFailed.join('、') + '（去观测台手动删）')
+            setOpErr(t('主机删了，但观测项没删掉：{list}（去观测台手动删）', { list: next.monitorsFailed.join(t('、')) }))
           }
         }}
       />

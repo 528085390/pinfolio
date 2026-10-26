@@ -1,6 +1,7 @@
 import { Paperclip } from 'lucide-react'
 import type { MailAttachment } from '../../lib/api'
 import { bytes } from './text'
+import { t } from '../../lib/i18n'
 
 /** 附件列表：点一下直接下载（走后端 /mail/attachment，只读 FETCH） */
 export function MailAttachments({ attachments, attUrl }: {
@@ -11,7 +12,7 @@ export function MailAttachments({ attachments, attUrl }: {
   return (
     <div className="mail-attach">
       <div className="mail-attach-title">
-        <Paperclip size={13} /> 附件 {attachments.length} 个
+        <Paperclip size={13} /> {t('附件 {n} 个', { n: attachments.length })}
       </div>
       <div className="mail-attach-list">
         {attachments.map((a) => (

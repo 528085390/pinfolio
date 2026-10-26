@@ -5,6 +5,7 @@ import { db } from '../db.js'
 import { BACKUP_DIR, backupPath, deleteLocal, listLocal, readManifest } from '../backup/local.js'
 import { backupStatus, runBackup } from '../backup/run.js'
 import { clearRemoteConfig, deleteRow, fetchRow, listRows, loadRemoteConfig, normalizeConfig, saveRemoteConfig, testConnection } from '../backup/remote.js'
+import { t } from '../i18n.js'
 
 export const backupRoute = new Hono()
 
@@ -15,13 +16,13 @@ backupRoute.get('/local', (c) => c.json({ files: listLocal() }))
 
 backupRoute.get('/local/:name/manifest', (c) => {
   const m = readManifest(c.req.param('name'))
-  if (!m) return c.json({ error: '找不到这份备份或清单损坏' }, 404)
+  if (!m) return c.json({ error: t('找不到这份备份或清单损坏') }, 404)
   return c.json(m)
 })
 
 backupRoute.get('/local/:name/download', (c) => {
   const p = backupPath(c.req.param('name'))
-  if (!p || !existsSync(p)) return c.json({ error: '找不到这份备份' }, 404)
+  if (!p || !existsSync(p)) return c.json({ error: t('找不到这份备份') }, 404)
   return c.body(createReadStream(p) as any, 200, {
     'Content-Type': 'application/gzip',
     'Content-Disposition': 'attachment; filename="' + basename(p) + '"',
@@ -30,7 +31,7 @@ backupRoute.get('/local/:name/download', (c) => {
 
 backupRoute.delete('/local/:name', (c) => {
   const ok = deleteLocal(c.req.param('name'))
-  return ok ? c.json({ ok: true }) : c.json({ error: '找不到这份备份' }, 404)
+  return ok ? c.json({ ok: true }) : c.json({ error: t('找不到这份备份') }, 404)
 })
 
 /** 立即备份：only=local / remote 可只跑一边 */
@@ -83,7 +84,7 @@ backupRoute.delete('/remote/config', (c) => {
 
 backupRoute.delete('/remote/:id', async (c) => {
   const cfg = loadRemoteConfig(db)
-  if (!cfg) return c.json({ error: '还没配置远端库' }, 400)
+  if (!cfg) return c.json({ error: t('还没配置远端库') }, 400)
   try {
     await deleteRow(cfg, c.req.param('id'))
     return c.json({ ok: true })
@@ -95,10 +96,10 @@ backupRoute.delete('/remote/:id', async (c) => {
 /** 远端某份下载回本机：落到 data/backups/，之后就能像本机备份一样恢复 */
 backupRoute.post('/remote/:id/download', async (c) => {
   const cfg = loadRemoteConfig(db)
-  if (!cfg) return c.json({ error: '还没配置远端库' }, 400)
+  if (!cfg) return c.json({ error: t('还没配置远端库') }, 400)
   try {
     const row = await fetchRow(cfg, c.req.param('id'))
-    if (!row) return c.json({ error: '远端找不到这份备份' }, 404)
+    if (!row) return c.json({ error: t('远端找不到这份备份') }, 404)
     const target = join(BACKUP_DIR, basename(row.filename))
     writeFileSync(target, row.data)
     return c.json({ ok: true, file: basename(row.filename), size: row.data.length })

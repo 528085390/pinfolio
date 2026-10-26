@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash, randomBytes } from 'node:crypto'
 import {
-  closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync,
+  closeSync, copyFileSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
@@ -40,6 +40,7 @@ const CORE = [
   ['e2e-tagpop', 'e2e-tagpop.mjs'],
   ['e2e-image', 'e2e-image.mjs'],
   ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
+  ['e2e-i18n', 'e2e-i18n.mjs'],
 ]
 
 const SUITES = {
@@ -123,7 +124,9 @@ async function startIsolated() {
     for (const f of readdirSync(liveDir)) {
       if (f.startsWith('pinboard.db')) continue
       const s = join(liveDir, f)
-      if (statSync(s).isFile()) copyFileSync(s, join(dataDir, f))
+      // 目录也要拷：data/uploads/ 放便签图片，只拷文件会让带图便签在隔离实例里 404
+      if (statSync(s).isDirectory()) cpSync(s, join(dataDir, f), { recursive: true })
+      else copyFileSync(s, join(dataDir, f))
     }
   }
 

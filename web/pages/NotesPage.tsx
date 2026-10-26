@@ -7,6 +7,7 @@ import { useComposer } from './notes/useComposer'
 import { NoteCard } from './notes/NoteCard'
 import { Composer } from './notes/Composer'
 import { FilterBar } from './notes/FilterBar'
+import { t } from '../lib/i18n'
 
 export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
   tags: Tag[]
@@ -17,7 +18,7 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
   const N = useNotes(refreshMeta)
   const C = useComposer({ reload: N.reload, refreshMeta, onError: N.setError })
 
-  const usedTags = tags.filter((t) => (t.notes || 0) > 0)
+  const usedTags = tags.filter((tg) => (tg.notes || 0) > 0)
 
   // 双击卡片切换完成状态（避开按钮、链接、标签、编辑框这些自带交互的元素）
   function onCardDoubleClick(e: MouseEvent<HTMLElement>, n: Note) {
@@ -84,24 +85,24 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
         <Empty
           icon={N.archivedMode ? <Archive size={22} /> : <Inbox size={22} />}
           title={N.archivedMode
-            ? (N.q ? '没有匹配的归档便签' : '还没有归档的便签')
-            : N.q || N.tag || N.doneFilter ? '没有匹配的便签' : '还没有便签'}
+            ? (N.q ? t('没有匹配的归档便签') : t('还没有归档的便签'))
+            : N.q || N.tag || N.doneFilter ? t('没有匹配的便签') : t('还没有便签')}
           text={N.archivedMode
-            ? (N.q ? '换个关键词试试。' : '点便签右上角的「归档」把用不着的收起来；归档后默认不显示，只在这里看得到。')
-            : N.q || N.tag || N.doneFilter ? '换个关键词，或清掉筛选条件。' : '在上面写第一条。用 #标签 归类，点 📌 置顶，点左边的圆圈标记完成。'}
+            ? (N.q ? t('换个关键词试试。') : t('点便签右上角的「归档」把用不着的收起来；归档后默认不显示，只在这里看得到。'))
+            : N.q || N.tag || N.doneFilter ? t('换个关键词，或清掉筛选条件。') : t('在上面写第一条。用 #标签 归类，点 📌 置顶，点左边的圆圈标记完成。')}
         />
       ) : N.archivedMode ? (
         <>
-          <div className="section-title"><Archive size={12} /> 已归档 · 只读</div>
+          <div className="section-title"><Archive size={12} /> {t('已归档 · 只读')}</div>
           <div className="note-list">{N.notes.map(renderNote)}</div>
         </>
       ) : (
         <>
           {N.pinned.length > 0 && !N.pinnedOnly ? (
             <>
-              <div className="section-title"><Pin size={12} /> 置顶</div>
+              <div className="section-title"><Pin size={12} /> {t('置顶')}</div>
               <div className="note-list">{N.pinned.map(renderNote)}</div>
-              <div className="section-title">全部</div>
+              <div className="section-title">{t('全部')}</div>
             </>
           ) : null}
           <div className="note-list" style={{ marginTop: N.pinned.length > 0 && !N.pinnedOnly ? 0 : 18 }}>
@@ -113,29 +114,29 @@ export function NotesPage({ tags, refreshMeta, onOpenAsset, archivedCount }: {
       <Modal
         open={C.newTagOpen}
         onClose={() => C.setNewTagOpen(false)}
-        title="新建标签"
+        title={t('新建标签')}
         width={380}
         footer={
           <>
-            <Button variant="ghost" onClick={() => C.setNewTagOpen(false)}>取消</Button>
-            <Button variant="primary" onClick={C.createTag} disabled={!C.newTagName.trim()}>创建</Button>
+            <Button variant="ghost" onClick={() => C.setNewTagOpen(false)}>{t('取消')}</Button>
+            <Button variant="primary" onClick={C.createTag} disabled={!C.newTagName.trim()}>{t('创建')}</Button>
           </>
         }
       >
         <div className="field">
-          <label>名称</label>
+          <label>{t('名称')}</label>
           <input
             className="input"
             value={C.newTagName}
             autoFocus
-            placeholder="例如：待办"
+            placeholder={t('例如：待办')}
             onChange={(e) => C.setNewTagName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') C.createTag() }}
           />
-          <span className="hint">创建后会直接插到便签里；也可以只在设置页管理。</span>
+          <span className="hint">{t('创建后会直接插到便签里；也可以只在设置页管理。')}</span>
         </div>
         <div className="field">
-          <label>颜色</label>
+          <label>{t('颜色')}</label>
           <input
             type="color"
             value={C.newTagColor}

@@ -3,6 +3,7 @@
 // 原来埋在 client.ts 里，一条都测不到。
 import type { FolderInfo, MailRow } from './types.js'
 import { addrList, addrOne, snippetFromText, toIso } from './parse.js'
+import { t } from '../i18n.js'
 
 /** 一条 IMAP fetch 结果 → 列表行。 */
 export function toRow(accountId: number, folder: string, m: any): MailRow {
@@ -12,7 +13,7 @@ export function toRow(accountId: number, folder: string, m: any): MailRow {
     accountId,
     folder,
     uid: Number(m.uid),
-    subject: String(m.envelope?.subject || '').trim() || '(无主题)',
+    subject: String(m.envelope?.subject || '').trim() || t('(无主题)'),
     from: addrOne(m.envelope?.from),
     to: addrList(m.envelope?.to),
     date: toIso(m.internalDate || m.envelope?.date),
