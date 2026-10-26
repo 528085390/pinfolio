@@ -23,7 +23,7 @@ async function open(density, view) {
   }
   await page.evaluate((d) => localStorage.setItem('pinboard-svc-density', d), density)
   await page.goto(BASE + '/services', { waitUntil: 'networkidle' })
-  await page.waitForSelector('.svc-mini, .svc-card', { timeout: 20000 })
+  await page.waitForSelector('.svc-mini, .svc-card, .svc-srow', { timeout: 20000 })
   if (view === 'service') {
     await page.locator('.svc-tab', { hasText: '服务视角' }).click()
     await page.waitForTimeout(300)
@@ -39,14 +39,19 @@ const metrics = async () => page.evaluate(() => {
     contentHeight: h,
     visibleHeight: el ? el.clientHeight : 0,
     fitsOneScreen: h <= (el ? el.clientHeight + 1 : 0),
-    // 部署板底边到内容区顶边的距离 → 一屏还剩多少余量
+    // 部署区底边到内容区顶边的距离 → 一屏还剩多少余量
     usedHeight: (() => {
-      const b = document.querySelector('.svc-board')
+      const b = document.querySelector('.svc-board, .svc-slist')
       return b ? Math.round(b.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0
+    })(),
+    boardHeight: (() => {
+      const b = document.querySelector('.svc-board, .svc-slist')
+      return b ? Math.round(b.getBoundingClientRect().height) : 0
     })(),
     cards: document.querySelectorAll('.svc-mini').length,
     rows: document.querySelectorAll('.svc-mini-row').length,
-    cardHeights: [...document.querySelectorAll('.svc-mini')]
+    listRows: document.querySelectorAll('.svc-srow').length,
+    cardHeights: [...document.querySelectorAll('.svc-mini, .svc-srow')]
       .slice(0, 8)
       .map(c => Math.round(c.getBoundingClientRect().height)),
     alignItems: (() => {
@@ -64,19 +69,48 @@ await open('compact', 'service')
 const mService = await metrics()
 await page.screenshot({ path: 'tmp/shot-services-service.png' })
 
-// 点第一条部署的名字 → 换到服务器视角并闪一下
-const first = page.locator('.svc-mini-name').first()
-const name = (await first.innerText()).trim()
-await first.click()
+// 点了有观测的行 → 直接跳观测台
+await open('compact', 'server')
+const linked = page.locator('.svc-mini-row.is-link').first()
+const linkedName = (await linked.locator('.svc-mini-name').innerText()).trim()
+await linked.click()
 await page.waitForTimeout(600)
-const viewAfter = (await page.locator('.svc-tab.is-on').first().innerText()).trim()
+const urlAfterLinked = page.url()
 
-// 点观测图标 → 观测台
-const chip = page.locator('.svc-mini-mon').first()
-const chipTitle = await chip.getAttribute('title')
-await chip.click()
+// 没有观测的行 → 点了不跳
+await open('compact', 'server')
+const plain = page.locator('.svc-mini-row:not(.is-link)').first()
+const plainName = (await plain.locator('.svc-mini-name').innerText()).trim()
+await plain.click()
 await page.waitForTimeout(500)
-const url = page.url()
+const urlAfterPlain = page.url()
+
+// 服务视角（列表）：点服务名 → 观测台
+await open('compact', 'service')
+const svcLinked = page.locator('.svc-srow .svc-srow-name:not(.is-static)').first()
+const svcLinkedName = (await svcLinked.innerText()).trim()
+await svcLinked.click()
+await page.waitForTimeout(600)
+const urlAfterSvcName = page.url()
+
+// 服务视角（列表）：点机名小标签 → 换到服务器视角并闪那台机
+await open('compact', 'service')
+await page.locator('.svc-srow .svc-schip').first().click()
+await page.waitForTimeout(600)
+const viewAfterChip = (await page.locator('.svc-tab.is-on').first().innerText()).trim()
+const flashCard = await page.locator('.svc-mini.is-flash').count()
+
+// 详细视图：行尾 ⇄ 换视角
+await open('detail', 'server')
+await page.locator('.svc-swap').first().click()
+await page.waitForTimeout(600)
+const viewAfterSwap = (await page.locator('.svc-tab.is-on').first().innerText()).trim()
+
+// 详细视图：点名字（有观测的）→ 观测台
+await open('detail', 'server')
+await page.locator('.svc-row .svc-name:not(.is-static)').first().click()
+await page.waitForTimeout(600)
+const urlAfterDetailName = page.url()
 
 await open('detail', 'server')
 const mDetail = await metrics()
@@ -96,10 +130,16 @@ const mNarrow = await metrics()
 await page.screenshot({ path: 'tmp/shot-services-narrow.png' })
 
 console.log(JSON.stringify({
-  clickedRow: name,
-  viewAfterClick: viewAfter,
-  chipTitle,
-  urlAfterChip: url,
+  linkedRow: linkedName,
+  urlAfterLinked,
+  plainRow: plainName,
+  urlAfterPlain,
+  viewAfterSwap,
+  urlAfterDetailName,
+  svcRowName: svcLinkedName,
+  urlAfterSvcName,
+  viewAfterChip,
+  flashCardAfterChip: flashCard,
   heights: { compactServer: mServer, compactService: mService, detailServer: mDetail, narrow: mNarrow },
   errors,
 }, null, 1))
