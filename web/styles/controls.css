@@ -47,6 +47,15 @@
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 
+/* 页面级卡片（设置 / 备份）：内容是卡片的一部分，得和边框留出气口。
+   写在 .page > .card 上而不是给 .card 加 padding —— 卡片一放上页面就自动带上，
+   新加的卡片不会因为忘了写 class 又贴边（设置页那四张卡就是这么贴上的）。
+   注意：别的页面（资产 / 观测 / 服务…）用的是 asset-card / svc-card 这类专用卡，
+   不是 .card，所以这条只落在设置页和备份页；抽屉里的卡片也不受影响。 */
+.page > .card { padding: 18px 20px 20px; }
+.page > .card + .card { margin-top: 18px; }
+.page > .card > .section-title { margin-left: 0; margin-right: 0; }
+
 .kbd {
   font-family: var(--font-mono); font-size: 10.5px; padding: 2px 5px; border-radius: 5px;
   border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--muted);

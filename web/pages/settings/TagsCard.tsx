@@ -6,7 +6,7 @@ import type { SettingsState } from './useSettings'
 
 export function TagsCard({ s, tags }: { s: SettingsState; tags: Tag[] }) {
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card">
       <div className="section-title" style={{ marginTop: 0 }}>{t('标签')}</div>
       <div className="filters" style={{ marginBottom: 12 }}>
         {tags.length === 0 ? <span className="muted" style={{ fontSize: 13 }}>{t('还没有标签。在便签里写 #标签 会自动创建。')}</span> : null}

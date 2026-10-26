@@ -36,9 +36,12 @@
   .auth-submit { height: 44px; }
 }
 
-/* 设置页「安全」卡片（内容密，给它一点内边距，别贴着边框） */
-.sec-card { padding: 14px 14px 16px; margin-top: 16px; }
+/* 设置页「安全」「隧道」与备份页两张卡的标题带图标，排成一行。
+   内边距和卡片间距由 controls.css 的 .page > .card 统一给，这里只管标题。 */
 .sec-card .section-title { display: flex; align-items: center; gap: 6px; }
+/* 卡片里的说明段落。以前没有这条规则，段落吃浏览器默认的 16px 字号和 16px 边距，
+   比卡里其他文字大一圈，行距也散 —— 备份页 / 隧道卡都受影响。 */
+.sec-hint { margin: 2px 0 14px; font-size: 13px; line-height: 1.65; color: var(--ink-2); }
 .sec-label { font-size: 11.5px; color: var(--muted); letter-spacing: 0.03em; margin-bottom: 8px; }
 .sec-list { display: flex; flex-direction: column; gap: 6px; }
 .sec-row {

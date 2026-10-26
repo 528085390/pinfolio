@@ -16,8 +16,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 12px 0 0;
+  margin: 14px 0 0;
 }
+/* 「立即备份」这行按钮和下面的文件表原本贴着（表格的 margin-top 是 0），补一口气 */
+.bk-actions + .table-wrap { margin-top: 14px; }
 
 .bk-table { width: 100%; }
 .bk-table td { vertical-align: middle; }

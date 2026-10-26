@@ -7,7 +7,7 @@ import type { SettingsState } from './useSettings'
 
 export function FieldsCard({ s, fields }: { s: SettingsState; fields: FieldDef[] }) {
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card">
       <div className="section-title" style={{ marginTop: 0 }}>{t('自定义资产字段')}</div>
       <div className="muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
         {t('给资产加自己的字段，例如「密钥存放位置」「续费周期」「机房」。字段对所有资产通用。')}

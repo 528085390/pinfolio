@@ -57,6 +57,8 @@ button:focus-visible, a:focus-visible { outline-offset: 3px; }
   .topbar-sub { max-width: 58vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topbar-actions .kbd { display: none; }
   .page { padding: 14px 14px calc(80px + env(safe-area-inset-bottom)); }
+  /* 手机上卡片内边距跟着页面缩一点，不然 390px 屏两边白白让掉 40px */
+  .page > .card { padding: 16px 14px 16px; }
   .toast { bottom: calc(68px + env(safe-area-inset-bottom)); }
 }
 
