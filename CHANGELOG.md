@@ -14,8 +14,14 @@
 - **正文是图片归属的唯一真相**：从正文删掉引用 → 图变孤儿（文件留 7 天、每天清一次，误删能救回来）；删便签 → 图立刻一起删；整段正文复制到别条便签 → 只解绑、不删文件。孤儿清扫顺手清掉 `data/uploads/` 里没登记的野文件。
 - 迁移 **v3** 建 `attachments` 表（`note_id` 外键 `ON DELETE SET NULL`）；图片真身放 `data/uploads/<id>.<ext>`，**随备份包一起打进去**；`SNAPSHOT.md` 里图片收成 `[图片]`（有 alt 是 `[图片：alt]`）。
 
-### 文档
+### 便签卡片更紧凑（改）
 
+- **列表里的图片限高 180px**：等比缩小、整张可见不裁切（横图竖图都收得住），要看细节点开灯箱（那里仍是原尺寸，编辑框也不受影响）。之前没有高度上限，一张竖屏截图就把一屏占满，下面的便签得翻页才看得到。
+- **纯图片段落并排**：一条便签里的多张图横向排一行、放不下自动换行，不再上下叠。用 `.note-body .prose p:has(> img:only-child) { display: inline-block }` 实现，`:has()` 不支持时退回竖排（不影响功能）。
+- **卡片密度收紧**：内边距 15/17 → 12/14px、正文 14.5 → 14px（行高 1.78 → 1.7）、头尾间距各减 2px。实测同一屏（1440×900，6 条便签其中 3 条带图）：列表总高 3447px → 1379px，双图便签 1245px → 288px，竖屏图便签 963px → 288px。
+- 只改展示样式，数据与接口没动。
+
+### 文档
 - `docs/features.zh.md` / `features.md` 新增「便签」章节：粘贴 / 拖拽 / 选文件、压缩、类型限制、灯箱、孤儿回收、备份。
 - `docs/api.zh.md` / `api.md` 加 `POST /attachments` 与 `GET /attachments/:id`，并把过期的「无鉴权（只监听本机）」改成「除 `/health` 与 `/auth/*` 外都要登录；写接口只认 JSON，图片上传是唯一例外」。
 - `docs/architecture.md` 补 `server/attachments/*`、`server/schema/attachments.ts`、迁移 v3、`data/uploads/`，前端补 `useImageUpload.ts`、`Lightbox.tsx`、`web/lib/images.ts`、`web/lib/api/attachments.ts`。
