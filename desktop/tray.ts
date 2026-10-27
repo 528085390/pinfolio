@@ -49,10 +49,11 @@ export function isAutoStartEnabled(): boolean {
  * 写开机自启开关，返回**写完之后的真实状态**（不是我们想设的值）。
  * menu 的 checkbox 和自证都看返回值：写入失败时用户能看到勾选状态弹回去。
  *
- * 打包态差别（写进报告）：装好的 pinfolio.exe 会登记 HKCU\...\Run 下的 pinfolio 项指向
- * 安装目录里的 exe；开发态（electron .）登记的是 node_modules 里 electron.exe + 应用路径，
- * 登录后能起来但用的是开发构建 —— 所以开发态验证只以 getLoginItemSettings() 自证，
- * 真正「开机自启」要到 Task 9 的安装包里才算数。
+ * 打包态差别（实测，别照抄旧说法）：开发态（electron .）登记的是 node_modules 里那个
+ * electron.exe，**launchItems[0].args = []** —— 没带任何应用路径，真开机起的是 Electron 空壳
+ * 而不是 pinfolio（Task 7 报告「开机自启」一节的实测）。所以开发态只能以
+ * getLoginItemSettings() 自证；装好的 pinfolio.exe（Task 9）登记的才是指向安装目录真实 exe 的项
+ * （值名也会从 electron.app.Electron 变成 pinfolio），**打包后必须复测**这一条。
  */
 export function setAutoStart(enabled: boolean): boolean {
   try {

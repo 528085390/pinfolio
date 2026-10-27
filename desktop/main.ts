@@ -40,6 +40,8 @@ import type { Bounds } from './window-state.js'
  * 9. **关窗 ≠ 退出**（Task 7）：close 事件在「不是真退出」时 preventDefault + hide，
  *    window-all-closed 也不 quit（Windows 常驻托盘）。真退出只有两条路：托盘「退出」与
  *    系统关机（before-quit），两者都把 `quitRequested` 置位，然后走同一个关服务流程。
+ *    **唯一例外**是托盘没建起来（tray === null）：关窗即真关，window-all-closed 直接 quit ——
+ *    没窗口又没图标，再常驻就是个占着端口和数据库的僵尸进程。
  */
 
 /** 只监听回环：desktopAutoLogin 也要求回环（server/app.ts 的 resolveListenOptions 会校验） */
@@ -204,6 +206,15 @@ function wireNavigation(contents: WebContents, port: number): void {
     event.preventDefault()
     openExternal(url)
   })
+
+  // 上面两道闸只覆盖**这个** webContents。setWindowOpenHandler 放行的子窗口（站内 target=_blank、
+  // 以及 isInternalUrl 单独放行的 window.open('about:blank')）有它自己的 webContents，页面拿到
+  // 句柄后一句 `w.location.href = 'https://…'` 就能在本进程里加载外部页面 —— 实测（修复前）：
+  // 进程内多出一个 https://example.com/ 的 page target，没有地址栏、没有 [nav] 日志、
+  // 也没交给系统浏览器。所以每个新建出来的窗口都递归装同一套闸。
+  contents.on('did-create-window', (child) => {
+    wireNavigation(child.webContents, port)
+  })
 }
 
 /**
@@ -348,9 +359,17 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => focusMainWindow())
 
-  // Windows 上关掉最后一个窗口默认就退出；托盘常驻要求这里**什么也不做**（Task 7）
+  // Windows 上关掉最后一个窗口默认就退出；托盘常驻要求这里**不退出**（Task 7）。
+  // 例外是托盘没建起来（tray === null）：createMainWindow 的 close 那边已经放行真关，
+  // 这里必须跟着退出 —— 否则留下一个没窗口、没图标、却还占着端口与 SQLite 的进程，
+  // 用户只能去任务管理器杀（与「关窗即退出」的降级承诺相反）。
   app.on('window-all-closed', () => {
     if (quitRequested) return
+    if (tray === null) {
+      quitRequested = true
+      app.quit()
+      return
+    }
     log('[pinfolio] 所有窗口已关闭，托盘还在，进程继续跑')
   })
 
