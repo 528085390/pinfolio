@@ -1,2 +1,6 @@
 allowBuilds:
   esbuild: true
+  electron: true
+  # electron-builder 的可选依赖，只在生成 Squirrel.Windows 安装包时用（我们走 NSIS），
+  # 其 install 脚本只是挑 7z 架构；显式置 false 以免 pnpm 因「被忽略的构建脚本」报错。
+  electron-winstaller: false
