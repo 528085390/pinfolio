@@ -1,5 +1,5 @@
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { DATA_DIR, ROOT } from '../db.js'
 import { renderSnapshot } from './markdown.js'
 import { loadAssets, loadFields, loadLastChange, loadNotes, loadTags } from './rows.js'
@@ -52,6 +52,9 @@ export async function writeSnapshot(): Promise<string | null> {
   }
   try {
     const text = buildSnapshot()
+    // 父目录可能还不存在（桌面端首启把快照指向用户目录时就是这种），先建出来再写；
+    // 正式实例的目录本来就存在，mkdir recursive 是空转，行为不变。
+    await mkdir(dirname(SNAPSHOT_TARGET), { recursive: true })
     await writeFile(SNAPSHOT_TARGET, text, 'utf8')
     return SNAPSHOT_TARGET
   } catch (err) {

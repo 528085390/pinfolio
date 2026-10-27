@@ -37,6 +37,12 @@ test('PINBOARD_SNAPSHOT 是空串时按「没设置」处理（docker-compose �
     join('/r', 'SNAPSHOT.md'),
   )
   assert.equal(resolveSnapshotTarget({ snapshotEnv: '', root: '/r', dataDir: '/tmp/x' }), null)
+  // 纯空白（`VAR=   `）同理：trim 后为空 = 没设置
+  assert.equal(
+    resolveSnapshotTarget({ snapshotEnv: '   ', root: '/r', dataDir: '/r/data' }),
+    join('/r', 'SNAPSHOT.md'),
+  )
+  assert.equal(resolveSnapshotTarget({ snapshotEnv: '   ', root: '/r', dataDir: '/tmp/x' }), null)
 })
 
 test('尾部分隔符不同不算隔离实例（/r/data/ 与 /r/data 同一目录）', () => {
