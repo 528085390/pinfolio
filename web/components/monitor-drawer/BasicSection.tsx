@@ -72,7 +72,12 @@ export function BasicSection({ form, setForm, m }: {
             </div>
           </div>
         </Field>
-        <Field label={t('出站模式')} span hint={pinHintText(outbound.cfg)}>
+        {/* 说明灰字跟着选中项走（task-12 C31）：钉死时不讲「跟随全局（当前：…）」，否则读起来像在描述选中项 */}
+        <Field
+          label={t('出站模式')}
+          span
+          hint={form.outboundMode === 'follow' ? pinHintText(outbound.cfg) : t('这一项已钉死，不吃上面的全局设置')}
+        >
           <div className="monitor-drawer-chips">
             {OUTBOUND_PINS.map((pin) => (
               <button

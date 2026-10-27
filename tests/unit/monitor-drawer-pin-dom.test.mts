@@ -82,6 +82,20 @@ function pinButtons(html: string) {
   return buttons(html).filter((b) => PIN_LABELS.includes(b.body))
 }
 
+/**
+ * 取「出站模式」那一格的 .field-hint 文本（task-12 C34）。
+ * 精确比对整句，别用 html.includes：那种断言会被按钮文案本身满足，等于没测。
+ */
+function outboundHint(html: string): string {
+  const start = html.indexOf('\u51fa\u7ad9\u6a21\u5f0f') // 出站模式
+  assert.ok(start >= 0, 'HTML 里找不到「出站模式」这一格')
+  const head = html.indexOf('<span class="field-hint">', start)
+  assert.ok(head >= 0, '「出站模式」这一格没有 field-hint')
+  const from = head + '<span class="field-hint">'.length
+  const to = html.indexOf('</span>', from)
+  return html.slice(from, to)
+}
+
 const PROXY_STATE: OutboundState = {
   cfg: { mode: 'proxy', proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 10808, username: 'u', hasPassword: true }, changedAt: null },
   pending: {}, msg: '', err: '', busy: '',
@@ -105,12 +119,21 @@ test('渲染态：高亮跟着 form.outboundMode 走，钉那一行只有一枚 
 
 test('渲染态：读不到全局配置时说明文字降级成「跟随全局」，不带括号也不报错', async () => {
   const html = await renderSection('follow', null)
-  assert.ok(html.includes('跟随全局'), '按钮文案')
-  assert.equal(html.includes('（当前：'), false, 'cfg=null 时不该出现「（当前：…）」')
+  // 精确比对那一行灰字本身（task-12 C34：原来用 html.includes('跟随全局')，被按钮文案满足，等于什么都没测）
+  assert.equal(outboundHint(html), '跟随全局', 'cfg=null 时灰字应正好是「跟随全局」')
 })
 
 test('渲染态：读得到全局配置时说明文字写清当前出口（经代理 socks5h host:port，不含账号密码）', async () => {
   const html = await renderSection('follow', PROXY_STATE)
-  assert.ok(html.includes('跟随全局（当前：经代理 socks5h 127.0.0.1:10808）'), '说明文字')
+  assert.equal(outboundHint(html), '跟随全局（当前：经代理 socks5h 127.0.0.1:10808）', '说明文字逐字')
   assert.equal(html.includes('hasPassword'), false, '说明文字里不许漏出密码字段')
+  assert.equal(html.includes('u@'), false, '用户名也不许漏')
+})
+
+test('渲染态：已经钉死时灰字改口（task-12 C31）——不再讲「跟随全局（当前：…）」', async () => {
+  for (const pin of ['direct', 'proxy'] as const) {
+    const html = await renderSection(pin, PROXY_STATE)
+    assert.equal(outboundHint(html), '这一项已钉死，不吃上面的全局设置', pin + '：钉死态的灰字')
+    assert.equal(outboundHint(html).includes('跟随全局'), false, pin + '：钉死时不许再讲「跟随全局」')
+  }
 })

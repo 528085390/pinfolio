@@ -237,3 +237,26 @@
   .kuma-guide-title { font-size: 15px; }
   .kuma-guide-code { font-size: 10.5px; padding: 8px 9px; }
 }
+
+/* ---------- 出站模式：页头徽标 + 卡片「钉死」小标签（task 14a）----------
+   徽标只说明「探测现在从哪条出口出去」，不参与任何状态判断；读不到时组件整块不渲染，
+   所以这里没有「空态」样式。 */
+.monitor-outbound {
+  display: inline-block; margin-top: 10px; padding: 2px 9px; border-radius: 999px;
+  max-width: 100%; font-size: 11.5px; line-height: 1.65; font-family: var(--font-mono);
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2);
+  cursor: help;
+}
+.monitor-outbound.is-proxy {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  color: var(--accent-strong);
+}
+/* 直连是「一切照旧」的那一态：弱化成灰字，别和「经代理」抢注意力 */
+.monitor-outbound.is-direct { background: transparent; color: var(--muted); }
+/* 卡片的钉死小标签：独立 class（虚线边框 = 配置，不是状态） */
+.monitor-pin {
+  font-size: 10.5px; line-height: 1.6; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  font-family: var(--font-mono); color: var(--muted); background: var(--surface-3);
+  border: 1px dashed var(--line-strong);
+}

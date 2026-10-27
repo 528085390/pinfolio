@@ -140,6 +140,13 @@ export const monitors: Dict = {
   '跟随全局（当前：经代理，还没配代理）': 'Follow global (now: via proxy, none configured yet)',
   '跟随全局（当前：经代理 {proxy}）': 'Follow global (now: via proxy {proxy})',
 
+  // task 14a：观测页页头徽标的两条 title + 抽屉里「已钉死」那句灰字。
+  // '出站：直连' / '出站：经代理 {proxy}' / '出站：经代理（还没配代理）' 与 '钉：直连' / '钉：代理'
+  // 都已在 settings.ts，徽标与卡片标签直接复用，这里不再写一遍（否则同名键要两边同步译文）。
+  '直连的绿色代表本机不经代理直接可达':
+    'Green while direct means the machine reached the target without a proxy',
+  '这一项已钉死，不吃上面的全局设置': 'This monitor is pinned and ignores the global outbound setting above',
+
   // 保存 / 暂停 / 恢复的提示
   '已保存': 'Saved',
   '已恢复': 'Resumed',

@@ -9,6 +9,7 @@ import { MonitorCard } from './monitors/MonitorCard'
 import { MonitorTable } from './monitors/MonitorTable'
 import { QuickLinks } from './monitors/QuickLinks'
 import { KumaGuide } from './monitors/KumaGuide'
+import { OutboundBadge } from './monitors/OutboundBadge'
 import { t } from '../lib/i18n'
 
 export function MonitorsPage({
@@ -37,6 +38,9 @@ export function MonitorsPage({
   return (
     <div className="page page-wide page-monitors">
       <MonitorStats summary={M.summary} />
+
+      {/* 出站徽标：只说明探测现在从哪条出口出去，不参与任何状态判断（读不到时整块不渲染） */}
+      <OutboundBadge />
 
       <MonitorFilters
         groups={M.groups}
