@@ -8,7 +8,7 @@ import { writeSnapshot } from './snapshot/write.js'
  * - 本文件也当脚本用：pnpm snapshot（= tsx server/snapshot.ts）立即重生成一次
  */
 
-export { SNAPSHOT_PATH, buildSnapshot, scheduleSnapshot, writeSnapshot } from './snapshot/write.js'
+export { SNAPSHOT_PATH, buildSnapshot, cancelSnapshot, scheduleSnapshot, writeSnapshot } from './snapshot/write.js'
 export { renderSnapshot } from './snapshot/markdown.js'
 export type { AssetRow, FieldRow, NoteRow, TagRow } from './snapshot/rows.js'
 

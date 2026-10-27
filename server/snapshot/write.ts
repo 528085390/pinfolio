@@ -60,6 +60,12 @@ export function scheduleSnapshot(delay = 1500): void {
   if (timer.unref) timer.unref()
 }
 
+/** 关服务时用：取消还没触发的防抖计时器（已经在写的那次不受影响） */
+export function cancelSnapshot(): void {
+  if (timer) clearTimeout(timer)
+  timer = null
+}
+
 async function flush(): Promise<void> {
   if (running) {
     dirty = true
