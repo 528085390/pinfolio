@@ -334,6 +334,24 @@ async function prepareUpdateInstall(): Promise<void> {
   await closeServerOnce()
 }
 
+/**
+ * 安装没完成的兜底（修复轮 I2）：`quitAndInstall()` 之后 3 秒进程还在（安装器没接管）时被调用。
+ *
+ * 这时候后端已经关掉了，留在原地就是「窗口还在但页面全废、quitRequested 已置所以关窗即真关、
+ * window-all-closed 也不退出」的死局，唯一出路是托盘「退出」。所以直接 relaunch：
+ * 新实例会重新起服务、注票、开窗 —— 用户看到的是「更新没装上，但应用还能用」。
+ */
+function restartForUpdateFallback(): void {
+  log('[pinfolio] 安装没有完成，重启一个新的实例')
+  quitRequested = true
+  try {
+    app.relaunch()
+  } catch (err) {
+    log('[pinfolio] app.relaunch() 失败：', err)
+  }
+  app.quit()
+}
+
 /** 起后端 → 注 cookie → 开窗 → 建托盘。startServer 与 ready 可以并行，但 cookie/窗口只能在 ready 之后 */
 async function boot(): Promise<void> {
   const paths = prepareEnv()
@@ -397,6 +415,7 @@ async function boot(): Promise<void> {
   configureUpdater({
     getWindow: () => (mainWindow !== null && !mainWindow.isDestroyed() ? mainWindow : null),
     beforeInstall: prepareUpdateInstall,
+    onInstallFailed: restartForUpdateFallback,
   })
 
   // 打包态启动 30 秒后静默检查一次更新：unref 保证这个定时器绝不挡住进程退出。

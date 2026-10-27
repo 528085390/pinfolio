@@ -1,6 +1,7 @@
 import { app, dialog } from 'electron'
 import type { BrowserWindow, MessageBoxOptions, MessageBoxReturnValue } from 'electron'
 import { log } from './log.js'
+import { pickAutoUpdater } from './updater-interop.js'
 
 /**
  * 桌面端自动更新（Task 8，electron-updater + GitHub Releases）。
@@ -14,7 +15,7 @@ import { log } from './log.js'
  * 1. **electron-updater 必须懒加载**（本文件最要紧的一条）：开发态（`electron .`）根本没有
  *    `<resources>/app-update.yml`，顶层 `import { autoUpdater } from 'electron-updater'` 会在启动那一刻
  *    就去初始化 updater，日志里刷一堆 error（严重时抛错），而开发态压根不该走更新。所以两个出口的
- *    第一句都是 `if (!app.isPackaged) { log('未打包，跳过更新检查'); return }`，动态 import
+ *    第一句都是 `if (!app.isPackaged) { log('[updater] 未打包，跳过更新检查'); return }`，动态 import
  *    `await import('electron-updater')` **只出现在这个判断之后**的 loadUpdater() 里。
  *    连类型都不在顶层 import（用 `typeof import('electron-updater')` 这种只在类型位置出现的写法，
  *    编译后完全擦除），免得「顶层出现 electron-updater」这条规矩有一丝歧义。
@@ -30,12 +31,24 @@ import { log } from './log.js'
  *    弹出来就只能等用户点，反而把「正在检查」变成卡死的对话框。改成任务栏进度条：
  *    检查中 = 不确定进度（2），下载中 = 百分比（0~1），结束一律 `setProgressBar(-1)` 复位。
  *
+ * 6. **取 autoUpdater 必须过 interop 兜底**（修复轮 C1）：electron-updater 的 `autoUpdater` 是
+ *    `Object.defineProperty(exports, 'autoUpdater', { get })` 暴露的，Node 的 cjs-module-lexer 静态分析
+ *    识别不到 → `(await import('electron-updater')).autoUpdater` 是 **undefined**（类型声明里却有，tsc 不报错）。
+ *    所以统一走 updater-interop.ts 的 pickAutoUpdater()，它按「具名 → default → module.exports」取。
+ * 7. **安装失败不许把应用变砖**（修复轮 I2）：`quitAndInstall()` 整条链**不抛异常**（BaseUpdater 里是
+ *    dispatchError + return false），所以不能靠 catch 兜底。现在的顺序是：
+ *    先查 installerPath（没有就**不关服务**、直接给可执行的错误提示）→ 收尾关服务 → quitAndInstall()
+ *    → 3 秒看门狗（进程还在说明安装器没接管 → onInstallFailed() 让 main.ts relaunch 一个可用实例）。
+ *
  * 退出语义不在这里：安装前要「置退出标志 + 关后端服务」这件事由 main.ts 注入（beforeInstall），
  * 因为只有 main.ts 知道 handle 与 before-quit 那套防重入逻辑。updater 反向 import main.ts 会成环。
  */
 
 /** 打包态启动后多久做第一次静默检查（main.ts 用同一个值：30 秒足够让窗口与服务先就绪） */
 export const AUTO_CHECK_DELAY_MS = 30_000
+
+/** quitAndInstall() 之后等多久判断「安装器有没有接管」（3 秒足够 NSIS 把进程接管过去） */
+const INSTALL_WATCHDOG_MS = 3000
 
 /**
  * electron-updater 的类型：`typeof import(...)` 只出现在**类型位置**，编译产物里没有任何 runtime import。
@@ -52,19 +65,49 @@ export type UpdaterHooks = {
    * 由 main.ts 提供 —— 它才知道 ServerHandle 在哪、以及 before-quit 的防重入怎么走。
    */
   beforeInstall: () => Promise<void>
+  /**
+   * `quitAndInstall()` 之后 3 秒看门狗触发时调用：安装器没接管、进程还活着时，
+   * main.ts 负责 `app.relaunch()` + `quitRequested = true` + `app.quit()`，
+   * 把用户送回一个**能用的实例**，而不是一个后端已停、页面全废、又退不掉的窗口。
+   */
+  onInstallFailed: () => void
 }
 
 let getParentWindow: () => BrowserWindow | null = () => null
 let beforeInstall: () => Promise<void> = async () => {}
+let onInstallFailed: () => void = () => {}
 
 /** 接线（main.ts 在 boot 里调用一次；不调用也能跑，只是没有 parent 窗口、安装前不做收尾） */
 export function configureUpdater(hooks: UpdaterHooks): void {
   getParentWindow = hooks.getWindow
   beforeInstall = hooks.beforeInstall
+  onInstallFailed = hooks.onInstallFailed
 }
 
 /** 上一次记过日志的下载百分比（每 1% 只留一行，别让进度条把 1 MB 的日志刷爆） */
 let loggedPercent = -1
+
+/** 正在跑的那一次检查（M3）：autoCheck 与手动检查撞上时共用同一个 Promise，绝不并发问两遍 GitHub */
+let pendingCheck: Promise<Awaited<ReturnType<Updater['checkForUpdates']>>> | null = null
+/** 下载 / 安装流程执行中（M3）：挡住连点「重启安装」，不重复下载、不重复安装 */
+let busy = false
+
+/**
+ * 去重后的 checkForUpdates()：
+ * 30 秒静默检查与用户手点「检查更新」可能撞在一起 —— 两个都去问一遍既浪费，
+ * 也会让 electron-updater 内部的 updateInfoAndProvider 状态互相覆盖。共用结果即可。
+ * 注意这里**只去重检查**：手动流程拿到同一份结果后照样弹自己的框，用户不会点了没反应。
+ */
+function checkOnce(updater: Updater): Promise<Awaited<ReturnType<Updater['checkForUpdates']>>> {
+  if (pendingCheck !== null) {
+    log('[updater] 已有检查在进行，复用这一次的结果')
+    return pendingCheck
+  }
+  pendingCheck = updater.checkForUpdates().finally(() => {
+    pendingCheck = null
+  })
+  return pendingCheck
+}
 
 /** 一次性的 updater 实例：懒加载 + 只配置一次 */
 let updaterPromise: Promise<Updater> | null = null
@@ -85,7 +128,9 @@ async function loadUpdater(): Promise<Updater> {
 
 /** 首次加载时的配置：不自动下载、不自动安装、logger 接到 log()、事件全接上 */
 async function initUpdater(): Promise<Updater> {
-  const { autoUpdater } = await import('electron-updater')
+  // C1：electron-updater 的 `autoUpdater` 由 `Object.defineProperty(exports, "autoUpdater", { get })`
+  // 暴露，cjs-module-lexer 静态分析识别不到 → 解构出来是 undefined。必须走 pickAutoUpdater，见 updater-interop.ts
+  const autoUpdater = pickAutoUpdater(await import('electron-updater'))
 
   // 必须由用户点「下载」：autoDownload 默认 true，会一发现新版本就闷头下几百 MB
   autoUpdater.autoDownload = false
@@ -157,14 +202,14 @@ function wireEvents(updater: Updater): void {
 export function autoCheck(): void {
   // 开发态没有 app-update.yml：先挡在动态 import **之前**，保证这条路径上 electron-updater 没被加载
   if (!app.isPackaged) {
-    log('未打包，跳过更新检查')
+    log('[updater] 未打包，跳过更新检查')
     return
   }
   void (async () => {
     try {
       const updater = await loadUpdater()
       log('[updater] 启动静默检查更新')
-      const result = await updater.checkForUpdates()
+      const result = await checkOnce(updater)
       if (result === null || !result.isUpdateAvailable) return
       await offerDownload(updater, result.updateInfo.version)
     } catch (err) {
@@ -176,7 +221,7 @@ export function autoCheck(): void {
 /** 托盘「检查更新」：每个结果都给用户一个交代（检查中 / 已是最新 / 找到新版 / 下载中 / 重启安装 / 出错） */
 export async function checkForUpdatesInteractive(): Promise<void> {
   if (!app.isPackaged) {
-    log('未打包，跳过更新检查')
+    log('[updater] 未打包，跳过更新检查')
     return
   }
   // 「检查中」：不确定进度（见文件头第 5 条，不用会卡住的模态框）
@@ -184,7 +229,7 @@ export async function checkForUpdatesInteractive(): Promise<void> {
   try {
     const updater = await loadUpdater()
     log('[updater] 手动检查更新')
-    const result = await updater.checkForUpdates()
+    const result = await checkOnce(updater)
 
     if (result === null) {
       // updater 自己判定不可用：多半是安装包里缺 app-update.yml
@@ -230,6 +275,21 @@ export async function checkForUpdatesInteractive(): Promise<void> {
 
 /** 「找到新版」：用户点「下载」才真的下载，下载完再问「重启安装」 */
 async function offerDownload(updater: Updater, version: string): Promise<void> {
+  // M3：下载 / 安装流程只允许跑一份，连点「检查更新」不会把同一份包下两遍
+  if (busy) {
+    log('[updater] 更新流程已在执行中，忽略这次请求')
+    return
+  }
+  busy = true
+  try {
+    await offerDownloadInner(updater, version)
+  } finally {
+    busy = false
+  }
+}
+
+/** 「找到新版 → 下载 / 以后」的实际流程（busy 守卫在 offerDownload 里） */
+async function offerDownloadInner(updater: Updater, version: string): Promise<void> {
   const { response } = await showBox({
     type: 'info',
     title: '发现新版本',
@@ -291,38 +351,73 @@ async function downloadAndOfferInstall(updater: Updater, version: string): Promi
   await installUpdate(updater, version)
 }
 
+/** 已下载的安装包路径：BaseUpdater 的 protected getter，类型上取不到，只能运行时探 */
+function installerFileOf(updater: Updater): string | null {
+  const value = (updater as unknown as { installerPath?: string | null }).installerPath
+  if (typeof value !== 'string' || value === '') return null
+  return value
+}
+
 /**
- * 真正安装：**先**做安装前收尾（置 quitRequested + 把后端服务关干净），**再** quitAndInstall()。
+ * 真正安装。顺序是**先验后关**（修复轮 I2）：
  *
- * electron-updater 的 quitAndInstall 是同步的：它先把安装器 spawn 起来，然后在 setImmediate 里
- * `app.quit()`。而这个应用「退出前要先 await handle.close()」（before-quit 会 preventDefault
- * 再异步关服务）—— 如果等到那一刻才关，安装器已经在等进程退出了，两边容易抢时序。
- * 所以先自己把服务关掉（复用 main.ts 里同一段收尾，见 prepareUpdateInstall），
- * 之后 before-quit 那一趟只剩「handle 已经是 null」的空跑，不会打架。
+ * 1. **先查 installerPath**：`quitAndInstall()` 这条链根本不会抛异常（BaseUpdater.install 里
+ *    `installerPath == null` 时只是 dispatchError + return false），所以「没有下载包」这种最常见的
+ *    失败只能在这里挡住 —— 一旦先把服务关了再发现装不了，用户拿到的是后端已停、页面全废、
+ *    `quitRequested` 已置（关窗即真关）又退不掉的窗口。
+ * 2. 收尾：置 quitRequested + 把后端关干净（复用 main.ts 的 prepareUpdateInstall），再 quitAndInstall()：
+ *    它 spawn 完安装器就在 setImmediate 里 `app.quit()`，服务提前关掉才不会跟 before-quit 的
+ *    异步关服务抢时序。
+ * 3. `quitAndInstall()` 正常返回**不代表**装上了：起 3 秒看门狗，进程还在就说明安装器没接管，
+ *    交给 main.ts 的 onInstallFailed() 去 relaunch 一个可用实例。
  */
 async function installUpdate(updater: Updater, version: string): Promise<void> {
-  log('[updater] 用户确认重启安装 version ' + version)
+  // ① 先验后关
+  const installerPath = installerFileOf(updater)
+  if (installerPath === null) {
+    log('[updater] installerPath 为空，拒绝安装（不关服务，应用继续可用）')
+    await showBox({
+      type: 'error',
+      title: '更新文件不完整',
+      message: '更新文件不完整，无法安装',
+      detail:
+        '请再点一次「检查更新」，把安装包重新下载完整；' +
+        'pinfolio 现在仍在正常运行，可以继续使用。',
+      buttons: ['好'],
+      noLink: true,
+    })
+    return
+  }
+  log('[updater] 用户确认重启安装 version ' + version + '（安装包：' + installerPath + '）')
+
+  // ② 收尾：置 quitRequested、停看门狗、关后端
   try {
     await beforeInstall()
   } catch (err) {
     // 收尾失败也继续：用户已经明确点了「重启安装」，让它装
     log('[updater] 安装前收尾失败（继续安装）：', err)
   }
+
+  // ③ 装
   try {
     updater.quitAndInstall()
     log('[updater] quitAndInstall 已调用')
   } catch (err) {
-    log('[updater] quitAndInstall 失败：', err)
-    await showBox({
-      type: 'error',
-      title: '安装更新失败',
-      message: '无法启动安装程序',
-      // 走到这里时服务已经关了（beforeInstall 跑过），所以要让用户知道直接重开一次
-      detail: asText(err) + '\n\n请重新打开 pinfolio，然后到 Releases 页面手动下载安装包。',
-      buttons: ['好'],
-      noLink: true,
-    })
+    // 真实安装链不抛；真抛了说明安装器压根没起来，服务已关，只能重启兜底
+    log('[updater] quitAndInstall 抛错（安装器没起来）：', err)
+    onInstallFailed()
+    return
   }
+
+  // ④ 3 秒看门狗：装上了进程应该已经退出；还在就 relaunch 一个可用实例
+  setTimeout(() => {
+    log('[updater] quitAndInstall 之后 3 秒进程仍在，安装器没有接管 → 重启一个可用实例')
+    try {
+      onInstallFailed()
+    } catch (err) {
+      log('[updater] 重启兜底失败：', err)
+    }
+  }, INSTALL_WATCHDOG_MS).unref()
 }
 
 /**
