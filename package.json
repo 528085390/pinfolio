@@ -29,7 +29,8 @@
     "test": "pnpm typecheck && pnpm test:unit && tsx tests/snippet-test.mts",
     "test:unit": "node --import tsx --test \"tests/unit/*.test.mts\"",
     "test:e2e": "node tests/run.mjs",
-    "test:mail": "node tests/run.mjs --only=mail"
+    "test:mail": "node tests/run.mjs --only=mail",
+    "smoke:desktop": "node tools/desktop/smoke.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
