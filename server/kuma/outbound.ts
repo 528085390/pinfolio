@@ -4,7 +4,7 @@
  * 为什么单独一块：界面把用户填的东西收下之前先在这里挡一遍，挡不住的才轮到 kuma 的求值器报错。
  * 文案来自 spec §3.3（设置页表单提示）；kuma 心跳里的错误文案是另一套（代理不可用：配置无效（协议/服务器地址/端口）…），
  * 两处不共用，改动前先看 spec。
- * 账号与密码**都是三态**（缺键 / null / 字符串），语义与 kuma 的 normalizeProxyConfig 一致；两者都不 trim。
+ * 账号与密码在 pinboard API 侧是三态（缺键=保留、null=清空、字符串=设置）；写回 kuma 前由 routes/outbound.ts 统一映射为 kuma 理解的输入（null 塌为 ""，缺键则不传该键以触发 kuma 保留既有值）。
  * 密码只进不出：这里只做「这次带没带密码」，读侧的 `hasPassword` 是 kuma 掩码算的，本文件不产出。
  * 全是纯函数，不碰网络、不碰数据库，所以能单测。
  */
@@ -135,6 +135,10 @@ export function validateOutboundBody(body: unknown): OutboundValidation {
  *   username 缺键时保留 current.username、缺 current 时补 "" —— 这是 R15 定的「默认值补齐」语义，别改
  * - password 例外：缺键 = 保留旧密码（用户没重填就别把密码弄丢）；显式 null 或 "" = 清空成 `""`
  * - 返回新对象，绝不原地改 current
+ */
+/**
+ * 合并代理设置。
+ * 注意：显式 undefined 与缺键等价；本函数不做底层类型校验，调用前必须先过 validateOutboundBody。
  */
 export function mergeProxySettings(current: any, incoming: any): any {
   const cur = asRecord(current) ?? {}

@@ -1,5 +1,5 @@
 // 出站设置的纯逻辑（server/kuma/outbound.ts）：校验、合并、描述
-// 语义与 kuma 侧 server/outbound.js 的 normalizeProxyConfig / mergeProxyOnWrite 同源，但**文案不共用**：
+// 语义与 kuma 侧 server/outbound.js 协同（由 routes/outbound.ts 做映射），但**文案不共用**：
 // 这里的错误文案来自 spec §3.3（设置页表单提示），kuma 心跳里是另一套（代理不可用：配置无效（协议/服务器地址/端口）…）。
 // 跨仓库文案一致性没有自动测试可覆盖 —— 下面这些常量属于同源双写，只防手误不防「两边一起错」；
 // 改动文案或语义时人工对一遍 E:\bqj\.worktrees\kuma\server\outbound.js。
