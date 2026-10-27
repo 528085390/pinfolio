@@ -11,6 +11,7 @@ import { tagsRoute } from './routes/tags.js'
 import { fieldsRoute } from './routes/fields.js'
 import { metaRoute } from './routes/meta.js'
 import { monitorsRoute } from './kuma/routes.js'
+import { outboundRoute } from './routes/outbound.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
 import { hostsRoute } from './metrics/routes.js'
 import { servicesRoute } from './services/routes.js'
@@ -69,6 +70,7 @@ api.route('/assets', assetsRoute)
 api.route('/tags', tagsRoute)
 api.route('/fields', fieldsRoute)
 api.route('/monitors', monitorsRoute)
+api.route('/outbound', outboundRoute)
 api.route('/mail', mailRoute)
 api.route('/hosts', hostsRoute)
 api.route('/services', servicesRoute)

@@ -6,6 +6,7 @@
 //   node tests/run.mjs --only=ci       # CI 用：core 全部 + 没接 Kuma 时的引导卡（不需要 Kuma/邮箱/采集端）
 //   node tests/run.mjs --only=mail     # 邮件套件，另需 MAIL_E2E_BASE 指向隔离实例
 //   node tests/run.mjs --only=all
+//   node tests/run.mjs --only=outbound  # 只跑末尾那段「全局出站模式」（要真实 Kuma + KUMA_PASS）
 //   node tests/run.mjs --keep          # 保留临时数据目录，排查用
 //   E2E_BASE=http://127.0.0.1:7791 node tests/run.mjs   # 打已有实例，不再自己起
 //
@@ -64,13 +65,15 @@ const onlyArg = process.argv.slice(2).find((a) => a.startsWith('--only='))
 const requested = (onlyArg ? onlyArg.slice('--only='.length) : 'default')
   .split(',').map((s) => s.trim()).filter(Boolean)
 
+// outbound 不是独立脚本，而是本文件末尾那一段（它连真实 Kuma，改完 setting 必须复位），
+// 所以这里只把它从「套件名」里摘掉，段落本身照常执行。
 const groups = requested.includes('all') || requested.includes('default')
   ? ['core', 'monitor']
-  : requested
+  : requested.filter((g) => g !== 'outbound')
 
 const unknown = groups.filter((g) => !SUITES[g])
 if (unknown.length) {
-  console.error('[run] 不认识的套件：' + unknown.join(', ') + '（可选 core / ci / monitor / mail / all）')
+  console.error('[run] 不认识的套件：' + unknown.join(', ') + '（可选 core / ci / monitor / mail / outbound / all）')
   process.exit(2)
 }
 
@@ -255,6 +258,274 @@ const env = {
   PINBOARD_PASSWORD: instance ? TEST_PASSWORD : (process.env.PINBOARD_PASSWORD || ''),
 }
 
+/* ---------------- outbound：全局出站模式（这一段会真的写 Kuma 的 general settings） ---------------- */
+//
+// 为什么单独一段、还写得这么小心：它连的是**真实 Kuma**（默认 127.0.0.1:3001），
+// POST /api/outbound 会真的把 monitorOutboundMode / monitorOutboundProxy / monitorOutboundChangedAt
+// 三条 general setting 写进用户的实例。所以：
+//   1. 进段先取这三条的原值，整段包在 try/finally 里，**finally 无条件**恢复（哪怕上面的断言全挂）；
+//   2. 结束时打一行「复位后实测值」，方便人工确认（只打「有没有密码」，不打明文）；
+//   3. 没有 Kuma 口令就 SKIP：那是环境缺凭据，不是代码坏（口令解析顺序同 server/kuma/secret.ts：
+//      KUMA_PASS → 私有实例的 data/kuma-pass.txt；`enc:v1:` 的密文这里解不了，也算没有）。
+//
+// 断言只有一条铁律要记住：**「不修改」不许被降级成「清空」**（密码与账号都是三态）。
+
+/** 代理配置「有没有密码」——老 kuma 回明文 password，新 kuma 回 hasPassword */
+const proxyHasPassword = (raw) =>
+  raw && typeof raw === 'object'
+    ? (typeof raw.password === 'string' ? raw.password.length > 0 : raw.hasPassword === true)
+    : false
+
+function kumaPassForE2E() {
+  const fromEnv = (process.env.KUMA_PASS || '').trim()
+  if (fromEnv) return fromEnv
+  const dir = instance ? instance.dataDir : (process.env.PINBOARD_DATA || join(ROOT, 'data'))
+  try {
+    const raw = readFileSync(join(dir, 'kuma-pass.txt'), 'utf8').trim()
+    // 密文（enc:v1:）要主密钥才能解，runner 里不做解密：当没有口令处理
+    if (raw && !raw.startsWith('enc:v1:')) return raw
+  } catch {
+    /* 没有就没有 */
+  }
+  return ''
+}
+
+/** 开一条登录好的 Kuma socket（只用在这段里，用完关掉） */
+async function openKumaSocket(password) {
+  const { io } = await import('socket.io-client')
+  const url = (process.env.KUMA_URL || 'http://127.0.0.1:3001').replace(/\/+$/, '')
+  const s = io(url, { timeout: 10000, reconnection: false })
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('连不上 Kuma ' + url)), 12000)
+      s.once('connect_error', (e) => { clearTimeout(timer); reject(new Error('连不上 Kuma ' + url + '：' + String(e && e.message ? e.message : e))) })
+      s.once('connect', () => { clearTimeout(timer); resolve(0) })
+    })
+    const login = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Kuma 登录超时')), 12000)
+      s.emit('login', { username: process.env.KUMA_USER || 'admin', password }, (r) => { clearTimeout(timer); resolve(r) })
+    })
+    if (!login || !login.ok) throw new Error('Kuma 登录被拒：' + String(login && login.msg ? login.msg : '(没有回 ok)'))
+  } catch (e) {
+    try { s.close() } catch { /* ignore */ }
+    throw e
+  }
+
+  const call = (event, ...args) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Kuma 无响应：' + event)), 20000)
+    s.emit(event, ...args, (r) => {
+      clearTimeout(timer)
+      if (r && r.ok === false) return reject(new Error('Kuma 拒绝 ' + event + '：' + String(r.msg || '')))
+      resolve(r)
+    })
+  })
+
+  // getMonitorList 的 ack 里没数据，列表是随后推来的 monitorList 事件（同 server/kuma/client.ts）
+  const monitorList = () => new Promise((resolve, reject) => {
+    const onList = (list) => { clearTimeout(timer); s.off('monitorList', onList); resolve(list && typeof list === 'object' ? list : {}) }
+    const timer = setTimeout(() => { s.off('monitorList', onList); reject(new Error('拿观测项列表超时')) }, 20000)
+    s.on('monitorList', onList)
+    s.emit('getMonitorList', () => { /* ack 里没数据 */ })
+  })
+
+  return { call, monitorList, close: () => { try { s.close() } catch { /* ignore */ } } }
+}
+
+/**
+ * 跑完这一整段，返回 { skipped, failed }。
+ * 注意顺序：**先把原值快照下来，再动任何东西**；恢复在 finally 里做，不依赖断言结果。
+ */
+async function runOutboundSection() {
+  const password = kumaPassForE2E()
+  if (!password) {
+    console.log('[run] SKIP outbound：没有 Kuma 口令（设 KUMA_PASS，或让口令落在 data/kuma-pass.txt）。这段要连真实 Kuma 才能跑。')
+    return { skipped: true, failed: 0 }
+  }
+
+  let kuma = null
+  try {
+    kuma = await openKumaSocket(password)
+  } catch (e) {
+    console.log('[run] ✘ outbound：' + (e && e.message ? e.message : e))
+    return { skipped: false, failed: 1 }
+  }
+
+  const fails = []
+  let orig = null
+  let inactiveBefore = []
+
+  const step = async (name, fn) => {
+    try {
+      await fn()
+      console.log('PASS ' + name)
+    } catch (e) {
+      console.log('FAIL ' + name + '：' + (e && e.message ? e.message : e))
+      fails.push(name)
+    }
+  }
+  const eq = (actual, expected, what) => {
+    if (actual !== expected) throw new Error(what + '（期望 ' + JSON.stringify(expected) + '，实际 ' + JSON.stringify(actual) + '）')
+  }
+  const ok = (cond, what) => { if (!cond) throw new Error(what) }
+  const apiCall = async (method, path, body) => {
+    const init = { method, headers: { authorization: 'Bearer ' + token } }
+    if (method !== 'GET') {
+      init.headers['content-type'] = 'application/json'
+      init.body = JSON.stringify(body === undefined ? {} : body)
+    }
+    const r = await fetch(base + '/api' + path, init)
+    const text = await r.text()
+    let data
+    try { data = JSON.parse(text) } catch { data = text }
+    if (!r.ok) {
+      throw new Error(method + ' ' + path + ' -> HTTP ' + r.status + '：' + (typeof data === 'string' ? data.slice(0, 200) : JSON.stringify(data)))
+    }
+    return data
+  }
+  const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms))
+
+  try {
+    // ---- 快照（在做任何写入之前）----
+    const s0 = (await kuma.call('getSettings')).data || {}
+    const has = (k) => Object.prototype.hasOwnProperty.call(s0, k)
+    orig = {
+      mode: has('monitorOutboundMode') ? s0.monitorOutboundMode : undefined,
+      proxy: has('monitorOutboundProxy') ? s0.monitorOutboundProxy : undefined,
+      changedAt: has('monitorOutboundChangedAt') ? s0.monitorOutboundChangedAt : undefined,
+    }
+    const list0 = await kuma.monitorList()
+    inactiveBefore = Object.values(list0).filter((m) => !m.active).map((m) => Number(m.id)).sort((a, b) => a - b)
+    console.log('[run] outbound 进段快照：mode=' + (orig.mode === undefined ? '(未设置)' : String(orig.mode))
+      + '，proxy=' + (orig.proxy ? '已配置' : '(未设置)')
+      + '，changedAt=' + (orig.changedAt === undefined ? '(未设置)' : String(orig.changedAt))
+      + '，停用项 [' + inactiveBefore.join(',') + ']')
+
+    // ---- brief 的 5 条 ----
+    await step('outbound.get.defaults', async () => {
+      const r = await apiCall('GET', '/outbound')
+      eq(r.mode, 'direct', 'GET 的 mode 默认应是 direct')
+      ok(r.proxy === null || typeof r.proxy === 'object', 'GET 的 proxy 必须是 null 或对象')
+      ok(r.changedAt === null || typeof r.changedAt === 'string', 'GET 的 changedAt 必须是 null 或字符串')
+      if (r.proxy) eq(Object.keys(r.proxy).sort().join(','), 'hasPassword,host,port,protocol,username', 'GET 的 proxy 只允许 5 个键')
+    })
+
+    await step('outbound.post.proxy.keeps.entryPage', async () => {
+      const before = (await kuma.call('getSettings')).data.entryPage
+      const r = await apiCall('POST', '/outbound', {
+        mode: 'proxy',
+        proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 1, username: '', password: 'e2e-secret' },
+      })
+      eq(r.mode, 'proxy', 'POST proxy 之后响应里的 mode')
+      eq(r.proxy && r.proxy.hasPassword, true, 'POST proxy 之后响应里的 hasPassword')
+      ok(typeof r.rechecking === 'number' && r.rechecking > 0, 'POST 响应要带 rechecking 条数（> 0），实际 ' + String(r.rechecking))
+      const after = (await kuma.call('getSettings')).data.entryPage
+      eq(after, before, '整包写设置后 entryPage 必须没变')
+    })
+
+    await step('outbound.get.masks.password', async () => {
+      const raw = JSON.stringify(await apiCall('GET', '/outbound'))
+      ok(!raw.includes('e2e-secret'), 'GET 响应体不得含明文密码')
+      const g = await apiCall('GET', '/outbound')
+      eq(g.proxy.hasPassword, true, 'GET 的 hasPassword')
+      ok(!('password' in g.proxy), 'GET 的 proxy 里不许有 password 键')
+    })
+
+    await step('outbound.post.without.password.keeps.it', async () => {
+      await apiCall('POST', '/outbound', { mode: 'proxy', proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 1, username: '' } })
+      eq((await apiCall('GET', '/outbound')).proxy.hasPassword, true, '省略 password 后 hasPassword 必须保持 true（「不修改」不许降级成「清空」）')
+    })
+
+    await step('outbound.recheck.leaves.inactive.monitors.alone', async () => {
+      // 前面几次 POST 都会顺手踢一轮，互斥会把并发的这一轮挡掉（queued 回 0）—— 所以允许重试
+      let queued = 0
+      for (let i = 0; i < 6 && queued === 0; i += 1) {
+        await sleepMs(3000)
+        queued = (await apiCall('POST', '/outbound/recheck')).queued
+      }
+      ok(queued > 0, '重探必须真的排上条目（queued > 0）')
+      await sleepMs(4000)
+      const list = await kuma.monitorList()
+      const inactiveNow = Object.values(list).filter((m) => !m.active).map((m) => Number(m.id)).sort((a, b) => a - b)
+      eq(inactiveNow.join(','), inactiveBefore.join(','), '重探后停用项清单必须一个都没被点亮')
+      console.log('[run] 停用项 [' + inactiveNow.join(',') + ']（进段时 [' + inactiveBefore.join(',') + ']）')
+    })
+
+    // ---- 评审要求补的 3 条（三态回归）----
+    await step('outbound.post.clear.password', async () => {
+      await apiCall('POST', '/outbound', {
+        mode: 'proxy',
+        proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 1, username: '', password: null },
+      })
+      const g = await apiCall('GET', '/outbound')
+      eq(g.proxy.hasPassword, false, 'password:null 之后 hasPassword 必须是 false（清空密码这条路要通）')
+    })
+
+    await step('outbound.post.clear.username', async () => {
+      const set = await apiCall('POST', '/outbound', {
+        mode: 'proxy',
+        proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 1, username: 'e2e-user', password: 'e2e-secret' },
+      })
+      eq(set.proxy.username, 'e2e-user', '先写入账号')
+      await apiCall('POST', '/outbound', { mode: 'proxy', proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 1, username: null } })
+      const g = await apiCall('GET', '/outbound')
+      eq(g.proxy.username, '', 'username:null 之后 username 必须是空串（= 清空账号）')
+      eq(g.proxy.hasPassword, true, '清账号不该把密码一起清掉')
+    })
+
+    await step('outbound.post.omit.password.after.reset.keeps.it', async () => {
+      await apiCall('POST', '/outbound', {
+        mode: 'proxy',
+        proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 2, username: 'e2e-user', password: 'e2e-secret-2' },
+      })
+      eq((await apiCall('GET', '/outbound')).proxy.hasPassword, true, '重设密码后 hasPassword')
+      // 这一条是「不修改」的独立证据：换一组 host/port/账号，只省略 password 键
+      await apiCall('POST', '/outbound', { mode: 'proxy', proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 2, username: 'e2e-user' } })
+      const g = await apiCall('GET', '/outbound')
+      eq(g.proxy.hasPassword, true, '省略 password 键后 hasPassword 必须仍是 true')
+      eq(g.proxy.username, 'e2e-user', '省略 username 键后账号也必须保留')
+      eq(g.proxy.port, 2, '同一次写入里的端口改动要生效（说明不是整包被忽略）')
+    })
+
+    await step('outbound.post.direct.keeps.proxy', async () => {
+      const r = await apiCall('POST', '/outbound', { mode: 'direct' })
+      eq(r.mode, 'direct', 'POST direct 之后响应里的 mode')
+      const raw = (await kuma.call('getSettings')).data.monitorOutboundProxy
+      ok(raw && typeof raw === 'object', 'direct 之后 monitorOutboundProxy 必须还在（不许因为切直连就清空配置）')
+      eq(raw.host, '127.0.0.1', 'direct 之后代理主机应保留')
+      eq(proxyHasPassword(raw), true, 'direct 之后代理密码应保留')
+    })
+  } catch (e) {
+    console.log('FAIL outbound.prepare：' + (e && e.message ? e.message : e))
+    fails.push('outbound.prepare')
+  } finally {
+    // ---- 无条件复位：这三条 general setting 是本段改的，必须还回去 ----
+    try {
+      const cur = (await kuma.call('getSettings')).data || {}
+      const restore = { ...cur }
+      restore.monitorOutboundMode = orig && orig.mode !== undefined ? orig.mode : 'direct'
+      restore.monitorOutboundProxy = orig && orig.proxy !== undefined ? orig.proxy : null
+      // setSettings 只能写不能删键：原来没有 changedAt 时写 null（读侧等价于「没改过」）
+      restore.monitorOutboundChangedAt = orig && orig.changedAt !== undefined ? orig.changedAt : null
+      // setSettings 的第二个参数是 currentPassword：必须显式给，不然 ack 回调会被当成它、永远不回（实测 20s 超时）
+      await kuma.call('setSettings', restore, null)
+
+      const back = (await kuma.call('getSettings')).data || {}
+      const p2 = back.monitorOutboundProxy
+      console.log('[run] outbound 复位后实测：mode=' + (back.monitorOutboundMode === 'proxy' ? 'proxy' : 'direct')
+        + '，proxy=' + (p2 && typeof p2 === 'object' ? String(p2.protocol) + ' ' + String(p2.host) + ':' + String(p2.port) : 'null')
+        + '，hasPassword=' + (p2 && typeof p2 === 'object' ? String(proxyHasPassword(p2)) : '-')
+        + '，changedAt=' + (typeof back.monitorOutboundChangedAt === 'string' ? back.monitorOutboundChangedAt : 'null'))
+    } catch (e) {
+      console.log('[run] ⚠ outbound 复位失败，请手工检查 Kuma 的「设置 → 出站模式」：' + (e && e.message ? e.message : e))
+      fails.push('outbound.restore')
+    } finally {
+      if (kuma) kuma.close()
+    }
+  }
+
+  return { skipped: false, failed: fails.length }
+}
+
 const failed = []
 let passed = 0
 const startedAll = Date.now()
@@ -278,6 +549,19 @@ try {
       if (code === 0) { passed += 1; console.log('[run] ✔ ' + name + ' (' + ms + 'ms)') }
       else { failed.push(name); console.log('[run] ✘ ' + name + ' (exit ' + code + ', ' + ms + 'ms)') }
     }
+  }
+
+  // 末尾这一段不是子进程脚本：它直接打私有实例的 /api/outbound，并自己连真实 Kuma 做快照 / 复位
+  process.stdout.write('\n[run] ▶ outbound/outbound\n')
+  const ob = await runOutboundSection()
+  if (ob.skipped) {
+    console.log('[run] ⊘ outbound（跳过：没有 Kuma 口令）')
+  } else if (ob.failed) {
+    failed.push('outbound')
+    console.log('[run] ✘ outbound（' + ob.failed + ' 条断言失败）')
+  } else {
+    passed += 1
+    console.log('[run] ✔ outbound')
   }
 } finally {
   await stopInstance()
