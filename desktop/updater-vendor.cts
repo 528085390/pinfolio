@@ -5,7 +5,7 @@
 // 应用里会直接失败 —— 开发态用整个工作树的 node_modules，一点看不出来。
 //
 // 两条路的取舍（见任务书）：A = 单独打一个把 electron-updater 内联进来的小包（就是本文件，
-// build:desktop:vendor 生成 dist-desktop/updater-vendor.js）；B = 把 electron-updater 挪进
+// build:desktop:vendor 生成 dist-desktop/updater-vendor.cjs）；B = 把 electron-updater 挪进
 // dependencies，代价是 Web / Docker 的 `pnpm install --prod` 白胖一圈（builder-util-runtime、
 // fs-extra、js-yaml、semver 全跟着进）。优先 A：更新代码整块进 asar，依赖图不变。
 //

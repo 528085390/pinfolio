@@ -11,6 +11,13 @@
 appId: com.pinfolio.desktop
 productName: pinfolio
 
+# 发布者身份（Task 9 收尾 P2）。两处各管一半，别只改一处：
+# - exe 版本资源的 CompanyName 取自 package.json 的 author（appInfo.companyName = author.name），
+#   没有 author 时 builder 不覆盖 Electron 自带的 "GitHub, Inc."，控制面板「发布者」也是空的；
+# - LegalCopyright 取自这里的 copyright，NSIS 还会把 COMPANY_NAME 写进卸载项的 Publisher。
+# 年份写死 2026，不用 builder 默认的「当年」拼接 —— 否则跨年后重打同一份包，版权行会自己变。
+copyright: "Copyright © 2026 pinfolio contributors"
+
 directories:
   output: release
   buildResources: desktop/assets
@@ -21,6 +28,13 @@ files:
   - dist/**
   - dist-desktop/**
   - package.json
+
+# 托盘图标（Task 9 收尾 P3）：desktop/tray.ts 的第一个候选就是 <resources>/icon.ico，
+# 但 files 白名单里没有 desktop/assets，打包态永远落到内置兜底 PNG。这里把它单独放进
+# resources/（asar 外面），tray.ts 的优先级一个字都不用改 —— 图标路径只有这两处要对齐。
+extraResources:
+  - from: desktop/assets/icon.ico
+    to: icon.ico
 
 # package.json 里 main 已经是 dist-desktop/main.js，这里是第二道保险（asar 里根目录的 package.json
 # 是 Electron 启动时唯一读的那份，产物路径变了也不会白打一次包）

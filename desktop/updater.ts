@@ -21,7 +21,7 @@ import { decideInstall, pickAutoUpdater } from './updater-interop.js'
  *    编译后完全擦除），免得「顶层出现 electron-updater」这条规矩有一丝歧义。
  *    动态 import 的目标是 **'./updater-vendor.cjs'**（Task 9 / 方案 A），不是 'electron-updater'：
  *    electron-updater 在 devDependencies 里，electron-builder 只打 production dependencies，
- *    装出来的包里根本没有它。vendor 包（desktop/updater-vendor.ts）由 build:desktop:vendor 用
+ *    装出来的包里根本没有它。vendor 包（desktop/updater-vendor.cts）由 build:desktop:vendor 用
  *    esbuild `--bundle`（**不带** --packages=external）把 electron-updater 整块内联进
  *    dist-desktop/updater-vendor.cjs，于是 asar 里自带更新代码，依赖图一行不用改。
  *    开发态没有这个文件时也没有问题：`app.isPackaged` 守卫在前面，这条路径根本走不到。
@@ -49,6 +49,14 @@ import { decideInstall, pickAutoUpdater } from './updater-interop.js'
  *    属性**根本不存在**（`'installerPath' in updater` 为假，多半是 electron-updater 改了这个 protected getter 的名字）
  *    时照常往下装 —— 否则一次上游改名就会让更新通道静默永久失效（不变砖，但再也装不上任何更新）。
  *    看门狗只判「quitAndInstall 之后 3 秒进程还在」→ onInstallFailed() 让 main.ts relaunch 一个可用实例。
+ * 8. **同一个失败只记一条**（收尾轮 P6）：electron-updater 的 checkForUpdates() 失败时**既发 'error' 事件
+ *    又 reject**，而它自己在构造函数里挂的监听器还会把同一份错误再交给 autoUpdater.logger.error ——
+ *    三个出口各写一次，main.log 里一次失败就是三条同样 ~3 KB 的堆栈（实测：5 次失败 = 5+5+5 条）。
+ *    现在所有失败只走 logFailure()：按「错误对象 + 归一化文本」认重复，一次流程（一次检查 / 一次下载，
+ *    见 resetFailureLog）里只写第一条。为了让写下的那条信息最全，我们的 'error' 监听器改用
+ *    **prependListener** 注册 —— 排在 electron-updater 内部那个只做 logger.error 的监听器前面，
+ *    于是先落盘的是**带 statusCode / url** 的那条，后面两条被去重掉。
+ *    去重只影响**写日志**：错误照旧 reject、手动检查照旧弹「检查更新失败」，用户可见行为一个字没改。
  *
  * 退出语义不在这里：安装前要「置退出标志 + 关后端服务」这件事由 main.ts 注入（beforeInstall），
  * 因为只有 main.ts 知道 handle 与 before-quit 那套防重入逻辑。updater 反向 import main.ts 会成环。
@@ -103,6 +111,56 @@ let pendingCheck: Promise<Awaited<ReturnType<Updater['checkForUpdates']>>> | nul
 let busy = false
 
 /**
+ * 已经记过日志的失败（P6，见文件头第 8 条）：WeakSet 认「同一个错误对象」（'error' 事件与 reject
+ * 拿到的是同一个实例），文本 Set 认「同一段消息 / 栈」—— electron-updater 内部那个监听器只把拼好的
+ * 字符串交给 logger.error，没有对象可比。每次流程开始前清空（resetFailureLog），所以去重范围只到
+ * 「这一次检查 / 这一次下载」：过一会儿再点一次，同样的 404 还会照样记一条（不是永久闭嘴）。
+ */
+let loggedFailures = new WeakSet<object>()
+let loggedFailureTexts = new Set<string>()
+
+/** 清空去重记录：一次检查 / 一次下载开始前调用 */
+function resetFailureLog(): void {
+  loggedFailures = new WeakSet()
+  loggedFailureTexts = new Set()
+}
+
+/** 归一化后的比对文本：logger 收到的是 `Error: <stack>`，而 reject 给的是 Error 对象，去掉前缀才对得上 */
+function failureText(value: unknown): string {
+  let text = asText(value)
+  while (text.startsWith('Error: ')) text = text.slice('Error: '.length)
+  return text.trim()
+}
+
+/** 值得单独抄出来的字段（electron-updater 的 HttpError 只有 statusCode；url 只在栈里） */
+function errorFacts(err: unknown): string {
+  if (typeof err !== 'object' || err === null) return ''
+  const record = err as Record<string, unknown>
+  const parts: string[] = []
+  for (const key of ['code', 'statusCode', 'url']) {
+    const value = record[key]
+    if (typeof value === 'string' || typeof value === 'number') parts.push(key + '=' + value)
+  }
+  return parts.length > 0 ? '[' + parts.join(' ') + ']' : ''
+}
+
+/**
+ * **唯一**的失败日志出口（P6，见文件头第 8 条）：同一个失败第二次走进来时一个字都不写。
+ * 只影响日志 —— 错误照旧往上抛，调用方照旧弹框、照旧 return，用户可见行为不变。
+ */
+function logFailure(prefix: string, err: unknown): void {
+  const text = failureText(err)
+  const seen =
+    (typeof err === 'object' && err !== null && loggedFailures.has(err)) ||
+    (text !== '' && loggedFailureTexts.has(text))
+  if (typeof err === 'object' && err !== null) loggedFailures.add(err)
+  if (text !== '') loggedFailureTexts.add(text)
+  if (seen) return
+  const facts = errorFacts(err)
+  log(prefix + (facts === '' ? '' : facts + ' ') + asText(err))
+}
+
+/**
  * 去重后的 checkForUpdates()：
  * 30 秒静默检查与用户手点「检查更新」可能撞在一起 —— 两个都去问一遍既浪费，
  * 也会让 electron-updater 内部的 updateInfoAndProvider 状态互相覆盖。共用结果即可。
@@ -113,6 +171,8 @@ function checkOnce(updater: Updater): Promise<Awaited<ReturnType<Updater['checkF
     log('[updater] 已有检查在进行，复用这一次的结果')
     return pendingCheck
   }
+  // 新的一次检查：失败去重记录从零开始（复用上面那次的不清，否则会把正在跑的那次抹掉）
+  resetFailureLog()
   pendingCheck = updater.checkForUpdates().finally(() => {
     pendingCheck = null
   })
@@ -152,7 +212,8 @@ async function initUpdater(): Promise<Updater> {
   autoUpdater.logger = {
     info: (message?: unknown) => log('[updater:info] ' + asText(message)),
     warn: (message?: unknown) => log('[updater:warn] ' + asText(message)),
-    error: (message?: unknown) => log('[updater:error] ' + asText(message)),
+    // P6：内部监听器把同一个失败也交给这里，走 logFailure 才不会被记第二遍
+    error: (message?: unknown) => logFailure('[updater:error] ', message),
     debug: (message?: unknown) => log('[updater:debug] ' + asText(message)),
   }
 
@@ -175,9 +236,11 @@ function wireEvents(updater: Updater): void {
     log('[updater] update-not-available: 本地 ' + app.getVersion() + '，远端 ' + info.version)
   })
 
-  updater.on('error', (err) => {
+  // P6：必须用 prependListener —— electron-updater 在构造函数里就挂了一个「转交 logger.error」的内部
+  // 监听器，它比我们早注册。排到它前面，先落盘的就是这条带 statusCode / url 的记录（见文件头第 8 条）
+  updater.prependListener('error', (err) => {
     // 事件里的错误只负责留痕；谁来兜底看调用方（手动检查会弹框）。这里绝不 throw
-    log('[updater] error: ' + asText(err))
+    logFailure('[updater] error: ', err)
   })
 
   updater.on('download-progress', (progress) => {
@@ -223,7 +286,7 @@ export function autoCheck(): void {
       if (result === null || !result.isUpdateAvailable) return
       await offerDownload(updater, result.updateInfo.version)
     } catch (err) {
-      log('[updater] 静默检查更新失败（不影响继续使用）：', err)
+      logFailure('[updater] 静默检查更新失败（不影响继续使用）： ', err)
     }
   })()
 }
@@ -269,7 +332,7 @@ export async function checkForUpdatesInteractive(): Promise<void> {
 
     await offerDownload(updater, result.updateInfo.version)
   } catch (err) {
-    log('[updater] 检查更新失败：', err)
+    logFailure('[updater] 检查更新失败： ', err)
     await showBox({
       type: 'error',
       title: '检查更新',
@@ -328,10 +391,12 @@ async function offerDownloadInner(updater: Updater, version: string): Promise<vo
 async function downloadAndOfferInstall(updater: Updater, version: string): Promise<void> {
   log('[updater] 用户确认下载 version ' + version)
   loggedPercent = -1
+  // 新的一次下载：失败去重记录从零开始
+  resetFailureLog()
   try {
     await updater.downloadUpdate()
   } catch (err) {
-    log('[updater] 下载失败：', err)
+    logFailure('[updater] 下载失败： ', err)
     await showBox({
       type: 'error',
       title: '更新下载失败',
