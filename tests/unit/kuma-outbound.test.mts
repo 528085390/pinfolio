@@ -3,6 +3,7 @@
 // 这里的错误文案来自 spec §3.3（设置页表单提示），kuma 心跳里是另一套（代理不可用：配置无效（协议/服务器地址/端口）…）。
 // 跨仓库文案一致性没有自动测试可覆盖 —— 下面这些常量属于同源双写，只防手误不防「两边一起错」；
 // 改动文案或语义时人工对一遍 E:\bqj\.worktrees\kuma\server\outbound.js。
+// username 与 password **都是三态**（缺键 = 本次不修改 / null 或 "" = 清空 / 字符串 = 原样不 trim）。
 // 运行：pnpm test:unit
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -98,17 +99,49 @@ describe("validateOutboundBody", () => {
         }
     })
 
-    it("username：缺省 / null 归空串，给了就 trim", () => {
-        const none = validateOutboundBody({ mode: "proxy", proxy: { protocol: "socks5h", host: "h", port: 1 } })
-        assert.equal(none.ok, true)
-        if (none.ok && none.value.proxy) assert.equal(none.value.proxy.username, "")
-        const nul = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: null }) })
-        if (nul.ok && nul.value.proxy) assert.equal(nul.value.proxy.username, "")
-        const trim = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: "  u1  " }) })
-        if (trim.ok && trim.value.proxy) assert.equal(trim.value.proxy.username, "u1")
-        const bad = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: 42 }) })
-        assert.equal(bad.ok, false)
-        if (!bad.ok) assert.equal(bad.error, errInvalid("账号"))
+    it("username 缺键（或 undefined）= 本次不修改账号：结果里没有 username 键", () => {
+        for (const body of [
+            { protocol: "socks5h", host: "h", port: 1 },
+            // 显式 undefined 与缺键等价
+            { protocol: "socks5h", host: "h", port: 1, username: undefined },
+        ]) {
+            const r = validateOutboundBody({ mode: "proxy", proxy: body })
+            assert.equal(r.ok, true)
+            if (r.ok && r.value.proxy) assert.equal("username" in r.value.proxy, false)
+        }
+    })
+
+    it("username = null → 键存在且为空串（= 清空账号，这条路径必须可达）", () => {
+        const r = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: null }) })
+        assert.equal(r.ok, true)
+        if (r.ok && r.value.proxy) {
+            assert.equal("username" in r.value.proxy, true)
+            assert.equal(r.value.proxy.username, "")
+        }
+    })
+
+    it("username = \"\" → 键存在且为空串（= 清空账号）", () => {
+        const r = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: "" }) })
+        assert.equal(r.ok, true)
+        if (r.ok && r.value.proxy) {
+            assert.equal("username" in r.value.proxy, true)
+            assert.equal(r.value.proxy.username, "")
+        }
+    })
+
+    it("username 是字符串 → 原样保留（不 trim）", () => {
+        // 与 kuma 一致：username 也不 trim，首尾空格原样保留（评审 m-2）
+        const r = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: "  u1  " }) })
+        assert.equal(r.ok, true)
+        if (r.ok && r.value.proxy) assert.equal(r.value.proxy.username, "  u1  ")
+    })
+
+    it("username 非 string 非 null（number / boolean / object / array）→ 配置无效（账号）", () => {
+        for (const bad of [42, 0, true, false, {}, { a: 1 }, []]) {
+            const r = validateOutboundBody({ mode: "proxy", proxy: proxy({ username: bad }) })
+            assert.equal(r.ok, false, JSON.stringify(bad))
+            if (!r.ok) assert.equal(r.error, errInvalid("账号"), JSON.stringify(bad))
+        }
     })
 
     it("password 缺键（或 undefined）= 本次不修改密码：结果里没有 password 键", () => {
@@ -156,15 +189,36 @@ describe("validateOutboundBody", () => {
         }
     })
 
-    it("成功时的形状：只有 protocol/host/port/username(=password)，不带 hasPassword", () => {
-        const r = validateOutboundBody({
+    it("成功时的形状：只含 protocol/host/port + 按需出现的 username/password，不带 hasPassword", () => {
+        // 分支一：不给 username → 结果里没有 username 键
+        const plain = validateOutboundBody({
+            mode: "proxy",
+            proxy: { protocol: "SOCKS5", host: " 127.0.0.1 ", port: 10808, password: "p" },
+        })
+        assert.deepEqual(plain, {
+            ok: true,
+            value: { mode: "proxy", proxy: { protocol: "socks5", host: "127.0.0.1", port: 10808, password: "p" } },
+        })
+        // 分支二：给了 username → 多一个 username 键，值原样（不 trim）
+        const withUser = validateOutboundBody({
             mode: "proxy",
             proxy: { protocol: "SOCKS5", host: " 127.0.0.1 ", port: 10808, username: " u ", password: "p" },
         })
-        assert.deepEqual(r, {
+        assert.deepEqual(withUser, {
             ok: true,
-            value: { mode: "proxy", proxy: { protocol: "socks5", host: "127.0.0.1", port: 10808, username: "u", password: "p" } },
+            value: { mode: "proxy", proxy: { protocol: "socks5", host: "127.0.0.1", port: 10808, username: " u ", password: "p" } },
         })
+        // 两条分支都不含意料之外的键（尤其 hasPassword）
+        for (const r of [plain, withUser]) {
+            if (!r.ok || !r.value.proxy) continue
+            const keys = Object.keys(r.value.proxy).sort()
+            assert.equal(keys.includes("hasPassword"), false)
+            assert.equal(
+                keys.every((k) => ["host", "password", "port", "protocol", "username"].includes(k)),
+                true,
+                keys.join(",")
+            )
+        }
     })
 })
 
@@ -174,6 +228,15 @@ describe("mergeProxySettings", () => {
         assert.equal(out.password, "old")
         assert.equal(out.host, "h2")
     })
+    it("incoming 缺 username 键 = 保留 current.username（默认值补齐语义不变，R15）", () => {
+        const out = mergeProxySettings(
+            { protocol: "socks5h", host: "h", port: 1, username: "u", password: "old" },
+            { host: "h2" }
+        )
+        assert.equal(out.username, "u")
+        assert.equal(out.host, "h2")
+    })
+
     it("password = null 或空串 = 清空", () => {
         assert.equal(mergeProxySettings({ password: "old" }, { password: null }).password, "")
         assert.equal(mergeProxySettings({ password: "old" }, { password: "" }).password, "")

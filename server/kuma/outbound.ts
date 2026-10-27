@@ -4,6 +4,7 @@
  * 为什么单独一块：界面把用户填的东西收下之前先在这里挡一遍，挡不住的才轮到 kuma 的求值器报错。
  * 文案来自 spec §3.3（设置页表单提示）；kuma 心跳里的错误文案是另一套（代理不可用：配置无效（协议/服务器地址/端口）…），
  * 两处不共用，改动前先看 spec。
+ * 账号与密码**都是三态**（缺键 / null / 字符串），语义与 kuma 的 normalizeProxyConfig 一致；两者都不 trim。
  * 密码只进不出：这里只做「这次带没带密码」，读侧的 `hasPassword` 是 kuma 掩码算的，本文件不产出。
  * 全是纯函数，不碰网络、不碰数据库，所以能单测。
  */
@@ -20,10 +21,16 @@ export type ProxyCfg = {
   hasPassword: boolean
 }
 
-/** 写侧（POST）的负载：密码要么是字符串（本次设置），要么键不存在（保留旧值） */
+/**
+ * 写侧（POST）的负载：username 与 password 都是三态 —— 要么是字符串（本次设置），
+ * 要么键不存在（保留旧值），要么是 null（清空）。
+ */
 export type OutboundPayload = {
   mode: 'direct' | 'proxy'
-  proxy: null | (Omit<ProxyCfg, 'hasPassword'> & { password?: string | null })
+  proxy: null | (Omit<ProxyCfg, 'hasPassword' | 'username'> & {
+    username?: string | null
+    password?: string | null
+  })
 }
 
 export type OutboundValidation = { ok: true; value: OutboundPayload } | { ok: false; error: string }
@@ -49,10 +56,10 @@ const asRecord = (v: unknown): Record<string, unknown> | null =>
  *
  * 字段顺序 protocol → host → port → username → password 与 kuma 的 normalizeProxyConfig 相同，
  * 但两边报错文案是两套（见文件头），不要照着 kuma 那边改这里的字。
- * 成功时 `value.proxy` 只含 `protocol / host / port / username`，外加**按需**出现的一个 password：
- *   - 缺键 / undefined → 不出现 password 键（= 本次不修改密码，由 merge 保留旧值）
- *   - null / "" → password 键存在且为 ""（= 清空密码）
- *   - 字符串 → 原样（不 trim）
+ * 成功时 `value.proxy` 固定含 `protocol / host / port`，username 与 password **各自按需**出现（都是三态）：
+ *   - 缺键 / undefined → 该键不出现（= 本次不修改这一项，由 merge 保留旧值）
+ *   - null / "" → 键存在且为 ""（= 清空）
+ *   - 字符串 → 原样（**username 也不 trim**，与 kuma 一致，评审 m-2）
  * **不含 hasPassword** —— 那是读侧的字段，写进去会被 kuma 当成不认识的键丢掉。
  */
 export function validateOutboundBody(body: unknown): OutboundValidation {
@@ -82,25 +89,31 @@ export function validateOutboundBody(body: unknown): OutboundValidation {
     return { ok: false, error: ERR_PORT }
   }
 
+  // username 只认 string / null，非 string 非 null（number / boolean / object / array）一律拒
   if (raw.username !== undefined && raw.username !== null && typeof raw.username !== 'string') {
     return { ok: false, error: errInvalid('账号') }
   }
-  const username = typeof raw.username === 'string' ? raw.username.trim() : ''
 
   // password 只认 string / null（null 由 R13 定为「清空」）；number / boolean / object / array 一律拒
   if (raw.password !== undefined && raw.password !== null && typeof raw.password !== 'string') {
     return { ok: false, error: errInvalid('密码') }
   }
 
-  const proxy: Omit<ProxyCfg, 'hasPassword'> & { password?: string } = {
+  const proxy: Omit<ProxyCfg, 'hasPassword' | 'username'> & { username?: string; password?: string } = {
     protocol: protocol as ProxyProtocol,
     host,
     port,
-    username,
   }
-  // 密码不 trim：首尾空格也是密码的一部分。三态必须分得开，否则「清除密码」这条路不可达：
-  // 缺键 / undefined = 本次不修改密码（键不出现，交给 mergeProxySettings 保留旧值）
-  // null / ""      = 清空密码（键必须存在，值给空串）
+  // username 与 password 都不 trim（首尾空格也是凭据的一部分，与 kuma 一致）。
+  // 三态必须分得开，否则「清空账号 / 清空密码」这两条路不可达：
+  // 缺键 / undefined = 本次不修改这一项（键不出现，交给 mergeProxySettings 保留旧值）
+  // null / ""      = 清空（键必须存在，值给空串）
+  // 字符串         = 原样
+  if (typeof raw.username === 'string') {
+    proxy.username = raw.username
+  } else if (raw.username === null) {
+    proxy.username = ''
+  }
   if (typeof raw.password === 'string') {
     proxy.password = raw.password
   } else if (raw.password === null) {
@@ -118,7 +131,8 @@ export function validateOutboundBody(body: unknown): OutboundValidation {
  *
  * - 只回 protocol / host / port / username / password 五个业务键；current 与 incoming 里多出来的键
  *   （读侧的 `hasPassword`、以及任何别的键）都不许穿过去
- * - 缺键 / undefined / null（password 除外）= 这次没改，保留 current 的值（**不要把 null 写进库**）
+ * - 缺键 / undefined / null = 这次没改，保留 current 的值（**不要把 null 写进库**）；
+ *   username 缺键时保留 current.username、缺 current 时补 "" —— 这是 R15 定的「默认值补齐」语义，别改
  * - password 例外：缺键 = 保留旧密码（用户没重填就别把密码弄丢）；显式 null 或 "" = 清空成 `""`
  * - 返回新对象，绝不原地改 current
  */
