@@ -86,6 +86,11 @@ export function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
       </div>
 
       <div className="asset-foot">
+        {/* 钉死的出站模式：follow（含老 bean 缺这个字段）时完全不渲染，免得每张卡都多一枚噪音标签。
+            用独立的 .monitor-pin，别并进 .monitor-chip —— 那个是状态色块，混用会让人以为「钉死」是一种状态。 */}
+        {m.outboundMode === 'direct' || m.outboundMode === 'proxy' ? (
+          <span className="monitor-pin">{m.outboundMode === 'direct' ? t('钉：直连') : t('钉：代理')}</span>
+        ) : null}
         {!m.active ? <span className="monitor-chip">{t('已暂停')}</span> : null}
         <span className="monitor-chip">24h {pct(m.uptime24)}</span>
         {m.downCount > 0 ? <span className="monitor-chip bad">{t('{n} 次异常', { n: m.downCount })}</span> : null}

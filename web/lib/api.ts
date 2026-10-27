@@ -10,6 +10,7 @@ import { servicesApi } from './api/services'
 import { mailApi } from './api/mail'
 import { authApi } from './api/auth'
 import { tunnelApi } from './api/tunnel'
+import { outboundApi } from './api/outbound'
 import { backupApi } from './api/backup'
 import { cx } from './cx'
 
@@ -24,6 +25,7 @@ export const api = {
   mail: mailApi,
   auth: authApi,
   tunnel: tunnelApi,
+  outbound: outboundApi,
   backup: backupApi,
   tags: tagsApi,
   fields: fieldsApi,
@@ -35,6 +37,7 @@ export { request } from './api/http'
 export type { Tag, FieldDef, Stats } from './api/types'
 export type { SessionInfo, ApiToken } from './api/auth'
 export type { TunnelStatus } from './api/tunnel'
+export type { OutboundCfg, OutboundMode, OutboundPayload, OutboundSaveResult, ProxyProtocol, ProxyView } from './api/outbound'
 export type {
   DeployKind, DeployRec, ServerRec, ServiceRec, ServicesPayload,
   ServerInput, ServiceInput, DeployInput,

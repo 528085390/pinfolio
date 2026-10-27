@@ -8,6 +8,12 @@ import { t } from '../i18n.js'
  * accepted_statuscodes 归一成字符串数组、policyJson 只认字符串或对象）都是踩过才写下的。
  */
 
+/** 单项出站模式的三个合法值（与 kuma 的 `outbound_mode` 列、抽屉表单逐字对齐，别加别名）。 */
+export const OUTBOUND_MODES = ['follow', 'direct', 'proxy'] as const
+
+/** 值域拒绝时的文案（点名三个合法值：用户得知道该填什么） */
+export const OUTBOUND_MODE_ERROR = '出站模式只能是 follow / direct / proxy'
+
 export type PatchOk = { next: Record<string, any> }
 export type PatchFail = { error: string; status: 400 | 409 }
 export type PatchResult = PatchOk | PatchFail
@@ -57,6 +63,9 @@ export function policyNameRefs(beans: Record<string, any>): Map<string, number[]
  * - accepted_statuscodes 必须是**字符串**数组（数字会让 Kuma 的匹配失效），空值回 `['200-299']`
  * - conditions 必须是数组
  * - policyJson 只认字符串或对象（对象转字符串），空值一律 null
+ *
+ * 其它字段（含 outboundMode）**原样透传**：值域校验只在上面的 buildMonitorPatch 一处做，
+ * 这里再校验一次就会出现两套文案、两套边界。
  */
 export function normalizeForKuma(next: Record<string, any>): Record<string, any> {
   next.accepted_statuscodes = Array.isArray(next.accepted_statuscodes) && next.accepted_statuscodes.length
@@ -144,6 +153,18 @@ export function buildMonitorPatch(
     }
   }
   if (body.showMsg !== undefined) next.showMsg = body.showMsg === true || body.showMsg === 1
+
+  // ---- 出站模式（单项钉死）----
+  // 用 "in body" 而不是 !== undefined：显式传 undefined / null 也算「给了个非法值」要拒，
+  // 而请求体里压根没有这个键（改名、改频率这些老调用方）时一个字段都不碰 ——
+  // next 是从 bean 拷的，bean 里本来就带着当前的 outboundMode，原样写回不会把它冲掉。
+  if ('outboundMode' in body) {
+    const mode = body.outboundMode
+    if (typeof mode !== 'string' || !(OUTBOUND_MODES as readonly string[]).includes(mode)) {
+      return { error: t(OUTBOUND_MODE_ERROR), status: 400 }
+    }
+    next.outboundMode = mode
+  }
 
   return { next: normalizeForKuma(next) }
 }

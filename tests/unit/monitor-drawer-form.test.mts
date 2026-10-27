@@ -16,16 +16,19 @@ const detail = (over: Record<string, any> = {}) => ({
   },
 }) as any
 
-test('emptyForm：新建时的默认值', () => {
+test('emptyForm：新建时的默认值（出站模式默认跟随全局）', () => {
   assert.deepEqual(emptyForm(), {
     name: '', description: '', interval: 60, timeout: 20, maxretries: 0, retryInterval: 60, showMsg: false,
+    outboundMode: 'follow',
   })
 })
 
 test('toForm：只取可改的那几个字段，target/policy 不进表单', () => {
   const f = toForm(detail())
+  // outboundMode 的细节（脏值 / 老 bean 回 follow）在 tests/unit/kuma-patch.test.mts 里单独钉
   assert.deepEqual(f, {
     name: 'app-api', description: '网关', interval: 60, timeout: 20, maxretries: 0, retryInterval: 60, showMsg: false,
+    outboundMode: 'follow',
   })
   assert.equal('target' in f, false)
 })
@@ -37,6 +40,7 @@ test('sameForm：全等为 true，任一字段不同为 false', () => {
     const b = { ...a, [key]: typeof a[key] === 'boolean' ? !a[key] : (a[key] as number) + 1 }
     assert.equal(sameForm(a, b), false, key)
   }
+  assert.equal(sameForm(a, { ...a, outboundMode: 'proxy' }), false, 'outboundMode')
 })
 
 test('buildPatch：没改就返回空对象', () => {

@@ -18,6 +18,11 @@ export type MonitorView = {
   maxretries: number
   retryInterval: number
   active: boolean
+  /**
+   * 这一项自己钉死的出站模式（spec §10.3）：follow / direct / proxy。
+   * 抽屉的三选一要读它，所以它在白名单里；脏值 / 老版本没有这一列时一律报 follow。
+   */
+  outboundMode: 'follow' | 'direct' | 'proxy'
   /** 观测目标的一句话描述（URL / host:port / 推送型…），敏感部分已打码 */
   target: string
   policy: PolicyInfo | null
@@ -135,6 +140,11 @@ export function summarizePolicy(raw: unknown, names?: Record<string, string>): P
   return { name, summary: parts.join(t('；')) || JSON.stringify(p).slice(0, 200) }
 }
 
+/** 出站模式三态归一：只要不是这两个钉死值就是 follow（和 kuma 的 editMonitor 兜底一致） */
+function pinOf(raw: unknown): 'follow' | 'direct' | 'proxy' {
+  return raw === 'direct' || raw === 'proxy' ? raw : 'follow'
+}
+
 /** bean → 前端能看的那点东西。**只列白名单字段**，多一个都不给。 */
 export function toView(bean: any, names?: Record<string, string>): MonitorView {
   return {
@@ -148,6 +158,7 @@ export function toView(bean: any, names?: Record<string, string>): MonitorView {
     maxretries: Number(bean?.maxretries || 0),
     retryInterval: Number(bean?.retryInterval || 60),
     active: bean?.active === true || bean?.active === 1,
+    outboundMode: pinOf(bean?.outboundMode),
     target: describeTarget(bean),
     policy: summarizePolicy(bean?.policyJson ?? bean?.policy_json, names),
   }

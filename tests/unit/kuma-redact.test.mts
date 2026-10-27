@@ -95,11 +95,22 @@ test('summarizePolicy：JSON 字符串也能解析', () => {
 
 test('toView：只给白名单字段', () => {
   const view = toView({ id: 7, name: 'x', type: 'http', url: 'https://a?token=1', secret: 'nope', showMsg: 1, active: true, interval: 120, timeout: 10, maxretries: 2, retryInterval: 30 })
-  assert.deepEqual(Object.keys(view).sort(), ['active', 'description', 'id', 'interval', 'maxretries', 'name', 'policy', 'retryInterval', 'showMsg', 'target', 'timeout', 'type'])
+  assert.deepEqual(Object.keys(view).sort(), ['active', 'description', 'id', 'interval', 'maxretries', 'name', 'outboundMode', 'policy', 'retryInterval', 'showMsg', 'target', 'timeout', 'type'])
   assert.equal(view.showMsg, true)
   assert.equal(view.active, true)
   assert.equal(view.target, 'https://a/?token=***')
   assert.equal(view.policy, null)
+})
+
+test('toView：outboundMode 只认两个钉死值，其余（含老 bean 缺字段）一律 follow', () => {
+  assert.equal(toView({ id: 1, outboundMode: 'direct' }).outboundMode, 'direct')
+  assert.equal(toView({ id: 1, outboundMode: 'proxy' }).outboundMode, 'proxy')
+  assert.equal(toView({ id: 1, outboundMode: 'follow' }).outboundMode, 'follow')
+  assert.equal(toView({ id: 1 }).outboundMode, 'follow')
+  assert.equal(toView({ id: 1, outboundMode: null }).outboundMode, 'follow')
+  assert.equal(toView({ id: 1, outboundMode: 'PROXY' }).outboundMode, 'follow')
+  // 库里那列（snake_case）不会被当成 camelCase 读出来
+  assert.equal(toView({ id: 1, outbound_mode: 'direct' }).outboundMode, 'follow')
 })
 
 test('toView：空 bean 的默认值', () => {

@@ -85,4 +85,57 @@ export const settings: Dict = {
   '服务器上装 frps 并把 443 的': 'Install frps on the server and reverse-proxy',
   '反代到 frps（复用现有证书，不用开新端口）， 家里这台按下面跑 frpc。改完回到这里点「立即检测」。':
     'to frps (reuse the existing certificate, no new port needed); run frpc on this machine as shown below. After changing anything, come back and click "Check now".',
+
+  // ── 出站模式（OutboundCard / outbound.ts / useOutbound.ts）─────────────────────
+  // spec §10.5 的 18 个逻辑键在这里落地（本词典是「中文原文 → 英译」，所以键就是中文原文）：
+  //   outbound.title        → '出站模式'
+  //   outbound.mode.direct  → '直连'          outbound.mode.proxy → '经代理'
+  //   outbound.protocol.*   → '协议' + PROTOCOLS 的 4 个协议名（socks5h / socks5 / http / https
+  //                           是标识符，下拉里原样显示、不翻译 —— spec §17-② 说先全放出来）
+  //   outbound.host         → '代理主机'（别写成 '主机'：shell.ts 里那条是页面名 Hosts）
+  //   outbound.port         → 复用 mail.ts 的 '端口'
+  //   outbound.username     → 复用 mail.ts 的 '用户名'
+  //   outbound.password     → 复用 auth.ts 的 '密码'
+  //   outbound.saved        → '已切换，正在重新探测 {n} 个观测项…'
+  //   outbound.testing      → 复用 mail.ts 的 '测试中…'
+  //   outbound.testOk       → '已排队重探 {n} 个观测项，几秒后看观测台'
+  //   outbound.testFail     → '没有可重探的观测项'
+  //   outbound.hint.green   → 灰字①（逐字照 spec §10.1 第 4 点）  outbound.hint.notify → 灰字②
+  //   outbound.pin.follow / .direct / .proxy → '跟随全局' / '钉：直连' / '钉：代理'
+  //                           （按 status quo 放这里；Ruling R3 把徽标 / 抽屉的键归 monitors.ts，
+  //                             Task 12/14 可以直接复用这三条，别在新文件里再写一遍）
+  //   outbound.changedAt    → '上次切换：刚刚 / {n} 分钟前 / {time}'
+  '出站模式': 'Outbound mode',
+  '观测台的所有探测（HTTP / TCP / SSH）都从这条出口出去。切到「直连」时下面的代理配置会留着，切回「经代理」不用重填。':
+    'Every probe on the monitors page (HTTP / TCP / SSH) leaves through this route. Switching to "Direct" keeps the proxy settings below, so switching back does not need them re-entered.',
+  '直连': 'Direct',
+  '经代理': 'Via proxy',
+  '协议': 'Protocol',
+  '代理主机': 'Proxy host',
+  '可空': 'Optional',
+  '已保存，留空表示不修改': 'Saved — leave it blank to keep it',
+  '清除密码': 'Clear password',
+  '撤销清除': 'Undo clear',
+  '保存后清除已存密码': 'The stored password will be cleared when you save',
+  '测试连通': 'Test connectivity',
+  '正在读取出站设置…': 'Reading outbound settings…',
+  '还没读取出站设置：保存与测试连通先禁用，免得把真实出站误切成直连':
+    'Outbound settings have not loaded yet: Save and Test are disabled so the real outbound mode cannot be switched to direct by accident',
+  '出站：直连': 'Outbound: direct',
+  '出站：经代理 {proxy}': 'Outbound: via proxy {proxy}',
+  '出站：经代理（还没配代理）': 'Outbound: via proxy (none configured yet)',
+  '已切换，正在重新探测 {n} 个观测项…': 'Switched — re-checking {n} monitors…',
+  '已切换（没有需要重探的观测项）': 'Switched (there are no monitors to re-check)',
+  '已排队重探 {n} 个观测项，几秒后看观测台': 'Re-check queued for {n} monitors; look at the monitors page in a few seconds',
+  '没有可重探的观测项': 'There are no monitors to re-check',
+  '经代理的绿色只代表机器存活，不代表国内直连可用':
+    'Green through a proxy only means the machine is alive, not that the target is reachable from China without a proxy',
+  '通知推送（webhook / 邮件）不受此开关影响，仍走直连':
+    'Notification delivery (webhook / mail) is unaffected by this switch and still goes direct',
+  '跟随全局': 'Follow global',
+  '钉：直连': 'Pinned: direct',
+  '钉：代理': 'Pinned: proxy',
+  '上次切换：刚刚': 'Last switched: just now',
+  '上次切换：{n} 分钟前': 'Last switched: {n} min ago',
+  '上次切换：{time}': 'Last switched: {time}',
 }

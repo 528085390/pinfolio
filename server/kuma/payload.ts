@@ -26,6 +26,8 @@ export type Monitor = {
   active: boolean
   /** 基础检查间隔（秒）；有 policy 时真实频率可能被策略改写。 */
   interval: number
+  /** 这一项钉死的出站模式（Kuma 的 outbound_mode 列，task 12 起的字段；卡片徽标要用）。 */
+  outboundMode: 'follow' | 'direct' | 'proxy'
   uptime24: number | null
   beats: number[]
   /** 与 beats 一一对应：该拍的四态字符，非四态监视器为 null。 */
@@ -71,6 +73,11 @@ export type BuildInput = {
   quick?: QuickLink[]
 }
 
+/** 出站模式三态归一：拿不到 bean / 老版本没有这一列 / 脏值，一律 follow（= 听全局） */
+function pinOf(raw: unknown): 'follow' | 'direct' | 'proxy' {
+  return raw === 'direct' || raw === 'proxy' ? raw : 'follow'
+}
+
 export const BEAT_WINDOW = 40
 
 /** 色条悬停提示里的消息上限：Kuma 实测最长 203 字，留一倍余量，再长就截断加省略号。 */
@@ -110,6 +117,7 @@ export function buildPayload(input: BuildInput): Payload {
         showMsg: m.showMsg === true,
         active: bean ? bean.active === 1 || bean.active === true : true,
         interval: bean && Number(bean.interval) > 0 ? Number(bean.interval) : 60,
+        outboundMode: pinOf(bean?.outboundMode),
         uptime24: typeof pct === 'number' ? pct : null,
         beats: recent.map((b) => (typeof b.status === 'number' ? b.status : -1)),
         beatTones: recent.map((b) => toneChar(b.msg)),
