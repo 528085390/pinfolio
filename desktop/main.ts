@@ -1,37 +1,45 @@
-import { app, BrowserWindow, screen, session } from 'electron'
+import { app, BrowserWindow, screen, session, shell } from 'electron'
+import type { Tray, WebContents } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ServerHandle } from '../server/app.js'
 import { desktopPaths } from './paths.js'
 import type { DesktopPaths } from './paths.js'
+import { installCrashHandlers, log } from './log.js'
+import { isInternalUrl } from './nav.js'
+import { createTray } from './tray.js'
 import { MIN_SIZE, clampBounds, readWindowState, writeWindowState } from './window-state.js'
 import type { Bounds } from './window-state.js'
 
 /**
  * Electron 主进程：把 pinfolio 后端和窗口在**同一个进程**里起起来
- * （spec 2026-10-27-pinfolio-desktop，Task 6）。
+ * （spec 2026-10-27-pinfolio-desktop，Task 6；托盘 / 开机自启 / 外链拦截 / 崩溃日志是 Task 7）。
  *
  * 顺序是这个文件里唯一要紧的东西，逐条对应踩过的坑：
  *
- * 1. 单实例锁最先：第二个实例不许再起一个后端（Task 2 的会话是**单条**，
+ * 1. 崩溃处理器最先装（Task 7）：单实例锁、建库、起服务、开窗任何一步炸掉都要在
+ *    <userData>/logs/main.log 里留下栈，而不是让窗口默默消失。
+ * 2. 单实例锁：第二个实例不许再起一个后端（Task 2 的会话是**单条**，
  *    两个实例会抢 settings 里的 desktop_session_id，互相把对方的票作废）。
- * 2. `desktopPaths(app.getPath('userData'))` → 建数据目录 → 设 env。
+ * 3. `desktopPaths(app.getPath('userData'))` → 建数据目录 → 设 env。
  *    **必须在下一步的动态 import 之前**：server/db.ts:14（PINBOARD_DATA）、
  *    server/snapshot/write.ts:22（PINBOARD_SNAPSHOT）、server/kuma/links.ts:7 等四个根目录
  *    配置（MONITOR_* / HOST_SERVICES）全是**模块级求值**，import 完再设就没用了。
  *    PINBOARD_SNAPSHOT 必须给**绝对路径**（Task 3 的覆盖语义），父目录由 Task 3 自己 mkdir。
- * 3. 动态 import `../server/app.js`：esbuild 会把它内联进 dist-desktop/main.js，
+ * 4. 动态 import `../server/app.js`：esbuild 会把它内联进 dist-desktop/main.js，
  *    但**求值时机**仍是这一行（见 package.json 的 build:desktop:main）。
- * 4. startServer 用 PORT=0 让系统分配端口，url 只用 handle.url（别自己拼）。
- * 5. cookie 注入与开窗都必须在 `app.whenReady()` 之后：session.defaultSession 要等 ready 才存在。
+ * 5. startServer 用 PORT=0 让系统分配端口，url 只用 handle.url（别自己拼）。
+ * 6. cookie 注入与开窗都必须在 `app.whenReady()` 之后：session.defaultSession 要等 ready 才存在。
  *    免密是「替用户带一张票」，不是拆掉鉴权 —— 注完立刻用不带 cookie 的请求撞一次，必须还是 401。
- * 6. before-quit 里 await handle.close() 要用 quitting 标志防重入，
+ * 7. before-quit 里 await handle.close() 要用 quitting 标志防重入，
  *    否则 event.preventDefault() 之后重新 quit 会自己咬自己（无限循环 / 进程挂后台）。
  *
- * 7. 票会被用户主动删掉（设置页「退出登录」/「退出其他设备」），而桌面端没有密码可登，
+ * 8. 票会被用户主动删掉（设置页「退出登录」/「退出其他设备」），而桌面端没有密码可登，
  *    窗口会卡在登录页死锁到下次重启 —— 所以起一个 30 秒的看门狗（见 ensureSessionAlive）。
  *
- * 本任务只做「关窗 = 真退出」，托盘接管是 Task 7。
+ * 9. **关窗 ≠ 退出**（Task 7）：close 事件在「不是真退出」时 preventDefault + hide，
+ *    window-all-closed 也不 quit（Windows 常驻托盘）。真退出只有两条路：托盘「退出」与
+ *    系统关机（before-quit），两者都把 `quitRequested` 置位，然后走同一个关服务流程。
  */
 
 /** 只监听回环：desktopAutoLogin 也要求回环（server/app.ts 的 resolveListenOptions 会校验） */
@@ -43,7 +51,7 @@ const BACKGROUND = '#111315'
 /** 看门狗间隔：每 30 秒带票探一次 /api/auth/state */
 const WATCHDOG_MS = 30_000
 
-/** 后端 4 个「根目录配置」的文件名（它们在模块加载时读 env，见文件头的坑 2） */
+/** 后端 4 个「根目录配置」的文件名（它们在模块加载时读 env，见文件头的坑 3） */
 const CONFIG_FILES: Array<[string, string]> = [
   ['MONITOR_LINKS', 'monitor-links.json'],
   ['MONITOR_ACTIONS', 'monitor-actions.json'],
@@ -51,9 +59,19 @@ const CONFIG_FILES: Array<[string, string]> = [
   ['HOST_SERVICES', 'host-services.json'],
 ]
 
+// 启动最早处装崩溃日志：后面每一步都可能炸（见文件头第 1 条）
+installCrashHandlers()
+
 let handle: ServerHandle | null = null
 let mainWindow: BrowserWindow | null = null
-/** before-quit 的重入闸：第一趟 preventDefault 去关服务，第二趟才真退 */
+/** 托盘对象必须持住，否则被 GC 掉、图标自己消失（Task 7） */
+let tray: Tray | null = null
+/**
+ * 用户要求退出（托盘「退出」/ 系统关机 / before-quit 一旦开始关服务）：
+ * close 事件据此决定「真关」还是「藏起来」，两处共用这一个标志。
+ */
+let quitRequested = false
+/** before-quit 的重入闸（Task 6 原样保留）：第一趟 preventDefault 去关服务，第二趟才真退 */
 let quitting = false
 /** 票失效自愈的定时器（退出时必须清掉，否则吊着进程不放） */
 let watchdog: ReturnType<typeof setInterval> | null = null
@@ -88,7 +106,7 @@ async function assertAuthStillOn(url: string): Promise<void> {
   if (res.status !== 401) {
     throw new Error('免密注入后不带 cookie 的 /api/notes 应返回 401，实际 ' + res.status)
   }
-  console.log('[pinfolio] auth guard ok: /api/notes without cookie -> 401')
+  log('[pinfolio] auth guard ok: /api/notes without cookie -> 401')
 }
 
 /**
@@ -129,8 +147,63 @@ async function ensureSessionAlive(): Promise<void> {
     httpOnly: true,
     sameSite: 'lax',
   })
-  console.log('[pinfolio] desktop session was revoked -> re-issued, reloading')
+  log('[pinfolio] desktop session was revoked -> re-issued, reloading')
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.reload()
+}
+
+/**
+ * 外链拦截（Task 7）：应用窗口只许留在本站，其余一律丢给系统浏览器。
+ *
+ * 为什么要拦：
+ * - 监测页 / 资产页 / 快捷入口卡里的链接都是 `target="_blank"`，不拦的话 Electron 会开一堆
+ *   裸的 BrowserWindow（没有托盘、没有关窗规矩，等于开了个没有地址栏的浏览器）；
+ * - 渲染进程里的任意一段 HTML 都能 `window.open(...)`，不拦就等于让页面决定主进程去开什么。
+ *
+ * 判据只有 `isInternalUrl`（纯函数，tests/unit/nav.test.mts 钉着）：
+ * 只认 http://127.0.0.1:<port> 与 http://localhost:<port>。
+ * **只把 http/https 递给 shell.openExternal**：file: / javascript: / data: 交出去等于
+ * 让页面里的链接去启动本机程序（Windows 上 file:///.../x.exe 真的会跑）。
+ */
+function openExternal(url: string): void {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    log('[nav] 丢弃无法解析的外链：' + url)
+    return
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    log('[nav] 拦下非 http(s) 的外链：' + url)
+    return
+  }
+  log('[nav] 外链交给系统浏览器：' + url)
+  void shell.openExternal(url).catch((err: unknown) => {
+    log('[nav] shell.openExternal 失败：' + url, err)
+  })
+}
+
+/** 给一个 webContents 装上两道闸：新窗口（window.open / target=_blank）与同窗口跳转 */
+function wireNavigation(contents: WebContents, port: number): void {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (isInternalUrl(url, port)) {
+      // 站内新窗口照开，但显式重申安全配置，别继承任何意外放宽默认值
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          backgroundColor: BACKGROUND,
+          webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+        },
+      }
+    }
+    openExternal(url)
+    return { action: 'deny' }
+  })
+
+  contents.on('will-navigate', (event, url) => {
+    if (isInternalUrl(url, port)) return
+    event.preventDefault()
+    openExternal(url)
+  })
 }
 
 /**
@@ -159,26 +232,35 @@ export async function createMainWindow(win: { url: string; port: number }): Prom
 
   created.once('ready-to-show', () => created.show())
 
-  // 关窗时记住几何（本任务允许真关闭；托盘接管是 Task 7）
-  created.on('close', () => {
+  // 外链拦截：两道闸（新窗口 / 同窗口跳转），规则见 wireNavigation
+  wireNavigation(created.webContents, win.port)
+
+  // 关窗 = 藏到托盘（Task 7）。这里**同时**记几何：藏起来之后再退出也不会丢位置。
+  // 两个例外才真关：quitRequested（托盘「退出」/ 系统关机），以及托盘压根没建起来
+  // （tray === null 时藏起来就再也叫不回来了，宁可关掉重开）。
+  created.on('close', (event) => {
     try {
       writeWindowState(paths.windowStateFile, created.getBounds())
     } catch (err) {
-      console.error('[pinfolio] 保存窗口状态失败：', err)
+      log('[pinfolio] 保存窗口状态失败：', err)
     }
+    if (quitRequested || tray === null) return
+    event.preventDefault()
+    created.hide()
+    log('[pinfolio] 关窗 -> 藏到托盘（进程与服务都还在）')
   })
   created.on('closed', () => {
     if (mainWindow === created) mainWindow = null
   })
 
   created.webContents.on('did-finish-load', () => {
-    console.log(
+    log(
       '[pinfolio] loaded ' + created.webContents.getURL() + ' (title: ' + created.getTitle() + ')',
     )
   })
 
   created.loadURL(win.url).catch((err: unknown) => {
-    console.error('[pinfolio] 加载失败 ' + win.url + '：', err)
+    log('[pinfolio] 加载失败 ' + win.url + '：', err)
   })
 
   return created
@@ -192,17 +274,27 @@ function focusMainWindow(): void {
   mainWindow.focus()
 }
 
-/** 起后端 → 注 cookie → 开窗。startServer 与 ready 可以并行，但 cookie/窗口只能在 ready 之后 */
+/**
+ * 真退出：置 `quitRequested` 后 app.quit()。
+ * 托盘「退出」走这里；before-quit 里也会把同一个标志置位（系统关机 / 别处调 app.quit()）。
+ * 服务和定时器的收尾全在 before-quit 里做（Task 6 的防重入逻辑原样保留）。
+ */
+function requestQuit(): void {
+  quitRequested = true
+  app.quit()
+}
+
+/** 起后端 → 注 cookie → 开窗 → 建托盘。startServer 与 ready 可以并行，但 cookie/窗口只能在 ready 之后 */
 async function boot(): Promise<void> {
   const paths = prepareEnv()
-  console.log('[pinfolio] userData: ' + app.getPath('userData'))
-  console.log('[pinfolio] data dir: ' + paths.dataDir)
+  log('[pinfolio] userData: ' + app.getPath('userData'))
+  log('[pinfolio] data dir: ' + paths.dataDir)
 
-  // 动态 import：上一行设的 env 必须在后端模块**求值之前**生效（见文件头的坑 2）
+  // 动态 import：上一行设的 env 必须在后端模块**求值之前**生效（见文件头的坑 3）
   const { startServer } = await import('../server/app.js')
   handle = await startServer({ port: 0, hostname: HOSTNAME, desktopAutoLogin: true })
   // Task 10 的冒烟脚本按这一行正则解析端口，别改格式、别自己拼 URL
-  console.log('[pinfolio] listening on ' + handle.url)
+  log('[pinfolio] listening on ' + handle.url)
   if (handle.desktopSession === undefined) {
     throw new Error('startServer 没返回 desktopSession（desktopAutoLogin 没生效？）')
   }
@@ -221,12 +313,30 @@ async function boot(): Promise<void> {
 
   await assertAuthStillOn(handle.url)
 
-  mainWindow = await createMainWindow(handle)
+  const current = handle
+  mainWindow = await createMainWindow(current)
+
+  // 托盘必须在窗口之后建：菜单要读 win.isVisible()，左键要能显示回来
+  try {
+    tray = createTray(mainWindow, {
+      onQuit: requestQuit,
+      // Task 8 接真实实现，这里只是桩：不许抛错，只留一行日志
+      onCheckUpdate: () => {
+        log('[tray] update check not wired yet')
+      },
+      dataDir: paths.dataDir,
+    })
+  } catch (err) {
+    // 托盘建不起来不算致命（窗口还能用），但关窗即退出的语义要跟着退回去，
+    // 否则用户点了 X 之后进程还在、又没有图标能叫回来（见 createMainWindow 的 close）
+    tray = null
+    log('[tray] 托盘创建失败，本次运行退化为「关窗即退出」：', err)
+  }
 
   // 看门狗的定时器 unref：绝不因为它挡住进程退出（退出时还会再 clearInterval 一次）
   watchdog = setInterval(() => {
     void ensureSessionAlive().catch((err: unknown) => {
-      console.error('[pinfolio] 检查桌面会话失败：', err)
+      log('[pinfolio] 检查桌面会话失败：', err)
     })
   }, WATCHDOG_MS)
   watchdog.unref()
@@ -238,12 +348,17 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => focusMainWindow())
 
-  // 本任务允许真退出（托盘接管是 Task 7）
-  app.on('window-all-closed', () => app.quit())
+  // Windows 上关掉最后一个窗口默认就退出；托盘常驻要求这里**什么也不做**（Task 7）
+  app.on('window-all-closed', () => {
+    if (quitRequested) return
+    log('[pinfolio] 所有窗口已关闭，托盘还在，进程继续跑')
+  })
 
   app.on('before-quit', (event) => {
     if (quitting) return
     quitting = true
+    // 关服务期间窗口会被真关掉（不能再 preventDefault 藏起来）
+    quitRequested = true
     if (watchdog) {
       clearInterval(watchdog)
       watchdog = null
@@ -256,9 +371,9 @@ if (!app.requestSingleInstanceLock()) {
       if (current) {
         try {
           await current.close()
-          console.log('[pinfolio] server closed')
+          log('[pinfolio] server closed')
         } catch (err) {
-          console.error('[pinfolio] 关闭服务失败：', err)
+          log('[pinfolio] 关闭服务失败：', err)
         }
       }
       // 第二趟 before-quit 会直接放行（quitting 已为真），不会自己咬自己
@@ -267,7 +382,7 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   boot().catch((err: unknown) => {
-    console.error('[pinfolio] 启动失败：', err)
+    log('[pinfolio] 启动失败：', err)
     process.exitCode = 1
     app.quit()
   })
