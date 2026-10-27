@@ -8,6 +8,7 @@ import type { DesktopPaths } from './paths.js'
 import { installCrashHandlers, log } from './log.js'
 import { isInternalUrl } from './nav.js'
 import { createTray } from './tray.js'
+import { AUTO_CHECK_DELAY_MS, autoCheck, checkForUpdatesInteractive, configureUpdater } from './updater.js'
 import { MIN_SIZE, clampBounds, readWindowState, writeWindowState } from './window-state.js'
 import type { Bounds } from './window-state.js'
 
@@ -42,6 +43,10 @@ import type { Bounds } from './window-state.js'
  *    系统关机（before-quit），两者都把 `quitRequested` 置位，然后走同一个关服务流程。
  *    **唯一例外**是托盘没建起来（tray === null）：关窗即真关，window-all-closed 直接 quit ——
  *    没窗口又没图标，再常驻就是个占着端口和数据库的僵尸进程。
+ *
+ * 10. 自动更新（Task 8）只做**接线**，逻辑全在 desktop/updater.ts（懒加载 electron-updater）：
+ *    打包态启动 30 秒后静默检查一次（定时器 unref，绝不挡住退出），托盘「检查更新」走手动流程。
+ *    「重启安装」之前的收尾复用这里同一段 closeServerOnce()，所以不会和 before-quit 抢着关服务。
  */
 
 /** 只监听回环：desktopAutoLogin 也要求回环（server/app.ts 的 resolveListenOptions 会校验） */
@@ -295,6 +300,40 @@ function requestQuit(): void {
   app.quit()
 }
 
+/**
+ * 关后端（**幂等**）：before-quit 与更新模块的「重启安装」共用这一份。
+ * 先把 handle 摘下来再 await，谁先来谁关，后到的拿到 null 直接跳过 —— 两个入口竞争时不会关两次。
+ */
+async function closeServerOnce(): Promise<void> {
+  const current = handle
+  handle = null
+  if (!current) return
+  try {
+    await current.close()
+    log('[pinfolio] server closed')
+  } catch (err) {
+    log('[pinfolio] 关闭服务失败：', err)
+  }
+}
+
+/**
+ * 更新安装前的收尾（Task 8 注入给 desktop/updater.ts）：置 `quitRequested`（关窗不再拦，
+ * 与托盘「退出」同一条语义）→ 停看门狗 → 关后端 → 交回 updater 去 quitAndInstall()。
+ *
+ * 为什么要在这里做完再交给 quitAndInstall：它 spawn 完安装器就 setImmediate 里 app.quit()，
+ * 如果后端还开着，before-quit 会 preventDefault 去异步关服务，安装器那边已经在等进程退出了。
+ * 提前关干净之后，before-quit 那一趟只剩空跑（handle 已是 null），两边不打架。
+ */
+async function prepareUpdateInstall(): Promise<void> {
+  log('[pinfolio] 准备重启安装更新：先关服务再退出')
+  quitRequested = true
+  if (watchdog) {
+    clearInterval(watchdog)
+    watchdog = null
+  }
+  await closeServerOnce()
+}
+
 /** 起后端 → 注 cookie → 开窗 → 建托盘。startServer 与 ready 可以并行，但 cookie/窗口只能在 ready 之后 */
 async function boot(): Promise<void> {
   const paths = prepareEnv()
@@ -331,9 +370,10 @@ async function boot(): Promise<void> {
   try {
     tray = createTray(mainWindow, {
       onQuit: requestQuit,
-      // Task 8 接真实实现，这里只是桩：不许抛错，只留一行日志
+      // Task 8：手动检查更新（未打包时 updater 自己只留一行「未打包，跳过更新检查」）。
+      // 返回的 Promise 不 await —— 弹框流程可能开着很久，绝不能挡住主进程
       onCheckUpdate: () => {
-        log('[tray] update check not wired yet')
+        void checkForUpdatesInteractive()
       },
       dataDir: paths.dataDir,
     })
@@ -351,6 +391,17 @@ async function boot(): Promise<void> {
     })
   }, WATCHDOG_MS)
   watchdog.unref()
+
+  // Task 8：更新模块需要「主窗口当弹框 parent」与「安装前收尾」两件事。用注入而不是让
+  // updater.ts 反向 import 本文件（会成环），mainWindow 是活变量，所以给的是一个闭包
+  configureUpdater({
+    getWindow: () => (mainWindow !== null && !mainWindow.isDestroyed() ? mainWindow : null),
+    beforeInstall: prepareUpdateInstall,
+  })
+
+  // 打包态启动 30 秒后静默检查一次更新：unref 保证这个定时器绝不挡住进程退出。
+  // 开发态（未打包）autoCheck 只写一行「未打包，跳过更新检查」，不会碰 electron-updater
+  setTimeout(() => autoCheck(), AUTO_CHECK_DELAY_MS).unref()
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -385,16 +436,8 @@ if (!app.requestSingleInstanceLock()) {
     // 不能同步 await：先挡住这次退出，等服务真的关干净再重新 quit
     event.preventDefault()
     void (async () => {
-      const current = handle
-      handle = null
-      if (current) {
-        try {
-          await current.close()
-          log('[pinfolio] server closed')
-        } catch (err) {
-          log('[pinfolio] 关闭服务失败：', err)
-        }
-      }
+      // 关服务只有这一份实现（Task 8 的「重启安装」也用它，见 closeServerOnce）
+      await closeServerOnce()
       // 第二趟 before-quit 会直接放行（quitting 已为真），不会自己咬自己
       app.quit()
     })()

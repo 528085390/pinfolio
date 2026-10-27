@@ -29,7 +29,10 @@ const FALLBACK_ICON =
 export type TrayOptions = {
   /** 用户点了「退出」：main.ts 里置退出标志 + app.quit() */
   onQuit: () => void
-  /** 用户点了「检查更新」：Task 8 接真实实现，这里是桩 */
+  /**
+   * 用户点了「检查更新」：main.ts 接到 desktop/updater.ts 的 checkForUpdatesInteractive()。
+   * 托盘只负责「用户点了一下」这个事实，检查 / 弹框 / 安装全在 updater.ts 里
+   */
   onCheckUpdate: () => void
   /** 「打开数据目录」要打开的绝对路径（main.ts 传 desktopPaths().dataDir） */
   dataDir: string
@@ -139,7 +142,7 @@ function buildMenu(win: BrowserWindow, opts: TrayOptions, refresh: () => void): 
         try {
           opts.onCheckUpdate()
         } catch (err) {
-          // 桩 / Task 8 的实现都不许把主进程带崩
+          // 更新链路的任何失败都不许把主进程带崩（回调内部的 Promise 由 updater.ts 自己接）
           log('[tray] 检查更新回调抛错', err)
         }
       },
