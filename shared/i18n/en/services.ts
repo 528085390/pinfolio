@@ -17,6 +17,12 @@ export const services: Dict = {
   '脚本': 'Script',
   '任务': 'Task',
   '启动 · 端口': 'Startup · port',
+  '自启动': 'Autostart',
+  '自启': 'Auto',
+  '自启动（开机 / 登录后自动运行）': 'Autostart (runs automatically on boot / login)',
+  '开机 / 登录时自启动': 'Autostart on boot / login',
+  '是否已配置开机 / 登录自启动（勾选后在服务名右下角标记「自启动」）':
+    'Whether autostart on boot / login is configured (shows an “Autostart” tag on the bottom-right of the service name)',
 
   // 服务器抽屉
   '编辑服务器：{name}': 'Edit server: {name}',

@@ -157,6 +157,7 @@ test('addDeploy：正常加一条；重复的一对、没路径、没这台机�
     url: 'https://203.0.113.10/',
     monitor: [5],
     note: '公网入口',
+    autostart: true,
   }))
   assert.equal(d.deploys.length, 2)
   assert.deepEqual(d.deploys[1], {
@@ -168,6 +169,7 @@ test('addDeploy：正常加一条；重复的一对、没路径、没这台机�
     monitor: [5],
     url: 'https://203.0.113.10/',
     note: '公网入口',
+    autostart: true,
   })
   // 不传的可选字段落成 undefined，而不是 null
   const bare = okOf(addDeploy(base(), { server: 'srv1', service: 'nginx', path: '/opt/x', runtime: '' }))
@@ -184,9 +186,13 @@ test('addDeploy：正常加一条；重复的一对、没路径、没这台机�
 })
 
 test('patchDeploy：只改传上来的字段；挪到已存在的一对上拒绝；key 不存在拒绝', () => {
-  const d = okOf(patchDeploy(base(), 'local:wbapi', { path: 'E:/wbapi-v2', port: '7865' }))
+  const d = okOf(patchDeploy(base(), 'local:wbapi', { path: 'E:/wbapi-v2', port: '7865', autostart: true }))
   assert.equal(d.deploys[0].path, 'E:/wbapi-v2')
   assert.equal(d.deploys[0].port, '7865')
+  assert.equal(d.deploys[0].autostart, true)
+  // 改成 false 后清掉
+  const turnedOff = okOf(patchDeploy(d, 'local:wbapi', { autostart: false }))
+  assert.equal(turnedOff.deploys[0].autostart, undefined)
   // 没传的保持原样
   assert.equal(d.deploys[0].runtime, '计划任务 WorkBuddyServices')
   assert.deepEqual(d.deploys[0].monitor, [1])

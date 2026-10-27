@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（56 条）
+# pinboard 已知问题与坑（67 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -116,3 +116,11 @@
     三个坑：① **必须 `align-items: start`**，否则 grid 默认 `stretch` 会把卡片拉满跨行的高度，卡片之间出现大片空白、而且测量值越算越大；② 只给**便签页**加 `.note-grid`，资产抽屉的「关联便签」也复用 `.note-list`，那是个窄容器，别一起改；③ 图片加载完、展开编辑框都会改卡片高度，所以要挂 `ResizeObserver` 重量，光靠 `useEffect` 的依赖数组会错位（图片是懒加载的，首帧量到的还是空高度）。
     页面宽度：便签页单独用 `.page-notes { max-width: 1440px }`（别的页还是 980 / 1220），实测 1440 视口 3 列、1920 视口 4 列，列表总高 1303 → 588 / 488px。量列数别数 DOM，取卡片 `getBoundingClientRect().left` 去重。
 
+66. **Agent 会话里重启 7788：不要用 `tools/pinboard.ps1 restart` 的 spawn，要用 WMI 起**（2026-10-27 踩到，服务被 stop 之后起不来，停了约 20 分钟）：`pinboard.ps1 restart` 先杀进程再 `pnpm start`，而**代理进程的 PATH 是空的（`pnpm` 不在）**，于是 stop 成功、start 报 `'pnpm' 不是内部或外部命令`，7788 就空着。即使用绝对路径 `E:\nodejs\node.exe` 起，**`spawn(detached:true)` 或 `Start-Process` 起的子进程也会随 agent 那次 exec 结束被杀掉**（起得来、几秒后就没了，日志里只剩「pinfolio 已启动」一行）。
+    可用的起法（进程挂到 WmiPrvSE 下，脱离调用方）：
+    `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = 'cmd.exe /c cd /d E:\bqj\pinboard && "E:\nodejs\node.exe" --env-file-if-exists=.env --import tsx server/index.ts >> "E:\bqj\pinboard\logs\pinboard.log" 2>&1' }`
+    验收：`GET /api/health` 200，且**换一个 exec 再查一次**（同一次 exec 内 200 说明不了问题）。
+    另外两条：① 跑 node 必须写 `E:\nodejs\node.exe`——`process.execPath` 是 `DeepSeek Harness.exe`，拿它跑脚本会静默假成功并拉起 Electron；② 单测/架构测试会起**隔离实例**（端口 7793/7794 等），跑完若没退出会留着，`Get-NetTCPConnection -State Listen` 看一眼，确认不是 7788 的竞争对手再 `Stop-Process`。
+
+67. **加一个资产类型（kind）要改 5 处，少一处就「后端认、前端不认」**（2026-10-27 加 `subscription`「订阅」时）：① `web/lib/format.ts` 的 `KIND_META`（label 写成 `get label() { return t('订阅') }`，见坑 63）+ `KINDS` 数组；② `web/components/KindIcon.tsx` 的 icon MAP（记得 import 对应 lucide 图标）；③ `shared/i18n/en/assets.ts` 的中英对照；④ `server/snapshot/markdown.ts` 的 `KIND_LABEL`（否则 SNAPSHOT.md 的类型列显示英文 kind）；⑤ `docs/adding-assets.md` 的枚举表。
+    后端 `server/assets/` 没有 kind 枚举校验，所以路由不用改；但 **`PATCH` 的 `custom` / `tags` 是整体替换**，改 kind 时别顺手把 custom 冲掉。改完必跑 `tsc --noEmit` + `vite build`（前端产物在 `dist/web`，index.html 的 hash 要跟着变）+ `--test tests/unit/*.test.mts`。

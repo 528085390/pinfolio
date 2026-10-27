@@ -53,6 +53,8 @@ export type DeployRec = {
   /** 这个部署自己的管理页（面板 / 后台那种能打开的页面） */
   url?: string
   note?: string
+  /** 是否配置了开机/登录自启动 */
+  autostart?: boolean
 }
 
 export type ServicesData = {
@@ -175,6 +177,7 @@ export function parseServices(input: unknown): ServicesData {
       // 只认 http(s)：手滑写成 javascript: 也不会变成可点的链接
       url: isHttpUrl(text(r.url, 500)) ? text(r.url, 500) : undefined,
       note: optional(r.note, LEN.note),
+      autostart: r.autostart === true ? true : undefined,
     })
   }
 

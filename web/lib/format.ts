@@ -66,6 +66,8 @@ export const KIND_META: Record<string, { label: string }> = {
   server: { get label() { return t('服务器') } },
   account: { get label() { return t('账号') } },
   domain: { get label() { return t('域名') } },
+  node: { get label() { return t('节点') } },
+  subscription: { get label() { return t('订阅') } },
   other: { get label() { return t('其他') } },
 }
 
@@ -76,4 +78,4 @@ export const STATUS_META: Record<string, { label: string; color: string }> = {
   lost: { get label() { return t('丢失') }, color: '#b42318' },
 }
 
-export const KINDS = ['device', 'server', 'account', 'domain', 'other']
+export const KINDS = ['device', 'server', 'node', 'account', 'domain', 'subscription', 'other']

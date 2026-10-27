@@ -13,6 +13,8 @@ export const assets: Dict = {
   '已过期': 'Expired',
 
   // 筛选行 / 标签栏
+  '节点': 'Node',
+  '订阅': 'Subscription',
   '所有状态': 'All statuses',
   '搜索名称/序列号/备注': 'Search name / serial / notes',
   '卡片视图': 'Card view',

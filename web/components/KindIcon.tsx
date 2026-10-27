@@ -1,10 +1,12 @@
-import { Laptop, Server, KeyRound, Globe, Package } from 'lucide-react'
+import { Laptop, Server, KeyRound, Globe, Package, Rss, Network } from 'lucide-react'
 
 const MAP: Record<string, any> = {
   device: Laptop,
   server: Server,
   account: KeyRound,
   domain: Globe,
+  node: Network,
+  subscription: Rss,
   other: Package,
 }
 

@@ -41,10 +41,12 @@ const CORE = [
   ['e2e-image', 'e2e-image.mjs'],
   ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
   ['e2e-i18n', 'e2e-i18n.mjs'],
+  ['e2e-services', 'e2e-services.mjs'],
 ]
 
 const SUITES = {
   core: CORE,
+  services: [['e2e-services', 'e2e-services.mjs']],
   // CI 只跑「不依赖外部服务」的那批：core 全部 + 没接 Kuma 时的引导卡。
   // monitor 组要真 Kuma、mail 组要假 IMAP 服务、主机指标要采集端，都只在本地跑。
   ci: [...CORE, ['e2e-monitor-empty', 'e2e-monitor-empty.mjs']],

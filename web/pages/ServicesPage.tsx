@@ -100,28 +100,41 @@ function ManageLink({ url }: { url: string }) {
 }
 
 /** 详细视图里的名字格：能跳就是按钮，不能跳就是灰字（点了没反应）。 */
-function NameCell({ name, summary, target, onOpen }: {
+function NameCell({ name, summary, target, onOpen, autostart }: {
   name: string
   summary: string
   target: DeployTarget | null
   onOpen?: (id: number) => void
+  autostart?: boolean
 }) {
   const mon = useContext(MonNames)
+  const tag = autostart ? (
+    <span className="svc-autostart-tag" title={t('自启动（开机 / 登录后自动运行）')}>{t('自启动')}</span>
+  ) : null
+
   if (!target) {
-    return <span className="svc-name is-static" title={t('{summary}（没挂观测也没有管理页，点了不跳）', { summary })}>{name}</span>
+    return (
+      <span className="svc-name-cell">
+        <span className="svc-name is-static" title={t('{summary}（没挂观测也没有管理页，点了不跳）', { summary })}>{name}</span>
+        {tag}
+      </span>
+    )
   }
   const tip = target.kind === 'monitor'
     ? t('{summary}（点一下去观测台看「{name}」）', { summary, name: mon(target.id) })
     : t('{summary}（点一下打开管理页 {url}）', { summary, url: target.url })
   return (
-    <button
-      type="button"
-      className="svc-name"
-      title={tip}
-      onClick={() => (target.kind === 'monitor' ? onOpen?.(target.id) : openUrl(target.url))}
-    >
-      {name}
-    </button>
+    <span className="svc-name-cell">
+      <button
+        type="button"
+        className="svc-name"
+        title={tip}
+        onClick={() => (target.kind === 'monitor' ? onOpen?.(target.id) : openUrl(target.url))}
+      >
+        {name}
+      </button>
+      {tag}
+    </span>
   )
 }
 
@@ -145,7 +158,7 @@ function ServerDeployRow({ row, ops, onOpen, onService }: {
   return (
     <li className="svc-row">
       <span className={cx('svc-kind', 'kind-' + row.svc.kind)}>{KIND_LABEL[row.svc.kind]}</span>
-      <NameCell name={row.svc.name} summary={row.svc.summary} target={deployTarget(row)} onOpen={onOpen} />
+      <NameCell name={row.svc.name} summary={row.svc.summary} target={deployTarget(row)} onOpen={onOpen} autostart={row.autostart} />
       <span className="svc-path" title={row.path}>{row.path}</span>
       <RunCell row={row} />
       <span className="svc-mons">
@@ -186,6 +199,7 @@ function ServiceDeployRow({ row, ops, onOpen, onServer }: {
         summary={row.srv.vendor + ' · ' + row.srv.ip + ' · ' + row.srv.user}
         target={deployTarget(row)}
         onOpen={onOpen}
+        autostart={row.autostart}
       />
       <span className="svc-path" title={row.path}>{row.path}</span>
       <RunCell row={row} />
@@ -225,6 +239,7 @@ function MiniRow({
   detail,
   ops,
   onOpen,
+  autostart,
 }: {
   dot?: string
   label: string
@@ -235,6 +250,7 @@ function MiniRow({
   /** 行尾的改 / 删按钮（悬停才显形） */
   ops?: ReactNode
   onOpen?: (id: number) => void
+  autostart?: boolean
 }) {
   const mon = useContext(MonNames)
   const linked = target !== null
@@ -263,7 +279,10 @@ function MiniRow({
       } : undefined}
     >
       {dot ? <span className={cx('svc-dot', dot)} /> : null}
-      <span className={cx('svc-mini-name', linked ? 'is-link' : 'is-static')} title={labelTitle}>{label}</span>
+      <span className={cx('svc-mini-name', linked ? 'is-link' : 'is-static')} title={labelTitle}>
+        <span className="svc-mini-name-text">{label}</span>
+        {autostart ? <span className="svc-autostart-tag" title={t('自启动（开机 / 登录后自动运行）')}>{t('自启动')}</span> : null}
+      </span>
       {port ? <span className="svc-mini-port">{port}</span> : null}
       {ops ? <span className="svc-mini-ops">{ops}</span> : null}
     </li>
@@ -313,6 +332,7 @@ function MiniServerCard({ g, flash, ops, onOpen }: {
             target={deployTarget(row)}
             detail={deployTitle(row, (row.monitor ?? []).map(mon))}
             onOpen={onOpen}
+            autostart={row.autostart}
             ops={
               <>
                 <button
@@ -411,6 +431,7 @@ function ServiceListRow({ g, flash, ops, onOpen, onJump }: {
               onClick={() => onJump('server', 'svc-card-srv-' + row.server)}
             >
               {row.srv.name}
+              {row.autostart ? <span className="svc-autostart-tag is-chip">{t('自启')}</span> : null}
               {row.port ? <em>{row.port}</em> : null}
             </button>
           </Fragment>

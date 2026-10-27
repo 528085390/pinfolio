@@ -319,6 +319,7 @@ export function DeployDrawer({ open, editing, preset, servers, services, monitor
   const [port, setPort] = useState('')
   const [url, setUrl] = useState('')
   const [note, setNote] = useState('')
+  const [autostart, setAutostart] = useState(false)
   const [picked, setPicked] = useState<number[]>([])
   const { saving, err, setErr, run } = useSaving(onSaved, onClose)
 
@@ -331,6 +332,7 @@ export function DeployDrawer({ open, editing, preset, servers, services, monitor
     setPort(editing?.port ?? '')
     setUrl(editing?.url ?? '')
     setNote(editing?.note ?? '')
+    setAutostart(editing?.autostart === true)
     setPicked(editing?.monitor ?? [])
     setErr('')
   }, [open, editing, preset, servers, setErr])
@@ -346,6 +348,7 @@ export function DeployDrawer({ open, editing, preset, servers, services, monitor
       url: url.trim(),
       note: note.trim(),
       monitor: picked,
+      autostart,
     }
     const withNames = { ...body, monitorNames: namesOf(picked, choices) }
     void run(() => (editing ? api.services.patchDeploy(key, withNames) : api.services.addDeploy(withNames)))
@@ -386,6 +389,16 @@ export function DeployDrawer({ open, editing, preset, servers, services, monitor
         </Field>
         <Field label={t('端口')} hint={t('监听地址，可空')}>
           <input className="input" value={port} placeholder="7863" onChange={(e) => setPort(e.target.value)} />
+        </Field>
+        <Field label={t('自启动')} span={2} hint={t('是否已配置开机 / 登录自启动（勾选后在服务名右下角标记「自启动」）')}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', height: '36px', cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={autostart}
+              onChange={(e) => setAutostart(e.target.checked)}
+            />
+            <span style={{ fontSize: '13px' }}>{t('开机 / 登录时自启动')}</span>
+          </div>
         </Field>
         <Field label={t('管理页')} span={2} hint={t('能打开的页面（面板 / 后台）；没观测时点名字就跳它')}>
           <input className="input" value={url} placeholder="http://127.0.0.1:7863" onChange={(e) => setUrl(e.target.value)} />

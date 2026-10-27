@@ -6,7 +6,7 @@ import type { AssetRow, FieldRow, NoteRow, TagRow } from './rows.js'
  * 取数在 ./rows.ts，写文件与防抖在 ./write.ts。
  */
 
-export const KIND_LABEL: Record<string, string> = { device: '设备', server: '服务器', account: '账号', domain: '域名', other: '其他' }
+export const KIND_LABEL: Record<string, string> = { device: '设备', server: '服务器', account: '账号', domain: '域名', node: '节点', subscription: '订阅', other: '其他' }
 export const STATUS_LABEL: Record<string, string> = { active: '在用', idle: '闲置', retired: '退役', lost: '丢失' }
 
 export const pad = (n: number) => (n < 10 ? '0' + n : String(n))

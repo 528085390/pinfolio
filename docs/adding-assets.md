@@ -115,6 +115,8 @@ Invoke-RestMethod -Method Post -Uri "$api/assets" -ContentType 'application/json
 | `server` | `kind` | 服务器 | — |
 | `account` | `kind` | 账号 | — |
 | `domain` | `kind` | 域名 | — |
+| `node` | `kind` | 节点 | — |
+| `subscription` | `kind` | 订阅 | — |
 | `other` | `kind` | 其他 | — |
 | `active` | `status` | 在用 | 1 |
 | `idle` | `status` | 闲置 | 2 |

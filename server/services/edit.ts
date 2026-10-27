@@ -295,6 +295,9 @@ function readDeploy(data: ServicesData, b: Record<string, unknown>, base: Deploy
   if ('error' in mon) return { error: mon.error }
   const url = has(b, 'url') ? readUrl(b.url) : { url: base?.url }
   if ('error' in url) return { error: url.error }
+  const autostart = has(b, 'autostart')
+    ? (b.autostart === true || b.autostart === 'true' ? true : undefined)
+    : base?.autostart
   return {
     rec: {
       server: srv.id,
@@ -305,6 +308,7 @@ function readDeploy(data: ServicesData, b: Record<string, unknown>, base: Deploy
       monitor: mon.ids,
       url: url.url,
       note: (has(b, 'note') ? txt(b.note, LEN.note) : base?.note || '') || undefined,
+      autostart,
     },
   }
 }

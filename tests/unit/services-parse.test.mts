@@ -19,8 +19,8 @@ const good = {
     { id: 'immich', name: '重复的丢掉' },
   ],
   deploys: [
-    { server: 'os', service: 'immich', path: '/srv/immich', runtime: 'docker compose', port: '2283', url: 'http://168.110.34.103:2283', note: '不参与观测' },
-    { server: 'os', service: 'xray', path: '/etc/xray', runtime: 'systemd xray', monitor: ['443', 443, 12], url: 'javascript:alert(1)' },
+    { server: 'os', service: 'immich', path: '/srv/immich', runtime: 'docker compose', port: '2283', url: 'http://168.110.34.103:2283', note: '不参与观测', autostart: true },
+    { server: 'os', service: 'xray', path: '/etc/xray', runtime: 'systemd xray', monitor: ['443', 443, 12], url: 'javascript:alert(1)', autostart: false },
     { server: 'os', service: 'ghost', path: '/x', runtime: 'x' },
     { server: 'ghost', service: 'immich', path: '/y', runtime: 'y' },
   ],
@@ -50,7 +50,9 @@ test('parseServices：正常数据原样过，坏条目逐条丢掉而不是整�
     monitor: [],
     url: 'http://168.110.34.103:2283',
     note: '不参与观测',
+    autostart: true,
   })
+  assert.equal(d.deploys[1].autostart, undefined)
 })
 
 test('parseServices：管理页只认 http(s)，观测 id 去重排序', () => {
@@ -82,7 +84,7 @@ test('parseServices：字段类型不对就当没写（不抛错）', () => {
   assert.equal(d.services[0].kind, 'service')
   assert.equal(d.services[0].summary, '')
   assert.deepEqual(d.deploys, [
-    { server: 'a', service: 'x', path: '', runtime: '', port: undefined, monitor: [], url: undefined, note: undefined },
+    { server: 'a', service: 'x', path: '', runtime: '', port: undefined, monitor: [], url: undefined, note: undefined, autostart: undefined },
   ])
 })
 

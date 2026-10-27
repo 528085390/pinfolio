@@ -42,6 +42,8 @@ export type DeployRec = {
   /** 这个部署自己的管理页（面板 / 后台那种能打开的页面） */
   url?: string
   note?: string
+  /** 是否配置了开机/登录自启动 */
+  autostart?: boolean
 }
 
 /** GET /api/services：data/services.json 的解析结果 + 文件路径（空态里给用户看） */
@@ -85,6 +87,7 @@ export type DeployInput = {
   monitor?: number[]
   url?: string
   note?: string
+  autostart?: boolean
 }
 
 /** 选中观测项时把名字一起带上：服务端会写进文件的 monitors 表（文件自己就能说明 id 是啥） */
