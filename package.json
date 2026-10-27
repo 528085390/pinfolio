@@ -3,6 +3,7 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "version": "0.5.0",
+  "description": "Personal dashboard and memo board with Web and Desktop forms",
   "author": "pinfolio contributors",
   "type": "module",
   "main": "dist-desktop/main.js",

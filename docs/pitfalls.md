@@ -116,3 +116,29 @@
     三个坑：① **必须 `align-items: start`**，否则 grid 默认 `stretch` 会把卡片拉满跨行的高度，卡片之间出现大片空白、而且测量值越算越大；② 只给**便签页**加 `.note-grid`，资产抽屉的「关联便签」也复用 `.note-list`，那是个窄容器，别一起改；③ 图片加载完、展开编辑框都会改卡片高度，所以要挂 `ResizeObserver` 重量，光靠 `useEffect` 的依赖数组会错位（图片是懒加载的，首帧量到的还是空高度）。
     页面宽度：便签页单独用 `.page-notes { max-width: 1440px }`（别的页还是 980 / 1220），实测 1440 视口 3 列、1920 视口 4 列，列表总高 1303 → 588 / 488px。量列数别数 DOM，取卡片 `getBoundingClientRect().left` 去重。
 
+
+66. **`PINBOARD_DATA` / `PINBOARD_SNAPSHOT` 环境变量必须早于 import `server/db.ts` 生效**（2026-10-27 架构升级做桌面端与多实例时踩到）：`server/db.ts` 顶层包含模块级副作用 `export const db = new DatabaseSync(DB_PATH)`，ESM 模块级顶层代码在静态 import 时最先求值。如果先静态 import 服务端模块再设置环境变量，数据目录和数据库单例已经以旧路径打开了。桌面端主进程（`desktop/start-server.ts`）必须先设置好 `process.env.PINBOARD_DATA` 与 `process.env.PINBOARD_SNAPSHOT`，然后通过 `await import(...)` 动态引入服务端代码。同理单测中测试隔离实例也是先设 env 再动态 import。
+
+67. **pnpm 严格模式下必须在 `pnpm-workspace.yaml` 中配置 `allowBuilds: ["esbuild"]`**（同一天）：pnpm 12 默认开启严格构建脚本隔离，若未在工作区配置中显式放行 esbuild 原生构建脚本，在某些未预编译平台的安装过程中会跳过 native binary 下载或编译，导致后续执行构建脚本时报错。
+
+68. **桌面端免密只许回环地址使用（`desktopAutoLogin` 防远程未授权提权）**（同一天）：`server/app.ts` 与 `server/desktop-session.ts` 实现了桌面端启动自动登录会话创建与注入。为防止网络层配置失误（例如被绑定到 0.0.0.0 时外部请求携带伪造 Host 请求头伪装回环），`desktopAutoLogin` 开关在非回环地址（非 `127.0.0.1` / `::1`）启动时必须直接拒绝启动抛出致命错误，杜绝远程未经授权访问。
+
+69. **托盘常驻模式下 `window-all-closed` 不退出，但 Tray 构造失败时必须退出的例外**（同一天）：在桌面端应用中，通常注册 `app.on('window-all-closed', () => {})` 阻止窗口关闭时退出进程，以便托盘常驻。然而，一旦系统托盘（Tray）构造失败（例如缺失图标、没有托盘支持的无头环境或底层系统错误触发 catch 分支），`tray` 实例为 `null`。此时如果用户点击关闭窗口，窗口真正关闭，但因为 `window-all-closed` 被阻止，进程在后台将变成既无窗口、又无托盘的“幽灵进程”，持续霸占端口与 SQLite 文件锁。正确的处理是在 `window-all-closed` 中检查：若 `tray === null`，必须强制 `app.quit()`。
+
+70. **`%APPDATA%` 目录迁移：`pinboard.db` 与 `secret.key` 必须成对迁移**（同一天）：桌面端个人数据保存在 `%APPDATA%/pinfolio/data`。资产管理中的敏感字段（如密码、API Key、私钥等）使用 `secret.key` 中的 AES 密钥加密保存在 SQLite 中。如果用户只拷走了 `pinboard.db` 而遗漏了 `secret.key`，在新环境启动时会生成全新的随机 key，导致老资产中的所有加密字段解密失败报 500 或乱码。备份、恢复或从 Web 版迁移到桌面端时必须成对迁移。
+
+71. **`electron-updater` 在 ESM 主进程下的 CJS 具名导出静态分析失效陷阱**（同一天）：在 Node 24 / Electron ESM 环境下，通过 `import { autoUpdater } from 'electron-updater'` 或 `await import('electron-updater')` 尝试解构具名导出时，拿到的 `autoUpdater` 是 `undefined`！原因在于 `electron-updater` 使用 CJS 导出，其末尾使用了 `Object.defineProperty(exports, "autoUpdater", { enumerable: true, get: ... })` 动态导出，Node 的 `cjs-module-lexer` 无法静态分析出其具名导出（而 TypeScript 声明文件却有具名类型，导致 tsc 不报任何错）。直接访问 `autoUpdater.autoDownload = false` 会抛出 `TypeError: Cannot set properties of undefined`。必须编写互操作逻辑：优先级取 `ns.autoUpdater || ns.default?.autoUpdater || ns['module.exports']?.autoUpdater`。
+
+72. **`electron-updater` 是 devDependency，electron-builder 默认只打包 production dependencies 导致更新通道断开**（同一天）：在轻量架构中，前端与构建依赖放在 `devDependencies`，Docker 镜像与服务端使用 `--prod` 部署。如果把 `electron-updater` 留在 `devDependencies`，打包时 `asar` 内将不会包含 `electron-updater`，导致安装包在运行时动态 import 抛 `ERR_MODULE_NOT_FOUND`；如果挪进 `dependencies`，又会污染 Web 端 / Docker 依赖图。解决方案是用 esbuild 将 `desktop/updater-vendor.cts` 及其所有内部 CJS 依赖独立预打包成单文件 `dist-desktop/updater-vendor.cjs`（不带 `--packages=external`），并在主进程打包命令中显式标记 `--external:./updater-vendor.cjs`，运行时通过相对路径动态加载，两全其美。
+
+73. **冷启动抖动：首次运行 Defender 扫描导致回环 fetch 抛 `TypeError: fetch failed`**（2026-10-27 Task 10 冒烟时发现）：在干净的 Windows 环境下（全新 userData 目录、首次执行新打包 exe），内置 Node 服务刚启动打印 `listening on 127.0.0.1:xxxx`，主进程立刻发起 `assertAuthStillOn` 回环鉴权自检探测，偶现抛出 `TypeError: fetch failed (ECONNREFUSED)`，导致应用闪退。根因是 Windows Defender 或杀软对新未签名 exe 进行静态分析和句柄拦截，且端口绑定到内核完成 accept 存在几毫秒的调度抖动。自检必须提供带超时的有界重试（如重试 10 次，每次 300ms），且在诊断日志中展开 `err.cause` 打印底层的 code/errno/syscall/address，同时严守安全红线：只有网络层 fetch 抛错才重试，只要收到 HTTP 响应且状态码不为 401，立即终止并抛错。
+
+74. **子窗口安全穿透：`setWindowOpenHandler` 允许内部页面时必须递归挂接导航拦截**（同一天评审发现）：Electron 中若通过 `setWindowOpenHandler` 对内部页面返回 `{ action: 'allow' }` 创建子窗口，Electron 不会自动将父窗口上的 `will-navigate` 监听器继承给子窗口！如果子页面包含恶意脚本或点击外链并执行 `window.open('about:blank')` 随后 `location.href = 'https://malicious.com'`，恶意网页将在没有任何地址栏的桌面端内部窗口中加载。防范方法是监听父窗口的 `webContents.on('did-create-window', child => wireNavigation(child.webContents, port))` 递归挂载导航拦截与外链抛转系统浏览器。
+
+75. **DSH / Windows 脚本环境自带 `ELECTRON_RUN_AS_NODE=1` 会让 Electron 退化为纯 node**（同一天）：在自动化脚本或开发调试环境中，若父进程（如某些 Agent Harness 或 VSCode）导出了环境变量 `ELECTRON_RUN_AS_NODE=1`，执行 `electron .` 会直接当作普通 node 执行，此时 import 或 require `electron` 内部模块（如 `BrowserWindow`、`app`）会报 `does not provide an export named 'BrowserWindow'`。编写启动脚本或冒烟测试时，必须在子进程环境变量中显式移除 `ELECTRON_RUN_AS_NODE`，并补充 Windows 所需的 `SystemDrive=C:`（缺少 SystemDrive 会导致 Chromium 在当前工作目录生成 `%SystemDrive%` 幽灵目录）。
+
+76. **Windows 下进程杀死后文件锁延迟释放，目录清理必须异步轮询**（同一天）：在自动化测试脚本或冒烟测试（`tools/desktop/smoke.mjs`）中，使用 `taskkill /PID <pid> /T /F` 强制终止 Electron 进程树后，虽然命令行返回成功，但 Windows 内核释放 SQLite 文件锁和 Chromium 缓存目录句柄存在数百毫秒甚至秒级的延迟。立刻调用 `rmSync(dir, { recursive: true })` 会大概率遭遇 `EBUSY: resource busy or locked`。必须编写带超时的轮询删除函数（如每 200ms 重试，最长等待 15s）。
+
+77. **`dialog.showErrorBox` 在 Windows 上是同步模态阻塞**（同一天）：Electron 的 `dialog.showErrorBox(title, content)` 在 Windows 上调用的是 Win32 原生 `MessageBox`，它会直接阻塞 Node.js 事件循环直至用户点击确定关闭弹窗。如果在崩溃捕获或未处理异常中使用它，必须意识到弹窗未关闭前，所有的后台定时器、托盘响应和心跳均会被挂起。
+
+78. **未签名安装包的 Windows SmartScreen 拦截机制与说明**（同一天）：开源桌面端若未购买商业代码签名证书，在 Windows 上下载并双击运行时会被 SmartScreen 拦截并提示「Windows 已保护你的电脑」。这是正常的安全策略，安装包本身完全透明开源。文档与 README 中应明确告知用户点击「更多信息」→「仍要运行」，并发布每颗安装包的 SHA-512 哈希供用户校验。

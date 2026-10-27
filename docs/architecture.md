@@ -21,6 +21,10 @@
 - `docs/mail-page-requirements.md` —— **邮件页的唯一需求来源（v1.1 定稿）**：目标/非目标、FR-1…FR-29、NFR-1…NFR-10、数据模型、接口约定、12 条验收、Q1–Q10 定案、D1–D6 决策（D1 永不回写已读、D2 本地已读标记、D3 Gmail 实测暂缓、D4 远程图片默认显示 + 保留邮件样式、D5 60 秒轮询自动收信、D6 账号级 SOCKS5 代理）。动邮件页之前先读它——**别把「发信 / 删除 / 标已读」加回来**。
 - `docs/pitfalls.md` —— **已知问题与坑的完整 65 条**（编号稳定，「见坑 N」都指这里）；`AGENTS.md` 只留最要命的 5 条。
 - `docs/status-history.md` —— **2026-10-19 → 2026-10-26 的 26 条进展记录**（每条含当时的测试断言条数与真机复测结论）。`AGENTS.md` 的「状态」只留当前状态，**新增进展往这里写**。
+- `docs/desktop.zh.md` —— **桌面端使用与维护指南**（2026-10-27 加）：安装、免密、托盘、数据目录、从 Web 迁移、自动更新与排障。
+- `electron-builder.yml` —— **桌面端 Windows 安装包配置**（2026-10-27 加）：appId、NSIS 目标、asar、files 打包范围、extraResources 托盘图标、发布配置等。
+- `tools/desktop/make-ico.mjs` —— **图标生成工具**（2026-10-27 加）：纯 Node 原生将 PNG 封装为 Windows 标准 single-entry ICO（`desktop/assets/icon.ico`）。
+- `tools/desktop/smoke.mjs` —— **打包产物端到端冒烟验证**（2026-10-27 加）：启动打包后的 exe，通过 CDP 验证免密、DOM 渲染、便签写入与读取、截图取证，进程释放与环境清理。
 - `docs/backup-restore.zh.md` —— **备份与恢复的唯一手册**（2026-10-26 加）：包里有什么、三种恢复场景（整机换机 / 只回滚库 / 从远端库取回）、`secret.key` 丢了怎么办、审计 CSV 怎么用。改备份逻辑要同步这里。
 - `docs/deploy.zh.md` —— **部署的唯一手册**（2026-10-26 加）：Docker Compose（含 Caddy profile）、裸机 Linux/macOS（systemd 示例）、Windows、环境变量表、升级与回滚、观测页要不要接 Kuma、验收清单。改部署方式要同步这里。
 - `Dockerfile` / `docker-compose.yml` / `deploy/Caddyfile` / `.dockerignore` —— **容器化**（2026-10-26 加）：多阶段（build 装全量依赖 → `pnpm build`；runtime 只 `pnpm install --prod` + 拷 `dist/`），非 root 的 `node` 用户、`VOLUME /data`、`HOST=0.0.0.0`、healthcheck 打 `/api/health`。**前端依赖（react / react-dom / lucide-react / marked / dompurify）在 `devDependencies` 里**，运行时只装 7 个生产依赖（约 23 MB）；把前端包挪回 `dependencies` 会让镜像白胖一圈。
@@ -36,6 +40,10 @@
 - `tmp/` —— 运行期临时产物（日志、截图），可整目录删除（见「可清理项」）。
 
 服务端（Node 24 + Hono + `node:sqlite`，无原生编译）：
+- `server/app.ts` —— **Hono 应用与路由工厂函数**（2026-10-27 桌面端升级抽离）：`createApp({db, dataDir, desktopAutoLogin, ...})`，解耦 CLI 入口与网络监听，供 Web CLI 与 Electron 桌面端共用；负责安全头、中间件、鉴权白名单、API 子路由与静态资源托管。
+- `server/desktop-session.ts` —— **桌面端免密会话服务**（2026-10-27 加）：`createDesktopSession(db)`，在 SQLite 中创建免密 session 并持久化，仅允许在绑定回环地址（127.0.0.1 / ::1）时使用，杜绝远程未授权提权。
+- `server/snapshot/target.ts` —— **快照文件路径策略**（2026-10-27 加）：抽离 `SNAPSHOT_PATH` 解析逻辑，支持通过 `PINBOARD_SNAPSHOT` 环境变量指定自定义快照路径或禁用快照写入（桌面端默认禁用避免向开发源码树或只读目录写 SNAPSHOT.md）。
+- `server/index.ts` —— **纯 CLI/Web 入口**：解析命令行参数（`--reset-password`/`--new-token`/`--backup`）、配置环境变量、调 `createApp` 并通过 `@hono/node-server` 的 `serve` 启动监听。
 - `server/schema/core.ts` / `server/schema/mail.ts` / `server/schema/metrics.ts` —— 建表语句（core：tags / field_defs / assets / notes / note_tags / asset_tags + 5 个索引；mail：mail_accounts / mail_local_read；metrics：host_metrics + 1 个索引，见下面「主机指标」三条；attachments：attachments + `idx_attachments_note`，见下面 `server/attachments/*`）。`server/db.ts` 只负责打开库、封装 `all/get/run` 与标签同步（`syncNoteTags`/`setAssetTags`），启动时调 `migrate(db)`。
 - `server/migrations.ts` —— **表结构演进的唯一入口**：`MIGRATIONS = [{ version, up(db) }]` + `PRAGMA user_version`，每步一个事务、失败回滚；v1 = 建表 + 老库补列（`notes.done` / `mail_accounts.proxy`）+ 预设标签，v2 = settings / sessions / api_tokens，v3 = attachments（便签图片，2026-10-26）。**只追加，不改旧步**；老库靠列存在性探测归一。`migrate(db, MIGRATIONS, { dataDir })` 在动库之前会调 `server/backup/premigrate.ts` 拍一张快照（全新库跳过），拍不出来直接抛错中止升级；`registerPreMigrate(fn)` 另留了钩子口。
 - `server/secrets/crypto.ts` / `key.ts` / `migrate.ts` —— **静态加密**：`HKDF-SHA256(secret, info="pinfolio/v1")` 派生 AES-256-GCM key，存储格式 `enc:v1:<iv>:<tag>:<ct>`；主密钥 = `PINBOARD_SECRET` → `data/secret.key` → 首次启动生成（0600）；`migrateSecrets()` 每次启动把还躺在明文里的 `mail_accounts.password`、`data/kuma-pass.txt`、`data/metrics.json` 的 `base` 就地加密（幂等）。**只防备份/库文件泄漏，防不了进程被控。**
@@ -143,3 +151,15 @@
 - `web/lib/paths.ts` —— 页面 ↔ URL 映射（`PATHS`/`TITLES`/`pageFromPath()`/`pathForPage()`，纯函数）；`router.ts` 只剩 `usePage()` 的 React 状态与地址栏同步，并再导出这些。
 - `web/lib/monitors.ts` —— 观测异常通知的数据层：`useMonitorAlerts()`（30 秒轮询 `/api/monitors`，首轮只当基线，`stale` 整轮跳过，恢复自动移除，`dismiss` 记本地已关）+ 共享 helper `isDown()` / `shortName()` / `shortGroup()` / `plainMsg()`（MonitorsPage 也改用这几个，**别再各写一份**）。
 - `web/styles/` —— 样式按区块拆成 13 个文件，`index.css` 用 `@import` 定顺序（顺序即层叠顺序）：tokens（暖纸色令牌 --paper #f6f3ec / --accent #b45309 + 深色覆盖）、shell、controls、notes、assets、overlay、palette、markdown、misc、monitors、hosts、mail、alerts。`main.tsx` 只 import `./styles/index.css`。
+
+桌面端（Electron 45 + esbuild，双形态外壳）：
+- `desktop/main.ts` —— **桌面端主进程入口**：单实例锁（`app.requestSingleInstanceLock()`）、窗口创建与状态持久化、启动内置服务并获取随机回环端口、免密 Cookie 注入（`session.cookies.set`）、安全导航守卫（`wireNavigation` 外链跳转系统浏览器）、启动自检（`assertAuthStillOn` 有界重试）、托盘接入与安全退出（`before-quit` 保证服务正常关闭释放端口）。
+- `desktop/start-server.ts` —— **内置服务端启动器**：动态加载服务端模块（确保环境变量早于 `server/db.ts` 单例加载）、分配随机回环端口（`port: 0`）、返回包含 `close()` 的服务句柄。
+- `desktop/auth-probe.ts` —— **自检探测与诊断重试**：`probeWithRetry`，针对冷启动安全软件/系统调度导致的瞬时回环连接失败提供最多 10 次的带超时重试；多层展开 `err.cause` 提取底层诊断，严格断言 401 状态码，绝不旁路鉴权检查。
+- `desktop/tray.ts` —— **系统托盘管理**：托盘图标解析（优先 resources/icon.ico，缺失回退内置 16x16 PNG）、右键上下文菜单（显示、开机自启切换、检查更新、退出）、单/双击呼出主窗口、开机自启注册表同步。
+- `desktop/window-state.ts` —— **窗口尺寸与位置记忆**：窗口关闭时将 bounds 持久化至 `%APPDATA%/pinfolio/window-state.json`，启动时恢复并校验屏幕边界防越界。
+- `desktop/nav.ts` —— **导航安全过滤器**：`isInternalUrl` 纯函数，严格匹配回环端口与内部协议（`about:blank`），拦截外部网页导航。
+- `desktop/updater.ts` —— **自动更新控制器**：集成 `electron-updater`，启动静默检查与托盘手动检查，事件驱动下载与安装提示，失败日志去重防刷屏，`decideInstall` fail-open 保护，3 秒无响应看门狗 relaunch 兜底。
+- `desktop/updater-interop.ts` —— **更新器跨模块交互纯函数**：`pickAutoUpdater`（解决 CJS 具名导出在 ESM 主进程下静态分析失效问题）、`decideInstall`（安装决策纯逻辑）。
+- `desktop/updater-vendor.cts` —— **更新器依赖 Vendor 单独打包源码**：独立打包 `electron-updater` 为单一 CJS 产物 `dist-desktop/updater-vendor.cjs`，保持主依赖为 devDependency，不膨胀 Web 与 Docker 生产依赖。
+- `desktop/log.ts` —— **日志与崩溃处理**：按 1MB 轮转写入 `%APPDATA%/pinfolio/logs/main.log` 并保留 1 份备份，未捕获异常 / unhandledRejection 弹窗与记录。

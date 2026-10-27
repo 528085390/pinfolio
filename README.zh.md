@@ -96,7 +96,15 @@
 
 ## 快速开始
 
-### 方式一：双击 `start.cmd`（推荐）
+### 桌面端（Windows 开箱即用）
+
+从 [Releases](https://github.com/528085390/pinfolio/releases) 下载 `pinfolio-Setup-*.exe` 安装：
+- **免配环境**：不需安装 Node.js、pnpm 或数据库，开箱即用。
+- **本机免密**：自动注入回环免密会话，首次打开直接进入主界面。
+- **托盘常驻**：关闭窗口自动最小化到系统托盘，后台任务继续运行；支持开机自启与单实例唤醒。
+- 数据保存在 `%APPDATA%\pinfolio\data`，卸载自动保留数据。详细说明见 [`docs/desktop.zh.md`](docs/desktop.zh.md)。
+
+### 方式一：双击 `start.cmd`（本机开发/自建推荐）
 后台隐藏启动，等 `/api/health` 返回 200 后打开 http://127.0.0.1:7788。日志在 `logs/pinboard.log`。停服务双击 **`stop.cmd`**。
 
 ### 方式二：命令行
@@ -149,7 +157,8 @@ PINBOARD_DOMAIN=pin.example.com docker compose --profile tls up -d   # 顺带起
 ```
 pinfolio/
 ├─ start.cmd / stop.cmd        启停（后台隐藏窗口）
-├─ tools/                      pinboard.ps1（控制脚本）、screenshots/、seed-assets.mjs、chrome-path.mjs、streak-panel-trigger.cjs
+├─ desktop/                    Electron 桌面端（main、tray、updater、window-state、auth-probe）
+├─ tools/                      pinboard.ps1、desktop/（make-ico、smoke）、screenshots/ 等
 ├─ monitor-actions.json        「立即观测」的配方（按观测项 id / 名字匹配）
 ├─ monitor-links.example.json  观测项 → 管理页跳转表示例（复制成 monitor-links.json 再用）
 ├─ server/                     Hono 后端
@@ -203,6 +212,7 @@ e2e 用 `playwright-core` 驱动真实界面，浏览器用本机已装的 Chrom
 
 ## 文档
 
+- [`docs/desktop.zh.md`](docs/desktop.zh.md)：Windows 桌面版使用指南（安装、托盘、数据位置、从 Web 迁移、更新排查）。
 - [`docs/deploy.zh.md`](docs/deploy.zh.md)：Docker / 裸机 / 反代 / 环境变量 / 验收清单。
 - [`docs/upgrade.zh.md`](docs/upgrade.zh.md) 与 [`docs/backup-restore.zh.md`](docs/backup-restore.zh.md)：升级、回滚、恢复。
 - [`docs/faq.zh.md`](docs/faq.zh.md)：这份 README 没回答的问题。

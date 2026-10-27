@@ -5,6 +5,19 @@
 
 ## [未发布]
 
+## [0.5.0] - 2026-10-27
+
+### 架构升级：Web / Windows 桌面端双形态（新）
+
+- **一份代码，双形态分发**：支持传统 Web 部署（Docker / Node.js），同时新增 Windows Electron 桌面端（NSIS 安装包，`pinfolio-Setup-0.5.0.exe`），开箱即用，免配 Node 环境。
+- **本机免密与安全模型**：桌面端主进程为回环地址（`127.0.0.1:<随机端口>`）自动生成免密会话并注入 Electron Cookie，打开即用；非回环地址与远程访问依然强制全套密码鉴权（`POST /api/auth/login`），安全守卫不降级。
+- **单实例与托盘常驻**：基于 `requestSingleInstanceLock` 实现单实例防多开，重复启动自动唤醒并置顶已有窗口；关闭窗口默认最小化到系统托盘，托盘支持显示/隐藏、开机自启切换、检查更新与完全退出。
+- **外链安全拦截**：桌面端所有外部链接（Markdown 便签链接、快速入口等）均被主进程拦截并交由操作系统默认浏览器打开，子窗口自动继承拦截，杜绝主进程或页面容器加载不受信任外部网页。
+- **自动更新**：集成 `electron-updater` 与 GitHub Releases，后台启动 30 秒静默检查，托盘支持一键手动检查，新版本下载完成后弹窗提示安装并重启；内置 `decideInstall` fail-open 保护机制与 3 秒看门狗重拉兜底，杜绝更新变砖。
+- **启动自检与诊断重试**：新增 `desktop/auth-probe.ts`，针对 Windows Defender / 杀软冷启动扫描造成的瞬时回环连接抖动，提供 10 次有界重试并展开完整 `err.cause` 诊断，严格断言 401 状态码，保障窗口安全正常呈现。
+- **自动化冒烟验证**：新增 `tools/desktop/smoke.mjs`，通过 CDP（Chrome DevTools Protocol）驱动真实打包的桌面端 exe，在隔离沙箱中端到端验证免密登录、DOM 渲染、便签写入与读取，环境自动清理。
+- **工程解耦与轻量依赖**：服务端拆分 `server/app.ts` 工厂函数解耦网络监听；`electron-updater` 保持为开发依赖（devDependencies），通过 esbuild 单独打包为 `dist-desktop/updater-vendor.cjs`，Web 与 Docker 镜像生产依赖图丝毫不膨胀。
+
 ### 分享预览（新）
 
 - 把地址分享到 Discord / Telegram / Slack / Reddit / X 时会出一张预览卡：标题、一句描述、一张 1200×630 的图（`web/public/og.png`），不再是光秃秃一个 "pinfolio"。
@@ -12,6 +25,9 @@
 
 ### 文档
 
+- 新增 Windows 桌面端完整使用手册（`docs/desktop.zh.md`），覆盖安装、免密、数据目录、与 Web 版双向数据迁移、常见排障。
+- `docs/pitfalls.md` 新增桌面端架构、ESM/CJS 打包互操作、杀软网络抖动、安全拦截等 13 条踩坑经验（坑 66–78）。
+- `docs/architecture.md` 新增桌面端完整模块职责与工程约束。
 - 部署文档补一句：`:edge` 只构建 `linux/amd64`，ARM 机器请用发版 tag。
 
 ## [0.4.0] - 2026-10-26

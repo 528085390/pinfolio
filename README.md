@@ -95,7 +95,15 @@ Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `t
 
 ## Quick start
 
-### Option 1: double-click `start.cmd` (recommended)
+### Desktop app (Windows, out of the box)
+
+Download `pinfolio-Setup-*.exe` from [Releases](https://github.com/528085390/pinfolio/releases) and run the installer:
+- **Zero runtime dependencies**: No Node.js, pnpm, or database setup required.
+- **Auto-login**: Injects a secure loopback session automatically on startup.
+- **System tray**: Closing the window hides it to the tray while background monitors continue running; single-instance enforcement.
+- Data lives in `%APPDATA%\pinfolio\data` and is preserved across uninstalls. See [`docs/desktop.zh.md`](docs/desktop.zh.md) for details.
+
+### Option 1: double-click `start.cmd` (local dev/self-hosted)
 Runs hidden in the background, waits for `/api/health`, then opens http://127.0.0.1:7788. Logs go to `logs/pinboard.log`. Stop it with **`stop.cmd`**.
 
 ### Option 2: command line
@@ -148,7 +156,8 @@ All three listen on loopback only; put HTTPS in front. The app has built-in sing
 ```
 pinfolio/
 ├─ start.cmd / stop.cmd        start and stop (background, hidden window)
-├─ tools/                      pinboard.ps1 (control script), screenshots/, seed-assets.mjs, chrome-path.mjs, streak-panel-trigger.cjs
+├─ desktop/                    Electron desktop app (main, tray, updater, window-state, auth-probe)
+├─ tools/                      pinboard.ps1, desktop/ (make-ico, smoke), screenshots/, etc.
 ├─ monitor-actions.json        recipes for "check now" (keyed by monitor id / name)
 ├─ monitor-links.example.json  sample monitor → admin page mapping (copy to monitor-links.json)
 ├─ server/                     Hono backend
@@ -202,6 +211,7 @@ E2E suites drive the real UI through `playwright-core` with the Chromium already
 
 ## Docs
 
+- [`docs/desktop.zh.md`](docs/desktop.zh.md): Windows desktop app guide (installation, tray, data location, migrating from Web, updates) (Chinese).
 - [`docs/deploy.md`](docs/deploy.md): Docker, bare metal, reverse proxy, environment variables, acceptance checklist.
 - [`docs/upgrade.md`](docs/upgrade.md) and [`docs/backup-restore.md`](docs/backup-restore.md): upgrading, rolling back, restoring.
 - [`docs/faq.md`](docs/faq.md): the questions this README does not answer.

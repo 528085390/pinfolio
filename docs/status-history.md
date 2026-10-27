@@ -483,3 +483,27 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 
 文档同步：新增 `docs/i18n.md`（机制、占位符与复数、服务端、字典分工、巡检脚本、已知边界、测试怎么写）；`pitfalls.md` 补坑 61–64；`CHANGELOG.md` 新增「界面中英双语（新）」；`AGENTS.md` 的坑数 / 单测 / e2e 计数与表格行、两份 README 的 Global 段、`docs/features.md` / `features.zh.md` 同步。
 
+
+**已完成（2026-10-27，v0.5.0 架构升级：Web / Windows 桌面端双形态，Electron 桌面端分发）**：用户要求「从 dev 切出一个新分支，做架构升级，不仅做网页端，做成桌面端开源分发给别人」。在全新隔离工作树 `.worktrees/desktop`（分支 `feat/desktop`）下完成全套升级，保持主工作区与 dev 分支干净。
+
+① **架构拆分与服务端解耦**：服务端抽离 `server/app.ts`（`createApp` 工厂函数，返回 app + api），解耦网络监听与 CLI 入口；新增 `server/desktop-session.ts`（回环免密会话生成，严格限制仅回环地址可用）；新增 `server/snapshot/target.ts`（支持 `PINBOARD_SNAPSHOT` 环境变量控制快照路径或禁用）；`server/index.ts` 瘦身为纯 CLI/Web 启动器。Web / Docker / 生产服务完全无感保持原样。
+
+② **桌面端核心实现（`desktop/`）**：
+- `desktop/main.ts`：单实例锁（`app.requestSingleInstanceLock`）、主窗口创建、尺寸位置记忆、随机回环端口服务启动、会话免密 Cookie 注入、外链安全抛转系统浏览器、关窗最小化到托盘、`before-quit` 安全关闭服务释放端口。
+- `desktop/start-server.ts`：动态加载服务端模块（确保环境变量早于 `server/db.ts` 单例求值），监听随机端口（`port: 0`）。
+- `desktop/auth-probe.ts`：`assertAuthStillOn` 启动自检与诊断重试，针对 Defender/杀软冷启动扫描造成的瞬时连接抖动提供最多 10 次的带超时重试，展开 5 层 `err.cause` 提取 code/errno/syscall 诊断，严格断言 401 状态码，绝不旁路安全检查。
+- `desktop/tray.ts`：系统托盘与上下文菜单（显示、开机自启切换、检查更新、退出），单/双击显示窗口，开机自启注册表同步。
+- `desktop/window-state.ts` 与 `desktop/nav.ts`：窗口边界持久化与防越界校验；严格的回环导航白名单拦截。
+
+③ **自动更新与跨模块打包（`desktop/updater*.ts`）**：
+- `desktop/updater.ts`：集成 `electron-updater`，支持启动 30 秒后台静默检查与托盘手动检查，失败日志智能去重；针对上游字段重命名实现 `decideInstall` fail-open 保护，带 3 秒看门狗 relaunch 兜底。
+- `desktop/updater-interop.ts`：解决 CJS 具名导出在 ESM 主进程静态分析失效的问题，按具名→default→module.exports 顺序安全提取。
+- `desktop/updater-vendor.cts`：使用 esbuild 独立将 `electron-updater` 及其 CJS 依赖打包成单文件 `dist-desktop/updater-vendor.cjs`，使得 `electron-updater` 保持为 devDependency，Web 与 Docker 镜像生产依赖图丝毫不膨胀。
+
+④ **打包与自动化冒烟验证**：
+- `electron-builder.yml`：配置 NSIS 安装包，打包 `dist/` 与 `dist-desktop/`，生成独立单文件安装包；卸载自动保留 `%APPDATA%/pinfolio` 用户数据。
+- `tools/desktop/make-ico.mjs`：纯 Node 手拼单条 PNG 条目 Windows ICO（`desktop/assets/icon.ico`）。
+- `tools/desktop/smoke.mjs`：端到端冒烟验证脚本，通过 CDP 驱动真实打包后的 exe，全自动校验免密登录、DOM 渲染、便签写入与读取，环境自动恢复。
+
+验证：`pnpm typecheck` 0 错误；`pnpm test:unit` **580/580**（单测从 490 增至 580，新增 90 个桌面端纯逻辑与跨模块单测）；`pnpm smoke:desktop` 退出码 0，端到端截图取证通过；`pnpm build:desktop` 输出 `pinfolio-Setup-0.5.0.exe`（123,315,883 B ≈ 117.6 MB，解包 asar 14.9 MB）；冷启动至 DOM 可交互约 1.2 秒；空闲常驻内存约 90-110 MB；生产服务 7788 pid 29312 与真实库全程未受任何干扰。
+文档同步：新增 `docs/desktop.zh.md`；`docs/pitfalls.md` 新增坑 66–78；`docs/architecture.md` 补齐双形态与桌面端模块职责；两份 README 增加桌面端快速开始与文档入口；`AGENTS.md` 与 `CHANGELOG.md` 同步。
