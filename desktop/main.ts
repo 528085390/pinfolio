@@ -122,7 +122,7 @@ async function assertAuthStillOn(url: string): Promise<void> {
     fetch,
     // node:timers/promises 的 setTimeout(ms) 就是一个 Promise，不用自己写 sleep
     sleep,
-    log: (m) => log('[pinfolio] auth guard', m),
+    log: (m) => log('[pinfolio]', m),
   })
 }
 
