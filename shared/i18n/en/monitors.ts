@@ -135,6 +135,11 @@ export const monitors: Dict = {
   '这次观测没跑完': 'This run did not finish',
   '这次观测跑完了': 'This run finished',
 
+  // 出站模式三选一（spec §10.3）。'跟随全局' / '钉：直连' / '钉：代理' 三条在 settings.ts（R3：别重复写）
+  '跟随全局（当前：直连）': 'Follow global (now: direct)',
+  '跟随全局（当前：经代理，还没配代理）': 'Follow global (now: via proxy, none configured yet)',
+  '跟随全局（当前：经代理 {proxy}）': 'Follow global (now: via proxy {proxy})',
+
   // 保存 / 暂停 / 恢复的提示
   '已保存': 'Saved',
   '已恢复': 'Resumed',

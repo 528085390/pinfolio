@@ -5,6 +5,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { asInt, buildMonitorPatch, normalizeForKuma, policyNameRefs } from '../../server/kuma/patch.js'
 import { isJsonContentType, kumaErrorStatus } from '../../server/kuma/http.js'
+// 抽屉表单层（form.ts）的 outboundMode 也在这里钉：它和后端是同一份值域契约，分开测最容易漂
+import { buildPatch, emptyForm, pinHintText, sameForm, toForm } from '../../web/components/monitor-drawer/form.js'
+import { readFileSync } from 'node:fs'
 
 const bean = (over: Record<string, any> = {}) => ({
   id: 7, name: 'app-api', description: '网关', interval: 60, timeout: 20,
@@ -191,4 +194,107 @@ test('kumaErrorStatus：notfound / 消息里带 not found / reading null → 404
   assert.equal(kumaErrorStatus(new Error("Cannot read properties of null (reading 'id')")), 404)
   assert.equal(kumaErrorStatus(new Error('connect ECONNREFUSED 127.0.0.1:3001')), 502)
   assert.equal(kumaErrorStatus(null), 502)
+})
+
+/* ---------------- 出站模式：单项钉死（spec §10.3 / §13.2） ---------------- */
+
+// 契约提醒：buildMonitorPatch 返回的是 { next } | { error, status }（PatchResult），**没有 ok 字段**
+// —— brief 里的 ok/next 写法对不上本仓库的契约，这里按真实契约断言（成功看 next、失败看 error/status）。
+const PIN_MSG = '出站模式只能是 follow / direct / proxy'
+
+test('出站模式：follow / direct / proxy 三个精确值原样进 next', () => {
+  for (const v of ['follow', 'direct', 'proxy']) {
+    const res = run({ outboundMode: v }) as any
+    assert.equal(res.error, undefined, v)
+    assert.equal(res.next.outboundMode, v, v)
+  }
+})
+
+test('出站模式：非精确值一律 400（空格 / 大小写 / 胡乱 / 数字 / 布尔 / null / 显式 undefined）', () => {
+  const bads = ['follow ', ' follow', 'PROXY', 'Direct', 'bogus', '', 1, 0, true, null, undefined]
+  for (const bad of bads) {
+    const res = run({ outboundMode: bad }) as any
+    assert.equal(res.status, 400, String(bad))
+    assert.equal(res.error, PIN_MSG, String(bad))
+    assert.equal(res.next, undefined, String(bad))
+  }
+  // 错误文案必须点名三个合法值，否则用户不知道该填什么
+  assert.match((run({ outboundMode: 'bogus' }) as any).error, /follow \/ direct \/ proxy/)
+})
+
+test('出站模式：请求体里没有这个键时 next 也不凭空添一个（老调用方 / 改名不受影响）', () => {
+  const res = run({ name: 'app-api' }) as any
+  assert.equal('outboundMode' in res.next, false)
+  assert.equal(res.next.name, 'app-api')
+})
+
+test('出站模式：改它不波及其它字段（Kuma 是全量覆盖，这条最要紧）', () => {
+  const base: Record<string, any> = bean({ outboundMode: 'direct' })
+  const res = run({ outboundMode: 'proxy' }, base as any) as any
+  assert.equal(res.next.outboundMode, 'proxy')
+  for (const k of ['id', 'name', 'description', 'interval', 'timeout', 'maxretries', 'retryInterval', 'type']) {
+    assert.deepEqual(res.next[k], base[k], k)
+  }
+  assert.deepEqual(res.next.accepted_statuscodes, ['200-299'])
+})
+
+test('normalizeForKuma：outboundMode 原样透传（值域校验只在 buildMonitorPatch 一处做）', () => {
+  assert.equal(normalizeForKuma({ outboundMode: 'proxy' }).outboundMode, 'proxy')
+  assert.equal(normalizeForKuma({ outboundMode: 'follow' }).outboundMode, 'follow')
+  assert.equal(normalizeForKuma({ outboundMode: 'direct' }).outboundMode, 'direct')
+  assert.equal('outboundMode' in normalizeForKuma({}), false)
+})
+
+test('路由层不丢字段：PATCH 把请求体整包交给 buildMonitorPatch，next 再整包交给 editMonitor', () => {
+  const src = readFileSync(new URL('../../server/kuma/routes.ts', import.meta.url), 'utf8')
+  const start = src.indexOf("monitorsRoute.patch('/:id'")
+  const end = src.indexOf("monitorsRoute.post('/:id/pause'")
+  assert.ok(start > 0 && end > start, '找不到 PATCH 处理块')
+  const blockSrc = src.slice(start, end)
+  assert.match(blockSrc, /buildMonitorPatch\(body, bean, beans\)/)
+  assert.match(blockSrc, /editMonitor\(next\)/)
+  // 路由里一旦出现 body.<字段> 就是白名单，新字段会被静默丢掉 —— 一个都不许有
+  assert.deepEqual([...blockSrc.matchAll(/\bbody\.([A-Za-z_]\w*)/g)].map((m) => m[1]), [])
+  // 出站这一侧的通道也不许挑字段
+  const client = readFileSync(new URL('../../server/kuma/client.ts', import.meta.url), 'utf8')
+  assert.match(client, /export async function editMonitor\(bean: any\): Promise<void> \{\s*await call\('editMonitor', bean\)/)
+})
+
+/* ---------------- 抽屉表单层（web/components/monitor-drawer/form.ts） ---------------- */
+
+const story = (over: Record<string, any> = {}) => ({
+  monitor: {
+    id: 7, name: 'app-api', description: '网关', interval: 60, timeout: 20,
+    maxretries: 0, retryInterval: 60, showMsg: false, ...over,
+  },
+}) as any
+
+test('表单：emptyForm 默认 follow；toForm 对没有这个字段的老 bean 回 follow，有值就照抄', () => {
+  assert.equal(emptyForm().outboundMode, 'follow')
+  assert.equal(toForm(story()).outboundMode, 'follow')
+  assert.equal(toForm(story({ outboundMode: 'direct' })).outboundMode, 'direct')
+  assert.equal(toForm(story({ outboundMode: 'proxy' })).outboundMode, 'proxy')
+  assert.equal(toForm(story({ outboundMode: null })).outboundMode, 'follow')
+})
+
+test('表单：只改了出站模式也算有改动，buildPatch 只带这一个键', () => {
+  const base = { ...emptyForm(), name: 'app-api' }
+  const form = { ...base, outboundMode: 'direct' as const }
+  assert.equal(sameForm(form, base), false)
+  assert.deepEqual(buildPatch(form, base), { outboundMode: 'direct' })
+  // 没改就一个键都不带（Kuma 全量覆盖，多传一个字段就多一分风险）
+  assert.deepEqual(buildPatch(base, base), {})
+})
+
+test('说明文字：读不到全局配置就降级成「跟随全局」，不阻塞抽屉', () => {
+  assert.equal(pinHintText(null), '跟随全局')
+})
+
+test('说明文字：直连 / 经代理 socks5h host:port（不泄露账号密码）', () => {
+  assert.equal(pinHintText({ mode: 'direct', proxy: null }), '跟随全局（当前：直连）')
+  assert.equal(pinHintText({ mode: 'proxy', proxy: null }), '跟随全局（当前：经代理，还没配代理）')
+  assert.equal(
+    pinHintText({ mode: 'proxy', proxy: { protocol: 'socks5h', host: '127.0.0.1', port: 10808 } }),
+    '跟随全局（当前：经代理 socks5h 127.0.0.1:10808）',
+  )
 })

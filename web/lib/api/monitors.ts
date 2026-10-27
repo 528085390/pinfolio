@@ -11,6 +11,8 @@ export type Monitor = {
   active: boolean
   /** 基础检查间隔（秒） */
   interval: number
+  /** 这一项的出站模式：跟随设置页的全局开关，还是自己钉死直连 / 经代理（后端 toJSON 已给） */
+  outboundMode: 'follow' | 'direct' | 'proxy'
   uptime24: number | null; beats: number[]; downCount: number; lastDown: string | null
   /** 与 beats 一一对应：该拍消息前缀的四态字符（绿/黄/红/灰），普通监视器为 null */
   beatTones?: (string | null)[]
@@ -69,7 +71,11 @@ export const monitorsApi = {
   detail: (id: number) => request<MonitorDetail>('/monitors/' + id),
   update: (
     id: number,
-    b: { name?: string; description?: string; interval?: number; showMsg?: boolean; timeout?: number; maxretries?: number; retryInterval?: number },
+    b: {
+      name?: string; description?: string; interval?: number; showMsg?: boolean
+      timeout?: number; maxretries?: number; retryInterval?: number
+      outboundMode?: 'follow' | 'direct' | 'proxy'
+    },
   ) => request<{ ok: boolean; monitor?: Monitor }>('/monitors/' + id, { method: 'PATCH', body: JSON.stringify(b) }),
   // 写接口都要求 application/json（服务端用它挡 CSRF），所以即使没有参数也要带个空 body
   pause: (id: number) => request<{ ok: boolean; active: boolean }>('/monitors/' + id + '/pause', { method: 'POST', body: JSON.stringify({}) }),

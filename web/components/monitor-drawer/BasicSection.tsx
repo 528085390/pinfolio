@@ -1,15 +1,28 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { Field } from '../ui'
 import { TYPE_LABEL, type MonitorFull } from './display'
-import type { MonitorForm } from './form'
+import { OUTBOUND_PINS, pinHintText, type MonitorForm, type OutboundPin } from './form'
+import { useOutbound } from '../../pages/settings/useOutbound'
 import { t } from '../../lib/i18n'
 
-/** 基本信息：名字、介绍、检查频率（含常用档位），以及只读的类型 / 目标 / 分组 / 策略。 */
+// 三选一的按钮文案（R3：这三条键在 shared/i18n/en/settings.ts 里早就有，别再写一份）
+const PIN_LABEL: Record<OutboundPin, string> = {
+  follow: '跟随全局',
+  direct: '钉：直连',
+  proxy: '钉：代理',
+}
+
+/** 基本信息：名字、介绍、检查频率（含常用档位）、出站模式，以及只读的类型 / 目标 / 分组 / 策略。 */
 export function BasicSection({ form, setForm, m }: {
   form: MonitorForm
   setForm: Dispatch<SetStateAction<MonitorForm>>
   m: MonitorFull
 }) {
+  // 当前全局模式只用于那行说明文字（「跟随全局（当前：经代理 socks5h …）」）。
+  // 复用设置页那个 hook 的 GET；读不到时 pinHintText(null) 降级成「跟随全局」不带括号，
+  // **绝不因此阻塞抽屉** —— 改名、改频率跟出站设置没有依赖关系。
+  const outbound = useOutbound()
+
   return (
     <>
       <div className="section-title" style={{ marginTop: 22 }}>{t('基本信息')}</div>
@@ -57,6 +70,20 @@ export function BasicSection({ form, setForm, m }: {
                 </button>
               ))}
             </div>
+          </div>
+        </Field>
+        <Field label={t('出站模式')} span hint={pinHintText(outbound.cfg)}>
+          <div className="monitor-drawer-chips">
+            {OUTBOUND_PINS.map((pin) => (
+              <button
+                key={pin}
+                type="button"
+                className={'monitor-chip-btn' + (form.outboundMode === pin ? ' on' : '')}
+                onClick={() => setForm({ ...form, outboundMode: pin })}
+              >
+                {t(PIN_LABEL[pin])}
+              </button>
+            ))}
           </div>
         </Field>
         <Field label={t('类型 / 目标')}>

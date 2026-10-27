@@ -147,6 +147,21 @@ test('buildPayload：active/interval 从 socket bean 补，拿不到时退回 tr
   assert.equal(noBeans[0].interval, 60)
 })
 
+test('buildPayload：outboundMode 从 socket bean 补，缺 bean / 缺字段 / 脏值一律 follow', () => {
+  const statusPage = { publicGroupList: [{ id: 1, name: 'g', monitorList: [{ id: 7, name: 'a' }, { id: 8, name: 'b' }] }] }
+  const ms = buildPayload({
+    ...base,
+    statusPage,
+    heartbeats: {},
+    beans: { '7': { outboundMode: 'proxy' }, '8': { outboundMode: 'bogus' } },
+  }).groups[0].monitors
+  assert.equal(ms[0].outboundMode, 'proxy')
+  assert.equal(ms[1].outboundMode, 'follow')
+
+  const noBeans = buildPayload({ ...base, statusPage, heartbeats: {} }).groups[0].monitors
+  assert.equal(noBeans[0].outboundMode, 'follow')
+})
+
 test('buildPayload：active 也认 true 而不是只认 1', () => {
   const m = buildPayload({
     ...base,
