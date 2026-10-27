@@ -1,7 +1,7 @@
 import { app, dialog } from 'electron'
 import type { BrowserWindow, MessageBoxOptions, MessageBoxReturnValue } from 'electron'
 import { log } from './log.js'
-import { pickAutoUpdater } from './updater-interop.js'
+import { decideInstall, pickAutoUpdater } from './updater-interop.js'
 
 /**
  * 桌面端自动更新（Task 8，electron-updater + GitHub Releases）。
@@ -35,10 +35,14 @@ import { pickAutoUpdater } from './updater-interop.js'
  *    `Object.defineProperty(exports, 'autoUpdater', { get })` 暴露的，Node 的 cjs-module-lexer 静态分析
  *    识别不到 → `(await import('electron-updater')).autoUpdater` 是 **undefined**（类型声明里却有，tsc 不报错）。
  *    所以统一走 updater-interop.ts 的 pickAutoUpdater()，它按「具名 → default → module.exports」取。
- * 7. **安装失败不许把应用变砖**（修复轮 I2）：`quitAndInstall()` 整条链**不抛异常**（BaseUpdater 里是
- *    dispatchError + return false），所以不能靠 catch 兜底。现在的顺序是：
- *    先查 installerPath（没有就**不关服务**、直接给可执行的错误提示）→ 收尾关服务 → quitAndInstall()
- *    → 3 秒看门狗（进程还在说明安装器没接管 → onInstallFailed() 让 main.ts relaunch 一个可用实例）。
+ * 7. **安装失败不许把应用变砖**（修复轮 I2），也**不许反过来让更新通道静默失效**（修复轮 2 / N1）：
+ *    `quitAndInstall()` 整条链**不抛异常**（BaseUpdater 里是 dispatchError + return false），所以不能靠 catch 兜底。
+ *    顺序是：先查 installerPath → 收尾关服务 → quitAndInstall() → 3 秒看门狗。
+ *    预检查是 **fail-open** 的（判定本身在 updater-interop.ts 的 decideInstall 里）：
+ *    只有「属性**存在**且值为 null / 空串 / 非字符串」才**不关服务**、直接给可执行的错误提示；
+ *    属性**根本不存在**（`'installerPath' in updater` 为假，多半是 electron-updater 改了这个 protected getter 的名字）
+ *    时照常往下装 —— 否则一次上游改名就会让更新通道静默永久失效（不变砖，但再也装不上任何更新）。
+ *    看门狗只判「quitAndInstall 之后 3 秒进程还在」→ onInstallFailed() 让 main.ts relaunch 一个可用实例。
  *
  * 退出语义不在这里：安装前要「置退出标志 + 关后端服务」这件事由 main.ts 注入（beforeInstall），
  * 因为只有 main.ts 知道 handle 与 before-quit 那套防重入逻辑。updater 反向 import main.ts 会成环。
@@ -269,7 +273,9 @@ export async function checkForUpdatesInteractive(): Promise<void> {
       noLink: true,
     })
   } finally {
-    setProgressBar(-1)
+    // N3：busy 说明这次检查在 offerDownload 里就被忽略了，进度条归正在跑的那次流程管 ——
+    // 这里清空会让下载中的进度条瞬间归零（下一个 download-progress 才自愈）
+    if (!busy) setProgressBar(-1)
   }
 }
 
@@ -351,11 +357,14 @@ async function downloadAndOfferInstall(updater: Updater, version: string): Promi
   await installUpdate(updater, version)
 }
 
-/** 已下载的安装包路径：BaseUpdater 的 protected getter，类型上取不到，只能运行时探 */
-function installerFileOf(updater: Updater): string | null {
-  const value = (updater as unknown as { installerPath?: string | null }).installerPath
-  if (typeof value !== 'string' || value === '') return null
-  return value
+/**
+ * 运行时探已下载的安装包路径：BaseUpdater 的 **protected getter**，类型上取不到，只能这样硬探。
+ * 这里**只负责取值**、一律原样返回（可能是 undefined / null / 非字符串），判定交给
+ * updater-interop.ts 的 decideInstall（纯函数、可单测）。注意别在这里把 undefined 折成 null ——
+ * 「属性不存在」和「属性存在但为 undefined」必须由 `'installerPath' in updater` 分开。
+ */
+function readInstallerPath(updater: Updater): unknown {
+  return (updater as unknown as { installerPath?: unknown }).installerPath
 }
 
 /**
@@ -365,17 +374,22 @@ function installerFileOf(updater: Updater): string | null {
  *    `installerPath == null` 时只是 dispatchError + return false），所以「没有下载包」这种最常见的
  *    失败只能在这里挡住 —— 一旦先把服务关了再发现装不了，用户拿到的是后端已停、页面全废、
  *    `quitRequested` 已置（关窗即真关）又退不掉的窗口。
+ *    但这一层是 **fail-open** 的（decideInstall）：属性**不存在**是另一回事（上游改名），照常装，
+ *    否则一次改名就把更新通道静默封死。
  * 2. 收尾：置 quitRequested + 把后端关干净（复用 main.ts 的 prepareUpdateInstall），再 quitAndInstall()：
  *    它 spawn 完安装器就在 setImmediate 里 `app.quit()`，服务提前关掉才不会跟 before-quit 的
  *    异步关服务抢时序。
- * 3. `quitAndInstall()` 正常返回**不代表**装上了：起 3 秒看门狗，进程还在就说明安装器没接管，
- *    交给 main.ts 的 onInstallFailed() 去 relaunch 一个可用实例。
+ * 3. `quitAndInstall()` 正常返回**不代表**装上了：起 3 秒看门狗，**判据只有一条**——3 秒后本进程仍在
+ *    （实测正常路径 0.4 秒就退了，约 7 倍余量），就交给 main.ts 的 onInstallFailed() 去 relaunch
+ *    一个可用实例。别把这条判据写成「安装器没有接管」，那只是推断。
  */
 async function installUpdate(updater: Updater, version: string): Promise<void> {
-  // ① 先验后关
-  const installerPath = installerFileOf(updater)
-  if (installerPath === null) {
-    log('[updater] installerPath 为空，拒绝安装（不关服务，应用继续可用）')
+  // ① 先验后关（fail-open，见文件头第 7 条与 decideInstall 的注释）：
+  //    只有「属性存在且为空」才拒绝；属性根本不存在（上游改名了）照常装，由 ④ 的看门狗兜底
+  const hasInstallerPath = 'installerPath' in updater
+  const installerPath = readInstallerPath(updater)
+  if (decideInstall(hasInstallerPath, installerPath) === 'abort') {
+    log('[updater] installerPath 存在但为空（' + asText(installerPath) + '），拒绝安装（不关服务，应用继续可用）')
     await showBox({
       type: 'error',
       title: '更新文件不完整',
@@ -388,7 +402,17 @@ async function installUpdate(updater: Updater, version: string): Promise<void> {
     })
     return
   }
-  log('[updater] 用户确认重启安装 version ' + version + '（安装包：' + installerPath + '）')
+  if (!hasInstallerPath) {
+    // electron-updater 把这个 protected getter 改名了：探不到不等于没下载，照常装（看门狗兜底）
+    log('[updater] 未探到 installerPath（electron-updater 可能改了这个字段名）→ 照常安装')
+  }
+  log(
+    '[updater] 用户确认重启安装 version ' +
+      version +
+      '（安装包：' +
+      (hasInstallerPath ? asText(installerPath) : '未探到 installerPath') +
+      '）',
+  )
 
   // ② 收尾：置 quitRequested、停看门狗、关后端
   try {
@@ -411,7 +435,12 @@ async function installUpdate(updater: Updater, version: string): Promise<void> {
 
   // ④ 3 秒看门狗：装上了进程应该已经退出；还在就 relaunch 一个可用实例
   setTimeout(() => {
-    log('[updater] quitAndInstall 之后 3 秒进程仍在，安装器没有接管 → 重启一个可用实例')
+    // N2：判据只是「quitAndInstall() 返回后本进程 3 秒还没退」，别写「安装器没有接管」（那是推断，不是实测）
+    log(
+      '[updater] quitAndInstall 之后 ' +
+        INSTALL_WATCHDOG_MS / 1000 +
+        ' 秒进程仍在（判据仅此一条：进程没退）→ 重启一个可用实例',
+    )
     try {
       onInstallFailed()
     } catch (err) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pickAutoUpdater } from '../../desktop/updater-interop.js'
+import { decideInstall, pickAutoUpdater } from '../../desktop/updater-interop.js'
 
 // electron-updater 的 ESM/CJS interop（Task 8 修复轮 1）：
 // `electron-updater/out/main.js` 末尾用 `Object.defineProperty(exports, "autoUpdater", { get })` 暴露该导出，
@@ -54,4 +54,32 @@ test('pickAutoUpdater：三种同时存在时优先取具名导出', () => {
     'module.exports': { autoUpdater: fromModuleExports },
   })
   assert.equal(picked, named)
+})
+
+// installerPath 预检查的 fail-open（Task 8 修复轮 2 / N1）：
+// `installerPath` 是 electron-updater BaseUpdater 的 protected getter，只能运行时探。
+// 上一轮修「安装失败变砖」时把它当硬门槛：读不到就拒绝安装。但 electron-updater 若把这个字段改名，
+// 属性读出来是 undefined → 也会被判成「没有安装包」→ 永远装不上任何更新（不变砖，但更新通道静默失效）。
+// 所以只有「属性**存在**但值为 null / 空串 / 非字符串」才拒绝；属性不存在（改名了）时照常往下走，
+// 失败交给 quitAndInstall() 之后的 3 秒看门狗兜底。`'installerPath' in updater` 负责区分这两种情况
+// （getter 在原型链上，in 查得到）。
+
+test('decideInstall：属性存在且为 null → abort（不关服务，提示重下）', () => {
+  assert.equal(decideInstall(true, null), 'abort')
+})
+
+test('decideInstall：属性存在但为空串 / 非字符串 → abort', () => {
+  for (const raw of ['', 0, false, {}, [], undefined, () => 'x']) {
+    assert.equal(decideInstall(true, raw), 'abort', 'raw=' + String(raw))
+  }
+})
+
+test('decideInstall：属性存在且为非空字符串 → proceed', () => {
+  assert.equal(decideInstall(true, 'C:\\Users\\x\\AppData\\Local\\pinfolio-updater\\pending\\pinfolio Setup 1.2.0.exe'), 'proceed')
+})
+
+test('decideInstall：属性不存在（electron-updater 改名了）→ proceed（fail-open，看门狗兜底）', () => {
+  assert.equal(decideInstall(false, undefined), 'proceed')
+  // 不存在时属性值必然是 undefined，但**绝不能**跟「存在且为 undefined」混为一谈
+  assert.equal(decideInstall(true, undefined), 'abort')
 })

@@ -1,5 +1,6 @@
 /**
- * electron-updater 的 ESM/CJS interop 取包（Task 8 修复轮 1 / C1）。
+ * electron-updater 的 ESM/CJS interop 取包 + `installerPath` 预检查判定
+ * （Task 8 修复轮 1 / C1、修复轮 2 / N1）。
  *
  * 实测（Electron 45.0.0 + electron-updater 6.8.11，真正跑起来量到的）：`electron-updater/out/main.js`
  * 末尾是 `Object.defineProperty(exports, "autoUpdater", { enumerable: true, get: ... })`，Node 的
@@ -55,4 +56,30 @@ export function pickAutoUpdater(ns: unknown): AutoUpdaterLike {
   }
 
   throw new Error('electron-updater 未导出 autoUpdater（ESM/CJS interop）')
+}
+
+/**
+ * `installerPath` 预检查的判定（Task 8 修复轮 2 / N1）：装，还是不装。
+ *
+ * `installerPath` 是 electron-updater `BaseUpdater` 的 **protected getter**，类型上取不到，只能运行时探。
+ * 它的用途只有一个：`quitAndInstall()` 整条链**不抛异常**（BaseUpdater.install 里 installerPath 为 null
+ * 时只是 dispatchError + return false），所以「根本没下到包」这个最常见的失败必须在关服务**之前**挡住，
+ * 否则用户拿到的是后端已停、页面全废、又退不掉的窗口。
+ *
+ * 反过来的坑是**更新通道静默永久失效**：electron-updater 一旦把这个字段改名，属性读出来就是 undefined，
+ * 若把「读不到」一律当成「没有安装包」，就会永远拒绝安装 —— 不变砖，但用户再也装不上任何更新，日志之外看不出异常。
+ * 所以这里**fail-open**：
+ *
+ * - `hasProperty === false`（`'installerPath' in updater` 为假 → 属性根本不存在，多半是改名的）→ **照常装**：
+ *   真装不上由 quitAndInstall() 之后的 3 秒看门狗兜底（判定「进程还在」→ relaunch 一个可用实例），
+ *   最坏结果等于退回这层预检查之前的行为 + 看门狗；
+ * - 属性**存在**时按值严格判：null / 空串 / 非字符串 → abort（走「更新文件不完整，请再点一次检查更新重下」）。
+ *
+ * `in` 查的是整条原型链，protected getter 在 prototype 上也能查到 —— 这就是「属性存在但值为 undefined」
+ * 与「属性不存在」两者唯一的区分手段，别用 `updater.installerPath === undefined` 判（它把两者混为一谈）。
+ */
+export function decideInstall(hasProperty: boolean, rawValue: unknown): 'proceed' | 'abort' {
+  if (!hasProperty) return 'proceed'
+  if (typeof rawValue !== 'string' || rawValue === '') return 'abort'
+  return 'proceed'
 }
