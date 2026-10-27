@@ -95,13 +95,13 @@ Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `t
 
 ## Quick start
 
-### Desktop app (Windows, out of the box)
+### Desktop app (Windows native client)
 
 Download `pinfolio-Setup-*.exe` from [Releases](https://github.com/528085390/pinfolio/releases) and run the installer:
-- **Zero runtime dependencies**: No Node.js, pnpm, or database setup required.
-- **Auto-login**: Injects a secure loopback session automatically on startup.
-- **System tray**: Closing the window hides it to the tray while background monitors continue running; single-instance enforcement.
-- Data lives in `%APPDATA%\pinfolio\data` and is preserved across uninstalls. See [`docs/desktop.zh.md`](docs/desktop.zh.md) for details.
+- **Native client shell**: Connects directly to the core pinfolio web service (default `http://127.0.0.1:7788/`), keeping all data 100% in sync with the web version.
+- **Offline waiting page**: Shows an elegant retry page when the web service is not yet running, with automatic 3s polling and instant reconnect.
+- **System tray & native integration**: Minimizes to tray on close, supports autostart on boot, external link safety interception, single-instance enforcement, and auto-updates.
+- See [`docs/desktop.zh.md`](docs/desktop.zh.md) for details.
 
 ### Option 1: double-click `start.cmd` (local dev/self-hosted)
 Runs hidden in the background, waits for `/api/health`, then opens http://127.0.0.1:7788. Logs go to `logs/pinboard.log`. Stop it with **`stop.cmd`**.

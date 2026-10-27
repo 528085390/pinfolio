@@ -22,7 +22,7 @@ updated: 2026-10-26
 
 | 层 | 文件 | 一句话 |
 |---|---|---|
-| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、中英双语（`i18n.md`）、桌面端（`desktop.zh.md`）、坑 78 条、进展记录 |
+| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、中英双语（`i18n.md`）、桌面端（`desktop.zh.md`）、坑 79 条、进展记录 |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
 | 数据 | `server/schema/{core,mail,metrics,attachments}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
 | 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params,rows}.ts`、`kuma/{redact,beat,patch,http,recipe,payload,quick}.ts`、`services/{parse,edit}.ts`、`attachments/core.ts`、`web/lib/paths.ts`、`web/lib/images.ts`、`web/lib/masonry.ts`、`desktop/{nav,window-state,auth-probe,updater-interop}.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
@@ -33,7 +33,7 @@ updated: 2026-10-26
 | 备份 | `server/backup/{core,tar,collect,local,remote,run,schedule,premigrate}.ts` + `server/routes/backup.ts` + `web/pages/BackupPage.tsx` | 纯函数（文件名 / 保留 / CSV 转义 / ustar）/ 取库快照与当天心跳 CSV / 落本机 / 写 MySQL·PostgreSQL（`mysql2`、`pg` 懒加载）/ 编排与定时（每天 03:00，`BACKUP=0` 关）；**心跳按 UTC 日边界查**（坑 41） |
 | 部署 | `Dockerfile` / `docker-compose.yml` / `deploy/Caddyfile` / `docs/deploy.zh.md` | 多阶段镜像（build 装全量 → `pnpm build`；runtime 只 `pnpm install --prod` + `dist/`）；**前端包在 devDependencies**，别挪回 dependencies |
 | 入口 | `server/index.ts`（66 行）、`server/static.ts` | 挂路由 + 快照中间件 / `dist/web` 托管与 SPA 深链 |
-| 桌面端 | `desktop/{main,start-server,auth-probe,tray,window-state,nav,updater,updater-interop,log}.ts` + `tools/desktop/{make-ico.mjs,smoke.mjs}` | Windows Electron 桌面端（双形态）：单实例、免密会话注入、托盘常驻、自动更新、冒烟验证 |
+| 桌面端 | `desktop/{main,offline-page,tray,window-state,nav,updater,updater-interop,log}.ts` + `tools/desktop/{make-ico.mjs,smoke.mjs}` | Windows Electron 桌面端（套壳客户端）：直连 7788 网页端、离线等待重试、单实例、托盘常驻、自动更新、双场景冒烟 |
 | 快照 | `server/snapshot.ts` + `server/snapshot/{rows,markdown,write}.ts` | 取数 / 渲染（纯函数，有单测）/ 写文件与 1.5 秒防抖；`pnpm snapshot` 立即重生成，隔离实例不写 |
 | 指标 | `server/metrics/{config,hostmeta,onboard,services,store,poll,routes}.ts` + `server/kuma/{kuma-cli,provision}.ts` + `host-services.json` + `tools/node-metrics/` | 6 台采集端（bash + timer，零常驻）→ my-server nginx PUT 落盘 → 这里每 5 分钟拉回 `host_metrics`；**整条 JSON 存 `data` 列不拆字段**，`MIN_GAP_MS` 4 分钟别去掉；清单增/暂停/删走 `hostmeta.ts` 的纯函数 + `saveHosts()` 原子写回（保留 `base` 与未知键），服务 chip → 观测项的映射在 `services.ts`；「接入这台机器」的安装命令在 `onboard.ts`，加主机顺带建观测项在 `kuma/provision.ts` + `kuma-cli.ts`（走 kuma 的 `add`/`del`/`group-add`/`group-del` CLI） |
 | 前端壳 | `web/App.tsx`、`web/app/*`、`web/lib/router.ts` | 组合层 + `useShell`（页面/主题/命令面板/异常通知跳转）+ `Sidebar`/`Topbar`/`titles.ts`；页面状态从 URL 取，**别改回 `useState`** |
@@ -89,7 +89,7 @@ pnpm typecheck        # tsc --noEmit
 **历史进展（2026-10-19 起，逐条记录）见 [`docs/status-history.md`](docs/status-history.md)**
 —— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
 
-已知问题与坑（都踩过，勿回退）——**完整 78 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
+已知问题与坑（都踩过，勿回退）——**完整 79 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
 1. **默认只监听 127.0.0.1 + 必须登录**：要远程访问就前置反代并开 HTTPS（`TRUST_PROXY=1` 才读 `X-Forwarded-*`），不要直接映射 7788（坑 6）。
 2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。

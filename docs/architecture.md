@@ -152,13 +152,12 @@
 - `web/lib/monitors.ts` —— 观测异常通知的数据层：`useMonitorAlerts()`（30 秒轮询 `/api/monitors`，首轮只当基线，`stale` 整轮跳过，恢复自动移除，`dismiss` 记本地已关）+ 共享 helper `isDown()` / `shortName()` / `shortGroup()` / `plainMsg()`（MonitorsPage 也改用这几个，**别再各写一份**）。
 - `web/styles/` —— 样式按区块拆成 13 个文件，`index.css` 用 `@import` 定顺序（顺序即层叠顺序）：tokens（暖纸色令牌 --paper #f6f3ec / --accent #b45309 + 深色覆盖）、shell、controls、notes、assets、overlay、palette、markdown、misc、monitors、hosts、mail、alerts。`main.tsx` 只 import `./styles/index.css`。
 
-桌面端（Electron 45 + esbuild，双形态外壳）：
-- `desktop/main.ts` —— **桌面端主进程入口**：单实例锁（`app.requestSingleInstanceLock()`）、窗口创建与状态持久化、启动内置服务并获取随机回环端口、免密 Cookie 注入（`session.cookies.set`）、安全导航守卫（`wireNavigation` 外链跳转系统浏览器）、启动自检（`assertAuthStillOn` 有界重试）、托盘接入与安全退出（`before-quit` 保证服务正常关闭释放端口）。
-- `desktop/start-server.ts` —— **内置服务端启动器**：动态加载服务端模块（确保环境变量早于 `server/db.ts` 单例加载）、分配随机回环端口（`port: 0`）、返回包含 `close()` 的服务句柄。
-- `desktop/auth-probe.ts` —— **自检探测与诊断重试**：`probeWithRetry`，针对冷启动安全软件/系统调度导致的瞬时回环连接失败提供最多 10 次的带超时重试；多层展开 `err.cause` 提取底层诊断，严格断言 401 状态码，绝不旁路鉴权检查。
-- `desktop/tray.ts` —— **系统托盘管理**：托盘图标解析（优先 resources/icon.ico，缺失回退内置 16x16 PNG）、右键上下文菜单（显示、开机自启切换、检查更新、退出）、单/双击呼出主窗口、开机自启注册表同步。
+桌面端（Electron 45 + esbuild，原生客户端套壳）：
+- `desktop/main.ts` —— **桌面端主进程入口**：单实例锁（`app.requestSingleInstanceLock()`）、窗口创建与状态持久化、目标服务地址解析（`resolveTargetUrl`，环境变量 `PINBOARD_WEB_URL` > `client-config.json` > 默认 `http://127.0.0.1:7788/`）、连接失败接入离线等待重试提示页（`did-fail-load`）、安全导航守卫（`wireNavigation` 外链跳转系统浏览器）、托盘常驻与关窗最小化。
+- `desktop/offline-page.ts` —— **离线等待与自动重连提示页**：`getOfflineHtml` / `getOfflineDataUrl` 纯函数，生成深色优雅的等待连接网页端页面，提示目标地址、本地启动命令（`start.cmd`），支持「立即重试」与 3 秒自动倒计时轮询重连。
+- `desktop/tray.ts` —— **系统托盘管理**：托盘图标解析（优先 resources/icon.ico，缺失回退内置 16x16 PNG）、右键上下文菜单（显示、刷新页面、在浏览器中打开网页端、开机自启切换、检查更新、退出）、单/双击呼出主窗口、开机自启注册表同步。
 - `desktop/window-state.ts` —— **窗口尺寸与位置记忆**：窗口关闭时将 bounds 持久化至 `%APPDATA%/pinfolio/window-state.json`，启动时恢复并校验屏幕边界防越界。
-- `desktop/nav.ts` —— **导航安全过滤器**：`isInternalUrl` 纯函数，严格匹配回环端口与内部协议（`about:blank`），拦截外部网页导航。
+- `desktop/nav.ts` —— **导航安全过滤器**：`isInternalUrl` 纯函数，支持数字端口与完整目标 URL 校验，严格匹配回环地址（127.0.0.1 / localhost 互通）与内部安全协议（`about:blank`），拦截外部网页内联导航。
 - `desktop/updater.ts` —— **自动更新控制器**：集成 `electron-updater`，启动静默检查与托盘手动检查，事件驱动下载与安装提示，失败日志去重防刷屏，`decideInstall` fail-open 保护，3 秒无响应看门狗 relaunch 兜底。
 - `desktop/updater-interop.ts` —— **更新器跨模块交互纯函数**：`pickAutoUpdater`（解决 CJS 具名导出在 ESM 主进程下静态分析失效问题）、`decideInstall`（安装决策纯逻辑）。
 - `desktop/updater-vendor.cts` —— **更新器依赖 Vendor 单独打包源码**：独立打包 `electron-updater` 为单一 CJS 产物 `dist-desktop/updater-vendor.cjs`，保持主依赖为 devDependency，不膨胀 Web 与 Docker 生产依赖。

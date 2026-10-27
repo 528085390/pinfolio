@@ -98,3 +98,14 @@ test('isInternalUrl：一张表钉死放行集合（防止「永远为真」的�
   // 放行的只有真的「127.0.0.1:41234」那两条，其余全被挡
   assert.equal(internal.length, 2, '放行集合应为 2 条：' + internal.join(', '))
 })
+
+test('isInternalUrl：支持传入目标 URL 字符串进行同源匹配', () => {
+  const target = 'http://127.0.0.1:7788'
+  assert.equal(isInternalUrl('http://127.0.0.1:7788', target), true)
+  assert.equal(isInternalUrl('http://127.0.0.1:7788/', target), true)
+  assert.equal(isInternalUrl('http://127.0.0.1:7788/notes', target), true)
+  assert.equal(isInternalUrl('http://localhost:7788/assets', target), true)
+  assert.equal(isInternalUrl('http://127.0.0.1:7789/notes', target), false)
+  assert.equal(isInternalUrl('https://127.0.0.1:7788/notes', target), false)
+  assert.equal(isInternalUrl('https://example.com/notes', target), false)
+})
