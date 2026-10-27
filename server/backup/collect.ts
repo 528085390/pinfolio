@@ -2,15 +2,18 @@
 // data/*.json|txt（含 secret.key）、根目录 4 个配置文件。
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite'
 import { gzipSync } from 'node:zlib'
 import { DATA_DIR } from '../db.js'
 import { KUMA_DB } from '../kuma/backup.js'
+import { resolveConfigPaths } from './config-paths.js'
 import { dayStamp, heartbeatCsv, type HeartbeatRow } from './core.js'
 import type { TarEntry } from './tar.js'
 
-export const ROOT = process.cwd()
+// 纯函数挪到 config-paths.ts 是为了能单测（本文件一 import 就打开 SQLite、跑迁移）；
+// 这里再导出一次，任务接口约定的入口就是 resolveConfigPaths。
+export { resolveConfigPaths }
 
 /** 根目录那几个可进版本库的配置文件：存在才打 */
 export const ROOT_CONFIGS = ['monitor-links.json', 'monitor-actions.json', 'host-services.json', 'quick-links.json']
@@ -112,10 +115,9 @@ export async function collectEntries(opts: CollectOptions): Promise<{ entries: T
     if (existsSync(p) && statSync(p).isFile()) push('data/' + name, readFileSync(p))
   }
 
-  // 6) 根目录配置文件
-  for (const name of ROOT_CONFIGS) {
-    const p = join(ROOT, name)
-    if (existsSync(p) && statSync(p).isFile()) push(name, readFileSync(p))
+  // 6) 根目录配置文件（桌面端 cwd 不可信：数据目录优先、cwd 兜底；条目名保持裸文件名）
+  for (const path of resolveConfigPaths(ROOT_CONFIGS, { dataDir: DATA_DIR, cwd: process.cwd() })) {
+    push(basename(path), readFileSync(path))
   }
 
   // 7) 便签图片（data/uploads）：不带它们，恢复出来全是破图
