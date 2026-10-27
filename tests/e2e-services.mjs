@@ -34,18 +34,21 @@ try {
   ok('详细视图渲染出自启动小标签', detailTagCount >= 30, 'got ' + detailTagCount)
   await page.screenshot({ path: 'E:/bqj/scratch/services-detail.png' })
 
-  // 4. 验证 local 服务器卡片中：WorkBuddy 网关 API 有自启标签，易广金没有
+  // 4. 验证 local 服务器卡片中：WorkBuddy 网关 API 与易广金有自启标签，抖音没有
   const localCard = page.locator('#svc-card-srv-local')
   const wbapiRow = localCard.locator('.svc-row', { hasText: 'WorkBuddy 网关 API' }).first()
   const ybRow = localCard.locator('.svc-row', { hasText: '易广金' }).first()
+  const douyinRow = localCard.locator('.svc-row', { hasText: '抖音续火花' }).first()
 
   const wbapiHasTag = await wbapiRow.locator('.svc-autostart-tag').count() > 0
   const ybHasTag = await ybRow.locator('.svc-autostart-tag').count() > 0
+  const douyinHasTag = await douyinRow.locator('.svc-autostart-tag').count() > 0
   ok('wbapi 显示自启动标签', wbapiHasTag)
-  ok('yb 初始不显示自启动标签', !ybHasTag)
+  ok('yb 显示自启动标签', ybHasTag)
+  ok('抖音初始不显示自启动标签', !douyinHasTag)
 
-  // 5. 点击 yb 行的编辑按钮打开 DeployDrawer
-  await ybRow.locator('button[title="改这条部署"]').click()
+  // 5. 点击抖音行的编辑按钮打开 DeployDrawer
+  await douyinRow.locator('button[title="改这条部署"]').click()
   await page.waitForTimeout(400)
   const drawer = page.locator('.drawer')
   ok('抽屉正常打开', await drawer.count() > 0)
@@ -63,21 +66,23 @@ try {
   await drawer.locator('button', { hasText: '保存' }).click()
   await page.waitForTimeout(600)
 
-  // 7. 验证保存后 yb 行出现自启动标签
-  const ybHasTagAfter = await ybRow.locator('.svc-autostart-tag').count() > 0
-  ok('保存后 yb 显示自启动标签', ybHasTagAfter)
+  // 7. 验证保存后抖音行出现自启动标签
+  const douyinHasTagAfter = await douyinRow.locator('.svc-autostart-tag').count() > 0
+  ok('保存后抖音显示自启动标签', douyinHasTagAfter)
 
   // 8. 再次打开编辑抽屉，取消勾选并保存，验证恢复
-  await ybRow.locator('button[title="改这条部署"]').click()
+  await douyinRow.locator('button[title="改这条部署"]').click()
   await page.waitForTimeout(400)
-  await autostartCheckbox.uncheck()
-  ok('成功取消勾选', !(await autostartCheckbox.isChecked()))
+  const drawer2 = page.locator('.drawer')
+  const autostartCheckbox2 = drawer2.locator('input[type="checkbox"]').first()
+  await autostartCheckbox2.uncheck()
+  ok('成功取消勾选', !(await autostartCheckbox2.isChecked()))
 
-  await drawer.locator('button', { hasText: '保存' }).click()
+  await drawer2.locator('button', { hasText: '保存' }).click()
   await page.waitForTimeout(600)
 
-  const ybHasTagRevert = await ybRow.locator('.svc-autostart-tag').count() > 0
-  ok('取消勾选保存后 yb 移除自启动标签', !ybHasTagRevert)
+  const douyinHasTagRevert = await douyinRow.locator('.svc-autostart-tag').count() > 0
+  ok('取消勾选保存后抖音移除自启动标签', !douyinHasTagRevert)
 
   // 9. 切换到「服务视角」
   await page.locator('.svc-tabs:not(.is-density) button', { hasText: '服务视角' }).click()
