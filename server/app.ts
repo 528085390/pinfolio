@@ -27,6 +27,7 @@ import { loadKey } from './secrets/key.js'
 import { migrateSecrets } from './secrets/migrate.js'
 import { mountStatic } from './static.js'
 import { pickLocale, withLocale } from './i18n.js'
+import { ensureDesktopSession, clearDesktopSession } from './desktop-session.js'
 
 /**
  * 服务组装：把 Hono 应用（壳 + /api）、后台定时器和 HTTP 监听打包成 startServer()。
@@ -154,7 +155,7 @@ function createApp(): Hono {
 }
 
 export async function startServer(opts: StartServerOptions = {}): Promise<ServerHandle> {
-  const { hostname, port } = resolveListenOptions(opts)
+  const { hostname, port, desktopAutoLogin } = resolveListenOptions(opts)
   const app = createApp()
 
   bootstrapPassword(db)
@@ -205,6 +206,12 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
   const listenHost = typeof addr === 'object' && addr ? addr.address : hostname
   const url = 'http://' + urlHost(listenHost) + ':' + actualPort
 
+  // 桌面端免密：只在 desktopAutoLogin 为真时发一张票（resolveListenOptions 已保证是回环地址）。
+  // 放在监听成功之后：监听失败就别发一张没人用的活票。
+  const desktopSession: DesktopSession | undefined = desktopAutoLogin
+    ? ensureDesktopSession(db, { ip: '127.0.0.1' })
+    : undefined
+
   let closed = false
   const close = async (): Promise<void> => {
     if (closed) return
@@ -218,10 +225,15 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
     for (const stop of stops.splice(0)) {
       try { stop() } catch { /* 停不掉也别让关闭流程抛 */ }
     }
+    // 桌面端退出就别留活票：清掉启动时发的那条会话（以及设置里的桌面会话 id）。
+    // 只有这次真的发过票才清，Web 形态不碰库；清不掉也别让关闭流程抛。
+    if (desktopAutoLogin) {
+      try { clearDesktopSession(db) } catch { /* ignore */ }
+    }
     await new Promise<void>((resolve, reject) => {
       server.close((err?: Error) => (err ? reject(err) : resolve()))
     })
   }
 
-  return { url, port: actualPort, desktopSession: undefined, close }
+  return { url, port: actualPort, desktopSession, close }
 }
