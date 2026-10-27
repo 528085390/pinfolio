@@ -69,6 +69,10 @@ function openExternal(url: string): void {
     log('[nav] 拦下非 http(s) 的外链：' + url)
     return
   }
+  if (process.env.PINBOARD_NO_OPEN_EXTERNAL === '1' || process.argv.includes('--no-open-external')) {
+    log('[nav] 测试模式：跳过实际调用系统浏览器打开 ' + url)
+    return
+  }
   log('[nav] 外链交给系统浏览器：' + url)
   void shell.openExternal(url).catch((err: unknown) => {
     log('[nav] shell.openExternal 失败：' + url, err)
