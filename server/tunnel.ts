@@ -12,11 +12,23 @@ export const checkTunnel = (database: DatabaseSync = db, timeoutMs = 5000) => ch
 export const setPublicUrl = (database: DatabaseSync, raw: unknown) => setCore(database, raw)
 
 let timer: NodeJS.Timeout | null = null
+let bootTimer: NodeJS.Timeout | null = null
 
-export function startTunnelProbe(intervalMs = 60_000): void {
-  if (timer) return
+/** 关服务时调：停掉 60s 自检与开机那一次（重复调用无害）。 */
+export function stopTunnelProbe(): void {
+  if (timer) clearInterval(timer)
+  if (bootTimer) clearTimeout(bootTimer)
+  timer = null
+  bootTimer = null
+}
+
+/** 返回 stop（startServer 收集起来、close() 时调）；已经在跑时不会再挂第二份。 */
+export function startTunnelProbe(intervalMs = 60_000): () => void {
+  if (timer) return stopTunnelProbe
   const tick = () => { void checkCore(db).catch(() => {}) }
   timer = setInterval(tick, intervalMs)
   timer.unref?.()
-  setTimeout(tick, 3_000).unref?.()
+  bootTimer = setTimeout(tick, 3_000)
+  bootTimer.unref?.()
+  return stopTunnelProbe
 }

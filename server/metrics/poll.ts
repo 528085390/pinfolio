@@ -67,13 +67,29 @@ export async function pollAll(force = false): Promise<PollResult> {
   }
 }
 
-/** 服务启动时挂上：开机 3 秒拉一次，之后每 5 分钟一次。 */
-export function startMetricsPoller() {
+let bootTimer: NodeJS.Timeout | null = null
+let timer: NodeJS.Timeout | null = null
+
+/** 关服务时调：停掉开机首拉与 5 分钟周期（重复调用无害）。 */
+export function stopMetricsPoller(): void {
+  if (bootTimer) clearTimeout(bootTimer)
+  if (timer) clearInterval(timer)
+  bootTimer = null
+  timer = null
+}
+
+/**
+ * 服务启动时挂上：开机 3 秒拉一次，之后每 5 分钟一次。
+ * 返回 stop（startServer 收集起来、close() 时调）；已经在跑时不会再挂第二份。
+ */
+export function startMetricsPoller(): () => void {
+  if (timer) return stopMetricsPoller
   const tick = () => {
     void pollAll().catch((e) => console.error('[metrics] 拉取失败', e))
   }
-  const boot = setTimeout(tick, 3000)
-  boot.unref?.()
-  const timer = setInterval(tick, POLL_MS)
+  bootTimer = setTimeout(tick, 3000)
+  bootTimer.unref?.()
+  timer = setInterval(tick, POLL_MS)
   timer.unref?.()
+  return stopMetricsPoller
 }

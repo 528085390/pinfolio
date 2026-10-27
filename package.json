@@ -2,8 +2,11 @@
   "name": "pinfolio",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "version": "0.4.0",
+  "version": "0.5.0",
+  "description": "Personal dashboard and memo board with Web and Desktop forms",
+  "author": "pinfolio contributors",
   "type": "module",
+  "main": "dist-desktop/main.js",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -15,6 +18,11 @@
     "build": "pnpm build:web && pnpm build:server",
     "build:web": "vite build",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node24 --packages=external --outfile=dist/server.js",
+    "build:desktop:main": "esbuild desktop/main.ts --bundle --platform=node --format=esm --target=node24 --packages=external --external:electron --external:./updater-vendor.cjs --outfile=dist-desktop/main.js",
+    "build:desktop:vendor": "esbuild desktop/updater-vendor.cts --bundle --platform=node --format=cjs --target=node24 --external:electron --outfile=dist-desktop/updater-vendor.cjs",
+    "build:icon": "node tools/desktop/make-ico.mjs",
+    "build:desktop": "pnpm build:icon && pnpm build && pnpm build:desktop:main && pnpm build:desktop:vendor && electron-builder --win nsis --x64",
+    "dev:desktop": "pnpm build:web && pnpm build:desktop:main && pnpm build:desktop:vendor && electron .",
     "start": "node --env-file-if-exists=.env --import tsx server/index.ts",
     "start:dist": "node --env-file-if-exists=.env dist/server.js",
     "snapshot": "tsx server/snapshot.ts",
@@ -22,7 +30,8 @@
     "test": "pnpm typecheck && pnpm test:unit && tsx tests/snippet-test.mts",
     "test:unit": "node --import tsx --test \"tests/unit/*.test.mts\"",
     "test:e2e": "node tests/run.mjs",
-    "test:mail": "node tests/run.mjs --only=mail"
+    "test:mail": "node tests/run.mjs --only=mail",
+    "smoke:desktop": "node tools/desktop/smoke.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
@@ -42,6 +51,9 @@
     "@vitejs/plugin-react": "^6.1.2",
     "concurrently": "^10.0.6",
     "dompurify": "^3.2.0",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "electron-updater": "^6.8.11",
     "esbuild": "^0.28.2",
     "lucide-react": "^1.61.0",
     "marked": "^18.1.1",

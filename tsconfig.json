@@ -23,6 +23,7 @@
     "server",
     "web",
     "shared",
-    "tests/unit"
+    "tests/unit",
+    "desktop"
   ]
 }

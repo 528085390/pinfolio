@@ -20,8 +20,18 @@ function msUntilNext(now: Date): number {
 
 let timer: ReturnType<typeof setTimeout> | null = null
 
-export function startBackupScheduler(db: DatabaseSync): void {
-  if (!scheduledEnabled()) return
+export function stopBackupScheduler(): void {
+  if (timer) clearTimeout(timer)
+  timer = null
+}
+
+/**
+ * 排一条「下一个 03:00」的备份链，返回 stop（startServer 收集起来、close() 时调）。
+ * 重入守卫必须在 schedule() 外面：第二次调用若新建一条链，会把 timer 引用覆盖掉，旧链再也取消不掉。
+ */
+export function startBackupScheduler(db: DatabaseSync): () => void {
+  if (!scheduledEnabled()) return () => {}
+  if (timer) return stopBackupScheduler
   const schedule = () => {
     const wait = msUntilNext(new Date())
     timer = setTimeout(async () => {
@@ -37,9 +47,5 @@ export function startBackupScheduler(db: DatabaseSync): void {
     timer.unref?.()
   }
   schedule()
-}
-
-export function stopBackupScheduler(): void {
-  if (timer) clearTimeout(timer)
-  timer = null
+  return stopBackupScheduler
 }
