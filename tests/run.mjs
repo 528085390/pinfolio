@@ -7,6 +7,7 @@
 //   node tests/run.mjs --only=mail     # 邮件套件，另需 MAIL_E2E_BASE 指向隔离实例
 //   node tests/run.mjs --only=all
 //   node tests/run.mjs --only=outbound  # 只跑末尾那段「全局出站模式」（要真实 Kuma + KUMA_PASS）
+//   OUTBOUND_E2E=1 node tests/run.mjs  # 同上：显式打开 outbound 段（它写真实 kuma，默认全量跑不含它）
 //   node tests/run.mjs --keep          # 保留临时数据目录，排查用
 //   E2E_BASE=http://127.0.0.1:7791 node tests/run.mjs   # 打已有实例，不再自己起
 //
@@ -65,8 +66,13 @@ const onlyArg = process.argv.slice(2).find((a) => a.startsWith('--only='))
 const requested = (onlyArg ? onlyArg.slice('--only='.length) : 'default')
   .split(',').map((s) => s.trim()).filter(Boolean)
 
-// outbound 不是独立脚本，而是本文件末尾那一段（它连真实 Kuma，改完 setting 必须复位），
-// 所以这里只把它从「套件名」里摘掉，段落本身照常执行。
+// outbound 不是独立脚本，而是本文件末尾那一段（它连真实 Kuma，改完 setting 必须复位）。
+// **默认不跑（R20）**：那一段会真的把 monitorOutboundMode / monitorOutboundProxy / monitorOutboundChangedAt
+// 三条 general setting 写进用户的 kuma，还会踢一轮重探（19 条 active 项会集体变红一会儿）。
+// 所以门禁是：「--only 的列表里含 outbound」或「OUTBOUND_E2E=1」才执行；
+// 默认全量跑（不带 --only）、--only=core/ci/mail/monitor 一律跳过这一段。
+const wantOutbound = requested.includes('outbound') || process.env.OUTBOUND_E2E === '1'
+
 const groups = requested.includes('all') || requested.includes('default')
   ? ['core', 'monitor']
   : requested.filter((g) => g !== 'outbound')
@@ -269,12 +275,37 @@ const env = {
 //      KUMA_PASS → 私有实例的 data/kuma-pass.txt；`enc:v1:` 的密文这里解不了，也算没有）。
 //
 // 断言只有一条铁律要记住：**「不修改」不许被降级成「清空」**（密码与账号都是三态）。
+//
+// **门禁（R20，重要）**：这一段写的是真实 kuma 的三条 general setting，并且会踢一轮重探，
+// 所以它**默认不跑** —— 只有 --only 的列表里显式含 outbound、或环境变量 OUTBOUND_E2E=1 时才执行
+// （判定见文件上方的 wantOutbound；默认全量跑、--only=core/ci/mail/monitor 都会跳过这一段）。
+// 原因：部署后随手跑一次 --only=mail 就会把真实 kuma 切成 socks5h 127.0.0.1:1（死端口）
+// 并踢一轮重探，19 条 active 观测项集体冒出一波假故障红心跳。
 
 /** 代理配置「有没有密码」——老 kuma 回明文 password，新 kuma 回 hasPassword */
 const proxyHasPassword = (raw) =>
   raw && typeof raw === 'object'
     ? (typeof raw.password === 'string' ? raw.password.length > 0 : raw.hasPassword === true)
     : false
+
+/**
+ * 进段快照里的原始代理配置 → GET 视图的 5 键形状（与 server/kuma/outbound-view.ts 的 maskProxy 同规则）。
+ * 用「快照折算」而不是硬编码期望值，这样用户长期开着 proxy 时这段也是绿的（评审 M-1）。
+ */
+const maskSnapshot = (raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const port = Number(raw.port)
+  return {
+    protocol: typeof raw.protocol === 'string' && raw.protocol ? raw.protocol : 'socks5h',
+    host: typeof raw.host === 'string' ? raw.host : '',
+    port: Number.isInteger(port) ? port : 0,
+    username: typeof raw.username === 'string' ? raw.username : '',
+    hasPassword: typeof raw.password === 'string' ? raw.password.length > 0 : raw.hasPassword === true,
+  }
+}
+
+/** 按 key 排序后再串化比较，免得「键顺序不同」被当成不一致 */
+const sortedCfg = (o) => Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]))
 
 function kumaPassForE2E() {
   const fromEnv = (process.env.KUMA_PASS || '').trim()
@@ -402,11 +433,22 @@ async function runOutboundSection() {
 
     // ---- brief 的 5 条 ----
     await step('outbound.get.defaults', async () => {
+      // 不复硬编码 direct（评审 M-1）：真实 kuma 可以按设计长期开着 proxy，那时硬断言 direct 必然误红。
+      // 这里比的是**进段快照**：进段读到的 mode / proxy / changedAt 原值，读接口必须一模一样地给回来。
       const r = await apiCall('GET', '/outbound')
-      eq(r.mode, 'direct', 'GET 的 mode 默认应是 direct')
-      ok(r.proxy === null || typeof r.proxy === 'object', 'GET 的 proxy 必须是 null 或对象')
-      ok(r.changedAt === null || typeof r.changedAt === 'string', 'GET 的 changedAt 必须是 null 或字符串')
-      if (r.proxy) eq(Object.keys(r.proxy).sort().join(','), 'hasPassword,host,port,protocol,username', 'GET 的 proxy 只允许 5 个键')
+      const wantMode = orig.mode === 'proxy' ? 'proxy' : 'direct'
+      eq(r.mode, wantMode, 'GET 的 mode 必须等于进段快照（键缺失 / 非 proxy 一律折算 direct）')
+      const wantProxy = maskSnapshot(orig.proxy)
+      if (wantProxy === null) {
+        eq(r.proxy, null, 'GET 的 proxy：进段快照里没有代理配置时必须回 null')
+      } else {
+        ok(r.proxy && typeof r.proxy === 'object', 'GET 的 proxy 必须是对象（快照里有代理配置，实际 ' + JSON.stringify(r.proxy) + '）')
+        eq(Object.keys(r.proxy).sort().join(','), 'hasPassword,host,port,protocol,username', 'GET 的 proxy 只允许 5 个键')
+        eq(JSON.stringify(sortedCfg(r.proxy)), JSON.stringify(sortedCfg(wantProxy)),
+          'GET 的 proxy 必须等于进段快照按掩码规则折算后的五项')
+      }
+      const wantAt = typeof orig.changedAt === 'string' && orig.changedAt ? orig.changedAt : null
+      eq(r.changedAt, wantAt, 'GET 的 changedAt 必须等于进段快照')
     })
 
     await step('outbound.post.proxy.keeps.entryPage', async () => {
@@ -551,17 +593,22 @@ try {
     }
   }
 
-  // 末尾这一段不是子进程脚本：它直接打私有实例的 /api/outbound，并自己连真实 Kuma 做快照 / 复位
-  process.stdout.write('\n[run] ▶ outbound/outbound\n')
-  const ob = await runOutboundSection()
-  if (ob.skipped) {
-    console.log('[run] ⊘ outbound（跳过：没有 Kuma 口令）')
-  } else if (ob.failed) {
-    failed.push('outbound')
-    console.log('[run] ✘ outbound（' + ob.failed + ' 条断言失败）')
+  // 末尾这一段不是子进程脚本：它直接打私有实例的 /api/outbound，并自己连真实 Kuma 做快照 / 复位。
+  // 门禁（R20）：只有 --only=outbound 或 OUTBOUND_E2E=1 才跑 —— 它会写真实 kuma 的三条 general setting。
+  if (wantOutbound) {
+    process.stdout.write('\n[run] ▶ outbound/outbound\n')
+    const ob = await runOutboundSection()
+    if (ob.skipped) {
+      console.log('[run] ⊘ outbound（跳过：没有 Kuma 口令）')
+    } else if (ob.failed) {
+      failed.push('outbound')
+      console.log('[run] ✘ outbound（' + ob.failed + ' 条断言失败）')
+    } else {
+      passed += 1
+      console.log('[run] ✔ outbound')
+    }
   } else {
-    passed += 1
-    console.log('[run] ✔ outbound')
+    console.log('\n[run] ⊘ 跳过 outbound 段（它会写真实 Kuma 的三条 general setting：只在 --only=outbound 或 OUTBOUND_E2E=1 时跑）')
   }
 } finally {
   await stopInstance()
