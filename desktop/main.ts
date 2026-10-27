@@ -28,6 +28,9 @@ import type { Bounds } from './window-state.js'
  * 6. before-quit 里 await handle.close() 要用 quitting 标志防重入，
  *    否则 event.preventDefault() 之后重新 quit 会自己咬自己（无限循环 / 进程挂后台）。
  *
+ * 7. 票会被用户主动删掉（设置页「退出登录」/「退出其他设备」），而桌面端没有密码可登，
+ *    窗口会卡在登录页死锁到下次重启 —— 所以起一个 30 秒的看门狗（见 ensureSessionAlive）。
+ *
  * 本任务只做「关窗 = 真退出」，托盘接管是 Task 7。
  */
 
@@ -37,6 +40,8 @@ const HOSTNAME = '127.0.0.1'
 const COOKIE_NAME = 'pb_session'
 /** 与 web 的深色底一致，避免首帧白闪 */
 const BACKGROUND = '#111315'
+/** 看门狗间隔：每 30 秒带票探一次 /api/auth/state */
+const WATCHDOG_MS = 30_000
 
 /** 后端 4 个「根目录配置」的文件名（它们在模块加载时读 env，见文件头的坑 2） */
 const CONFIG_FILES: Array<[string, string]> = [
@@ -50,6 +55,8 @@ let handle: ServerHandle | null = null
 let mainWindow: BrowserWindow | null = null
 /** before-quit 的重入闸：第一趟 preventDefault 去关服务，第二趟才真退 */
 let quitting = false
+/** 票失效自愈的定时器（退出时必须清掉，否则吊着进程不放） */
+let watchdog: ReturnType<typeof setInterval> | null = null
 
 /**
  * 设 env 并返回路径。**必须在 import 后端模块之前调用**。
@@ -82,6 +89,48 @@ async function assertAuthStillOn(url: string): Promise<void> {
     throw new Error('免密注入后不带 cookie 的 /api/notes 应返回 401，实际 ' + res.status)
   }
   console.log('[pinfolio] auth guard ok: /api/notes without cookie -> 401')
+}
+
+/**
+ * 票失效自愈（看门狗）：桌面端没有密码可登，票一旦被删窗口就只会停在登录页，
+ * 而且**没有自救路径**——所以这里每 30 秒带票探一次 /api/auth/state：
+ *
+ * - `authed: true` → 什么都不做；
+ * - `authed: false` → 票被设置页的「退出登录」/「退出其他设备」删了，重新签发一张、
+ *   盖掉 cookie、刷新页面，用户看到的就是「回到便签页」而不是登录页；
+ * - 探不通（服务正在关 / 端口没接上）→ 这一轮不算失效，下一轮再说，绝不因为一次网络错误就换票。
+ *
+ * 重新签发用的是**同一个 db 实例**（esbuild 只打包一次，import 回来的是同一个模块单例），
+ * 绝不能另开一个 DatabaseSync —— 两个连接抢 BEGIN IMMEDIATE 会互相锁死。
+ */
+async function ensureSessionAlive(): Promise<void> {
+  const current = handle
+  if (!current || !current.desktopSession || quitting) return
+
+  try {
+    const res = await fetch(current.url + '/api/auth/state', {
+      headers: { cookie: COOKIE_NAME + '=' + current.desktopSession.token },
+    })
+    const body = (await res.json()) as { authed?: boolean }
+    if (body.authed === true) return
+  } catch {
+    return
+  }
+
+  // 走到这里说明票真的失效了：重新签发（ensureDesktopSession 幂等，永远只剩一条记录）
+  const { db } = await import('../server/db.js')
+  const { ensureDesktopSession } = await import('../server/desktop-session.js')
+  const fresh = ensureDesktopSession(db, { ip: HOSTNAME })
+  current.desktopSession = fresh
+  await session.defaultSession.cookies.set({
+    url: current.url,
+    name: COOKIE_NAME,
+    value: fresh.token,
+    httpOnly: true,
+    sameSite: 'lax',
+  })
+  console.log('[pinfolio] desktop session was revoked -> re-issued, reloading')
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.reload()
 }
 
 /**
@@ -173,6 +222,14 @@ async function boot(): Promise<void> {
   await assertAuthStillOn(handle.url)
 
   mainWindow = await createMainWindow(handle)
+
+  // 看门狗的定时器 unref：绝不因为它挡住进程退出（退出时还会再 clearInterval 一次）
+  watchdog = setInterval(() => {
+    void ensureSessionAlive().catch((err: unknown) => {
+      console.error('[pinfolio] 检查桌面会话失败：', err)
+    })
+  }, WATCHDOG_MS)
+  watchdog.unref()
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -187,6 +244,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', (event) => {
     if (quitting) return
     quitting = true
+    if (watchdog) {
+      clearInterval(watchdog)
+      watchdog = null
+    }
     // 不能同步 await：先挡住这次退出，等服务真的关干净再重新 quit
     event.preventDefault()
     void (async () => {
