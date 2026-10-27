@@ -119,6 +119,8 @@ export const settings: Dict = {
   '保存后清除已存密码': 'The stored password will be cleared when you save',
   '测试连通': 'Test connectivity',
   '正在读取出站设置…': 'Reading outbound settings…',
+  '还没读取出站设置：保存与测试连通先禁用，免得把真实出站误切成直连':
+    'Outbound settings have not loaded yet: Save and Test are disabled so the real outbound mode cannot be switched to direct by accident',
   '出站：直连': 'Outbound: direct',
   '出站：经代理 {proxy}': 'Outbound: via proxy {proxy}',
   '出站：经代理（还没配代理）': 'Outbound: via proxy (none configured yet)',

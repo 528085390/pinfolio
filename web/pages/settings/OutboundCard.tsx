@@ -105,11 +105,18 @@ export function OutboundCard() {
         <span className="sec-title">{known ? outboundSummary(ob.cfg) : t('正在读取出站设置…')}</span>
         {ob.cfg?.changedAt ? <span className="sec-sub" style={{ marginTop: 0 }}>{changedAtText(ob.cfg.changedAt)}</span> : null}
         <span className="grow" />
-        <button className="btn btn-primary" disabled={busy} onClick={() => ob.save(f)}>{t('保存')}</button>
-        <button className="btn" disabled={busy} onClick={ob.test}>
+        <button className="btn btn-primary" disabled={busy || !known} onClick={() => ob.save(f)}>{t('保存')}</button>
+        <button className="btn" disabled={busy || !known} onClick={ob.test}>
           <RefreshCw size={13} /> {ob.busy === 'test' ? t('测试中…') : t('测试连通')}
         </button>
       </div>
+
+      {/* 没读到（或读失败了）时按钮为什么是灰的 —— 别让用户以为界面卡了 */}
+      {known ? null : (
+        <div className="field-hint" style={{ marginTop: 8, color: 'var(--ink-2)' }}>
+          {t('还没读取出站设置：保存与测试连通先禁用，免得把真实出站误切成直连')}
+        </div>
+      )}
 
       {/* ④ 两条灰字 —— 文案逐字照 spec §10.1 第 4 点，别改字 */}
       <div className="field-hint" style={{ marginTop: 12, lineHeight: 1.7 }}>
