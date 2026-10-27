@@ -16,9 +16,15 @@ import { decideInstall, pickAutoUpdater } from './updater-interop.js'
  *    `<resources>/app-update.yml`，顶层 `import { autoUpdater } from 'electron-updater'` 会在启动那一刻
  *    就去初始化 updater，日志里刷一堆 error（严重时抛错），而开发态压根不该走更新。所以两个出口的
  *    第一句都是 `if (!app.isPackaged) { log('[updater] 未打包，跳过更新检查'); return }`，动态 import
- *    `await import('electron-updater')` **只出现在这个判断之后**的 loadUpdater() 里。
+ *    **只出现在这个判断之后**的 loadUpdater() 里。
  *    连类型都不在顶层 import（用 `typeof import('electron-updater')` 这种只在类型位置出现的写法，
  *    编译后完全擦除），免得「顶层出现 electron-updater」这条规矩有一丝歧义。
+ *    动态 import 的目标是 **'./updater-vendor.cjs'**（Task 9 / 方案 A），不是 'electron-updater'：
+ *    electron-updater 在 devDependencies 里，electron-builder 只打 production dependencies，
+ *    装出来的包里根本没有它。vendor 包（desktop/updater-vendor.ts）由 build:desktop:vendor 用
+ *    esbuild `--bundle`（**不带** --packages=external）把 electron-updater 整块内联进
+ *    dist-desktop/updater-vendor.cjs，于是 asar 里自带更新代码，依赖图一行不用改。
+ *    开发态没有这个文件时也没有问题：`app.isPackaged` 守卫在前面，这条路径根本走不到。
  * 2. **不许静默安装**：`autoDownload = false`（下载要用户点），`autoInstallOnAppQuit = false`
  *    （它默认是 true —— 只要下载过，用户下次正常退出就会**未经确认**装掉）。真正安装只有一条路：
  *    用户在「重启安装」弹框里点确认 → `quitAndInstall()`。
@@ -117,7 +123,7 @@ function checkOnce(updater: Updater): Promise<Awaited<ReturnType<Updater['checkF
 let updaterPromise: Promise<Updater> | null = null
 
 /**
- * **唯一的懒加载点**：只有走到这里才会 `import('electron-updater')`。
+ * **唯一的懒加载点**：只有走到这里才会 `import('./updater-vendor.cjs')`（内联了 electron-updater，见文件头第 1 条）。
  * 失败（安装包里没带上 electron-updater、asar 里解析不到）不缓存失败结果，下次点「检查更新」还能再试。
  */
 async function loadUpdater(): Promise<Updater> {
@@ -134,7 +140,7 @@ async function loadUpdater(): Promise<Updater> {
 async function initUpdater(): Promise<Updater> {
   // C1：electron-updater 的 `autoUpdater` 由 `Object.defineProperty(exports, "autoUpdater", { get })`
   // 暴露，cjs-module-lexer 静态分析识别不到 → 解构出来是 undefined。必须走 pickAutoUpdater，见 updater-interop.ts
-  const autoUpdater = pickAutoUpdater(await import('electron-updater'))
+  const autoUpdater = pickAutoUpdater(await import('./updater-vendor.cjs'))
 
   // 必须由用户点「下载」：autoDownload 默认 true，会一发现新版本就闷头下几百 MB
   autoUpdater.autoDownload = false

@@ -1,0 +1,47 @@
+# electron-builder 打包配置（Task 9：一份代码打 Windows 安装包）。
+#
+# 只挑了三块产物进包（dist/**、dist-desktop/**、package.json）—— 后端已经整体内联在
+# dist-desktop/main.js 里，dist/web 是静态资源，其余源码 / 测试 / 工具都不进 asar。
+#
+# 两个和「更新通道」直接相关的字段，别随手改：
+# - publish 必须是真仓库（528085390/pinfolio），electron-builder 据此生成 <resources>/app-update.yml；
+#   少了它，装出来的包 updater 会一直报「未启用」。
+# - nsis.artifactName 决定 release/ 里的文件名，latest.yml 的 path 必须和它逐字一致，
+#   否则 Task 10 的真实更新流转会 404（见 release/latest.yml）。
+appId: com.pinfolio.desktop
+productName: pinfolio
+
+directories:
+  output: release
+  buildResources: desktop/assets
+
+asar: true
+
+files:
+  - dist/**
+  - dist-desktop/**
+  - package.json
+
+# package.json 里 main 已经是 dist-desktop/main.js，这里是第二道保险（asar 里根目录的 package.json
+# 是 Electron 启动时唯一读的那份，产物路径变了也不会白打一次包）
+extraMetadata:
+  main: dist-desktop/main.js
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: desktop/assets/icon.ico
+
+nsis:
+  oneClick: false # 向导式安装，不是一键装
+  perMachine: false # 装到当前用户（%LOCALAPPDATA%\Programs），不需要管理员
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false # 卸载保留 %APPDATA%\pinfolio（便签 / 附件 / 配置都在里面）
+  artifactName: pinfolio-Setup-${version}.${ext}
+
+publish:
+  - provider: github
+    owner: 528085390
+    repo: pinfolio

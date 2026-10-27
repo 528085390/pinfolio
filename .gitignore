@@ -38,3 +38,8 @@ tmp/*.mjs
 
 # 临时目录整个不进版本库（截图/探针/一次性脚本都在这）
 tmp/
+
+# 桌面端打包产物（Task 9）：dist-desktop/ 是 esbuild 中间产物，release/ 是 electron-builder 的输出
+# （安装包 + latest.yml + unpacked 目录，几十上百 MB），两个都不进版本库。
+dist-desktop/
+release/
