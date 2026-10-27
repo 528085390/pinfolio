@@ -208,9 +208,23 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
 
   // 桌面端免密：只在 desktopAutoLogin 为真时发一张票（resolveListenOptions 已保证是回环地址）。
   // 放在监听成功之后：监听失败就别发一张没人用的活票。
-  const desktopSession: DesktopSession | undefined = desktopAutoLogin
-    ? ensureDesktopSession(db, { ip: '127.0.0.1' })
-    : undefined
+  //
+  // 发不出去（磁盘满 / 只读库 / IO 错）时不能就这么 reject：此刻端口已经 bind、4 组后台定时器
+  // 也已经挂上，而调用方拿不到 handle，谁都没法关。所以先在本地把这两样收干净，再把原错抛回去。
+  // 会话本身是事务写的（见 desktop-session.ts），半途失败不会留下清不掉的孤儿票。
+  let desktopSession: DesktopSession | undefined
+  if (desktopAutoLogin) {
+    try {
+      desktopSession = ensureDesktopSession(db, { ip: '127.0.0.1' })
+    } catch (err) {
+      cancelSnapshot()
+      for (const stop of stops.splice(0)) {
+        try { stop() } catch { /* 停不掉也得继续收拾，别盖住原始错误 */ }
+      }
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+      throw err
+    }
+  }
 
   let closed = false
   const close = async (): Promise<void> => {

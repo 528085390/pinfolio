@@ -63,3 +63,22 @@ test('桌面会话：设置里留着一条已经不存在的旧 id，照样能�
   assert.equal(getSetting(db, 'desktop_session_id'), again.id)
   assert.ok(findValidSession(db, again.token))
 })
+
+test('桌面会话：发新票半途炸掉就整体回滚，旧票还在、设置不改', () => {
+  const db = fresh()
+  const prev = ensureDesktopSession(db, { ip: '127.0.0.1' })
+  // 让 setSetting 那一步必炸（getSetting 是 SELECT，不受影响）
+  db.exec("CREATE TRIGGER boom BEFORE INSERT ON settings BEGIN SELECT RAISE(ABORT, 'boom'); END")
+  try {
+    assert.throws(() => ensureDesktopSession(db, { ip: '127.0.0.1' }), /boom/)
+  } finally {
+    db.exec('DROP TRIGGER boom')
+  }
+  assert.equal(countSessions(db), 1, 'createSession 那一步要跟着回滚，不能留孤儿票')
+  assert.ok(findValidSession(db, prev.token), '上一张票不该被半路删掉')
+  assert.equal(getSetting(db, 'desktop_session_id'), prev.id, '设置仍指向原来那条')
+  // 触发器摘掉之后恢复正常
+  const next = ensureDesktopSession(db, { ip: '127.0.0.1' })
+  assert.equal(countSessions(db), 1)
+  assert.equal(getSetting(db, 'desktop_session_id'), next.id)
+})
