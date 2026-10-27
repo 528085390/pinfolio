@@ -228,6 +228,13 @@ test('出站模式：请求体里没有这个键时 next 也不凭空添一个�
   assert.equal(res.next.name, 'app-api')
 })
 
+test('出站模式：body 缺键时 bean 里已有的 pin 必须原样带回（否则 kuma server.js:890 会把 pin 静默重置成 follow）', () => {
+  const base = bean({ outboundMode: 'direct' })
+  const res = run({ interval: 120 }, base as any) as any
+  assert.equal(res.next.outboundMode, 'direct')
+  assert.equal(res.next.interval, 120)
+})
+
 test('出站模式：改它不波及其它字段（Kuma 是全量覆盖，这条最要紧）', () => {
   const base: Record<string, any> = bean({ outboundMode: 'direct' })
   const res = run({ outboundMode: 'proxy' }, base as any) as any
