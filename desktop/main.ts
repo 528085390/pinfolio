@@ -2,9 +2,11 @@ import { app, BrowserWindow, screen, session, shell } from 'electron'
 import type { Tray, WebContents } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { ServerHandle } from '../server/app.js'
 import { desktopPaths } from './paths.js'
 import type { DesktopPaths } from './paths.js'
+import { probeWithRetry } from './auth-probe.js'
 import { installCrashHandlers, log } from './log.js'
 import { isInternalUrl } from './nav.js'
 import { createTray } from './tray.js'
@@ -32,6 +34,9 @@ import type { Bounds } from './window-state.js'
  * 5. startServer 用 PORT=0 让系统分配端口，url 只用 handle.url（别自己拼）。
  * 6. cookie 注入与开窗都必须在 `app.whenReady()` 之后：session.defaultSession 要等 ready 才存在。
  *    免密是「替用户带一张票」，不是拆掉鉴权 —— 注完立刻用不带 cookie 的请求撞一次，必须还是 401。
+ *    撞的那一下交给 desktop/auth-probe.ts 做有界重试（10 次 × 300ms，每次请求 2s 超时）：
+ *    **只有连接层失败（fetch 自己抛错）才重试**；一旦拿到响应而状态码不是 401，仍然立刻硬失败 ——
+ *    那是鉴权被削弱，宁可启动失败也不能拖 3 秒后开一个裸奔窗口。
  * 7. before-quit 里 await handle.close() 要用 quitting 标志防重入，
  *    否则 event.preventDefault() 之后重新 quit 会自己咬自己（无限循环 / 进程挂后台）。
  *
@@ -107,13 +112,18 @@ function prepareEnv(): DesktopPaths {
 /**
  * 免密的边界自检：**不带 cookie** 请求一个受保护的接口，必须还是 401。
  * 不是 401 就说明鉴权被削弱了，宁可启动失败也不要开一个裸奔的窗口。
+ *
+ * 这里只做接线：重试 / 每次请求超时 / 失败诊断都在 desktop/auth-probe.ts（纯模块，单测直接覆盖）。
+ * 那边保证「连接层失败才重试」（冷启动被 Defender 扫时会抖），其余情况一律立刻炸。
  */
 async function assertAuthStillOn(url: string): Promise<void> {
-  const res = await fetch(url + '/api/notes')
-  if (res.status !== 401) {
-    throw new Error('免密注入后不带 cookie 的 /api/notes 应返回 401，实际 ' + res.status)
-  }
-  log('[pinfolio] auth guard ok: /api/notes without cookie -> 401')
+  await probeWithRetry(url, {
+    // 全局 fetch 原样传进去（不包一层闭包，测试里能断言的注入点都在 auth-probe.ts）
+    fetch,
+    // node:timers/promises 的 setTimeout(ms) 就是一个 Promise，不用自己写 sleep
+    sleep,
+    log: (m) => log('[pinfolio] auth guard', m),
+  })
 }
 
 /**
