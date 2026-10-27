@@ -139,8 +139,23 @@ export function sweepAttachments(now = Date.now(), ttlDays = ORPHAN_TTL_DAYS): n
   return stale.length + strays
 }
 
-/** 每天扫一次（启动 1 分钟后先跑一次）。unref 掉，不挡进程退出 */
-export function startAttachmentSweep(intervalMs = 24 * 3600_000): void {
+let bootTimer: ReturnType<typeof setTimeout> | null = null
+let timer: ReturnType<typeof setInterval> | null = null
+
+/** 关服务时调：停掉开机 1 分钟后的首扫与 24 小时周期（重复调用无害）。 */
+export function stopAttachmentSweep(): void {
+  if (bootTimer) clearTimeout(bootTimer)
+  if (timer) clearInterval(timer)
+  bootTimer = null
+  timer = null
+}
+
+/**
+ * 每天扫一次（启动 1 分钟后先跑一次）。unref 掉，不挡进程退出。
+ * 返回 stop（startServer 收集起来、close() 时调）；已经在跑时不会再挂第二份。
+ */
+export function startAttachmentSweep(intervalMs = 24 * 3600_000): () => void {
+  if (timer) return stopAttachmentSweep
   const tick = () => {
     try {
       const n = sweepAttachments()
@@ -149,6 +164,9 @@ export function startAttachmentSweep(intervalMs = 24 * 3600_000): void {
       console.error('[attachments] 清理失败：' + (err instanceof Error ? err.message : String(err)))
     }
   }
-  setTimeout(tick, 60_000).unref()
-  setInterval(tick, intervalMs).unref()
+  bootTimer = setTimeout(tick, 60_000)
+  bootTimer.unref()
+  timer = setInterval(tick, intervalMs)
+  timer.unref()
+  return stopAttachmentSweep
 }

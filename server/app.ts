@@ -166,17 +166,22 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
     console.log('  凭据已就地加密  ->  邮箱 ' + sealed.mail + ' 条 / Kuma 口令 ' + sealed.kuma + ' / 指标源 ' + sealed.metrics)
   }
 
+  // 4 个后台任务各自返回 stop，close() 时逐个停掉。同进程里二次 startServer()（比如端口被占后重试）
+  // 不会挂出双份轮询 / 双份 03:00 备份链：各模块内部有自己的重入守卫。
+  const stops: Array<() => void> = []
   const server: ServerType = serve({ fetch: app.fetch, port, hostname }, () => {
     // 启动时先生成一次快照（失败只打日志，不影响服务）
     void writeSnapshot()
-    // 主机指标：开机拉一次，之后每 5 分钟拉一次（见 server/metrics/poll.ts）
-    startMetricsPoller()
-    // 公网映射探活：配了地址就每 60s 自检一次（见 server/tunnel.ts）
-    startTunnelProbe()
-    // 每天 03:00 自动备份（见 server/backup/schedule.ts）
-    startBackupScheduler(db)
-    // 每天扫一次没人引用的图片（见 server/attachments/store.ts）
-    startAttachmentSweep()
+    stops.push(
+      // 主机指标：开机拉一次，之后每 5 分钟拉一次（见 server/metrics/poll.ts）
+      startMetricsPoller(),
+      // 公网映射探活：配了地址就每 60s 自检一次（见 server/tunnel.ts）
+      startTunnelProbe(),
+      // 每天 03:00 自动备份（见 server/backup/schedule.ts）
+      startBackupScheduler(db),
+      // 每天扫一次没人引用的图片（见 server/attachments/store.ts）
+      startAttachmentSweep(),
+    )
   })
 
   // port 传 0 时端口是系统分配的，只能等 listening 之后从地址里读（serve() 的返回值上没有 port）
@@ -208,7 +213,11 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
     cancelSnapshot()
     // IMAP 是长连接，礼貌收尾；失败了也别让关闭流程抛
     try { shutdownMail() } catch { /* ignore */ }
-    // 4 个后台定时器都是 unref 掉的（见各自的 start*），不会挡住进程退出
+    // 4 组后台定时器都 unref 过（不挡进程退出），但 close() 之后不该再有任务往这个实例里写：
+    // 逐个 stop（splice(0) 保证只停一次；重复 close 由 closed 标志挡住）
+    for (const stop of stops.splice(0)) {
+      try { stop() } catch { /* 停不掉也别让关闭流程抛 */ }
+    }
     await new Promise<void>((resolve, reject) => {
       server.close((err?: Error) => (err ? reject(err) : resolve()))
     })
