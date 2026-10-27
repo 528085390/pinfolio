@@ -6,6 +6,7 @@ import { API_BASE, UNAUTHORIZED_EVENT } from '../lib/api/http'
 type Phase = 'loading' | 'setup' | 'login' | 'ready'
 
 // 外壳守卫：先问后端要状态，未初始化给 /setup，未登录给登录页，登录后才挂载整个 App。
+// 已登录优先：桌面端免密会话存在但库里没有密码时要直接进主界面（authed && setupRequired 只有桌面端造得出来）。
 export function AuthGate({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<Phase>('loading')
 
@@ -13,7 +14,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     try {
       const res = await fetch(API_BASE + '/auth/state', { headers: { Accept: 'application/json' } })
       const j = await res.json()
-      setPhase(j.setupRequired ? 'setup' : j.authed ? 'ready' : 'login')
+      setPhase(j.authed ? 'ready' : j.setupRequired ? 'setup' : 'login')
     } catch {
       setPhase('login')
     }
