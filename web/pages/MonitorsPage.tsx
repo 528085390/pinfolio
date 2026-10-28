@@ -40,7 +40,7 @@ export function MonitorsPage({
       <MonitorStats summary={M.summary} />
 
       {/* 出站徽标：只说明探测现在从哪条出口出去，不参与任何状态判断（读不到时整块不渲染） */}
-      <OutboundBadge />
+      {M.meta?.configured ? <OutboundBadge /> : null}
 
       <MonitorFilters
         groups={M.groups}

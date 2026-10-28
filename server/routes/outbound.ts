@@ -5,6 +5,7 @@ import { isJsonContentType } from '../kuma/http.js'
 import { validateOutboundBody } from '../kuma/outbound.js'
 import { recheckAll } from '../kuma/outbound-recheck.js'
 import { AT_KEY, MODE_KEY, PROXY_KEY, buildProxyWrite, diffWritten, viewOf } from '../kuma/outbound-view.js'
+import { kumaMeta } from '../kuma/meta.js'
 import { scheduleSnapshot } from '../snapshot.js'
 
 // 设置页「出站模式」的读写面：
@@ -36,6 +37,10 @@ outboundRoute.get('/', async (c) => {
   try {
     return c.json(viewOf(await readSettings()))
   } catch (e: any) {
+    const meta = await kumaMeta().catch(() => null)
+    if (meta && !meta.configured) {
+      return c.json(viewOf({}))
+    }
     // 文案来自 client.ts / kuma，只含「连不上 / 没有口令」这类信息，不含请求体
     return c.json({ error: String(e?.message || e) }, 502)
   }
