@@ -35,9 +35,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
-    "hono": "^4.9.0",
-    "imapflow": "^2.9.1",
-    "mailparser": "^3.12.4",
+    "hono": "^4.13.14",
+    "imapflow": "^2.10.0",
+    "mailparser": "^3.14.1",
     "mysql2": "^3.24.6",
     "pg": "^8.23.1",
     "socket.io-client": "~4.8.4"
