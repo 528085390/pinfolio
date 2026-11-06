@@ -87,6 +87,8 @@ export const monitors: Dict = {
   '还没跑过': 'Never run yet',
 
   // 基本信息
+  '关联资产': 'Linked asset',
+  '查看关联资产': 'View linked asset',
   '基本信息': 'Basics',
   'Kuma 里的观测项名字，改名会同步到 CLI 和 SNAPSHOT':
     'The monitor name inside Kuma; renaming it syncs to the CLI and SNAPSHOT',

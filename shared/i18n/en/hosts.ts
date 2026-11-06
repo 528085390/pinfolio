@@ -26,6 +26,8 @@ export const hosts: Dict = {
     'Host deleted, but its monitors were not: {list} (delete them by hand on the monitors page)',
 
   // 卡片
+  '关联资产': 'Linked asset',
+  '查看关联资产': 'View linked asset',
   '{d} 天 {h} 小时': (v) => `${v.d}d ${v.h}h`,
   '{h} 小时 {m} 分': (v) => `${v.h}h ${v.m}m`,
   '{m} 分钟': (v) => `${v.m}m`,

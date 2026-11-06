@@ -1,6 +1,8 @@
 import { Pause, Play, Trash2 } from 'lucide-react'
 import { cx, type Host, type HostSeriesPoint } from '../../lib/api'
 import { t } from '../../lib/i18n'
+import { findAssetsForHost } from '../../lib/telemetry-link'
+import { assetHref } from '../../components/monitor-drawer/display'
 
 // 一张卡 = 一台机。数据缺字段时全部走兜底文案，不要因为一台机少个字段就整页白屏。
 
@@ -76,7 +78,7 @@ function Bar({ label, pct: v, text }: { label: string; pct: number; text: string
   )
 }
 
-export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
+export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, linkedAssets, onOpenAsset }: {
   h: Host
   /** 有写操作在跑时禁用暂停 / 删除，避免连点 */
   busy?: boolean
@@ -84,9 +86,13 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
   onDelete?: (h: Host) => void
   /** 还没收到上报时给一条「接入指引」（安装命令），有数据就不显示 */
   onOnboard?: (h: Host) => void
+  assets?: Array<{ id: number; name: string; custom?: any }>
+  linkedAssets?: Array<{ id: number; name: string }>
+  onOpenAsset?: (id: number) => void
 }) {
   const memTotal = h.mem?.total_kb ?? 0
   const memUsed = memTotal - (h.mem?.avail_kb ?? 0)
+  const effectiveLinkedAssets = linkedAssets ?? (assets ? findAssetsForHost(h.id, assets) : [])
 
   return (
     <div className={cx('host-card', h.paused ? 'is-paused' : !h.online && 'is-off')}>
@@ -95,6 +101,36 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard }: {
         <span className="host-name">{h.label}</span>
         <span className="host-note">{h.note}</span>
         {h.paused ? <span className="host-pause-tag">{t('已暂停')}</span> : null}
+        {effectiveLinkedAssets.map((a) => (
+          <a
+            key={a.id}
+            className="host-asset-badge"
+            href={assetHref(a.id)}
+            title={t('查看关联资产')}
+            onClick={(e) => {
+              if (onOpenAsset) {
+                e.preventDefault()
+                onOpenAsset(a.id)
+              }
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 11.5,
+              padding: '2px 7px',
+              borderRadius: 6,
+              background: 'var(--surface-2)',
+              color: 'var(--accent, #6366f1)',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              flex: 'none',
+            }}
+          >
+            <span>🔗</span>
+            <span>{t('关联资产')}: {a.name}</span>
+          </a>
+        ))}
         <span className="host-ago">{h.paused ? t('暂停采集') : ago(h.staleSec)}</span>
         <div className="host-ops">
           <button

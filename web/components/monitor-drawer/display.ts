@@ -33,3 +33,9 @@ export function toneOf(latest: { tone?: string | null; status: number | null } |
   if (latest.tone) return TONE[latest.tone] || null
   return latest.status === null ? null : (STATUS[latest.status] || null)
 }
+
+
+/** 资产详情路由哈希生成 */
+export function assetHref(id: number): string {
+  return `#/assets?id=${id}`
+}

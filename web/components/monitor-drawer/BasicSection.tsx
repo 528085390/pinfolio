@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { Field } from '../ui'
-import { TYPE_LABEL, type MonitorFull } from './display'
+import { TYPE_LABEL, type MonitorFull, assetHref } from './display'
 import { OUTBOUND_PINS, pinHintText, type MonitorForm, type OutboundPin } from './form'
 import { useOutbound } from '../../pages/settings/useOutbound'
 import { t } from '../../lib/i18n'
@@ -13,10 +13,12 @@ const PIN_LABEL: Record<OutboundPin, string> = {
 }
 
 /** 基本信息：名字、介绍、检查频率（含常用档位）、出站模式，以及只读的类型 / 目标 / 分组 / 策略。 */
-export function BasicSection({ form, setForm, m }: {
+export function BasicSection({ form, setForm, m, linkedAssets, onOpenAsset }: {
   form: MonitorForm
   setForm: Dispatch<SetStateAction<MonitorForm>>
   m: MonitorFull
+  linkedAssets?: Array<{ id: number; name: string }>
+  onOpenAsset?: (id: number) => void
 }) {
   // 当前全局模式只用于那行说明文字（「跟随全局（当前：经代理 socks5h …）」）。
   // 复用设置页那个 hook 的 GET；读不到时 pinHintText(null) 降级成「跟随全局」不带括号，
@@ -100,6 +102,41 @@ export function BasicSection({ form, setForm, m }: {
         {m.group ? (
           <Field label={t('分组')} span>
             <div className="monitor-drawer-readonly"><span className="monitor-drawer-target">{m.group}</span></div>
+          </Field>
+        ) : null}
+        {linkedAssets && linkedAssets.length > 0 ? (
+          <Field label={t('关联资产')} span>
+            <div className="monitor-drawer-readonly" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {linkedAssets.map((a) => (
+                <a
+                  key={a.id}
+                  className="monitor-asset-badge"
+                  href={assetHref(a.id)}
+                  onClick={(e) => {
+                    if (onOpenAsset) {
+                      e.preventDefault()
+                      onOpenAsset(a.id)
+                    }
+                  }}
+                  title={t('查看关联资产')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 12,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    background: 'var(--surface-2, rgba(255,255,255,0.06))',
+                    color: 'var(--accent, #6366f1)',
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span>🔗</span>
+                  <span>{t('关联资产')}: {a.name}</span>
+                </a>
+              ))}
+            </div>
           </Field>
         ) : null}
         {m.policy ? (

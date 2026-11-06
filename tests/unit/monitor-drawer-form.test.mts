@@ -5,7 +5,8 @@ import assert from 'node:assert/strict'
 import {
   buildPatch, canSaveForm, confirmMatches, emptyForm, runDisabledOf, sameForm, toForm, validateForm,
 } from '../../web/components/monitor-drawer/form.js'
-import { toneOf } from '../../web/components/monitor-drawer/display.js'
+import { toneOf, assetHref } from '../../web/components/monitor-drawer/display.js'
+import { findAssetsForMonitor, findAssetsForHost } from '../../web/lib/telemetry-link.js'
 
 const detail = (over: Record<string, any> = {}) => ({
   monitor: {
@@ -145,4 +146,46 @@ test('confirmMatches：去掉首尾空白后必须完全一样', () => {
   assert.equal(confirmMatches(m, 'wb2ap'), false)
   assert.equal(confirmMatches(m, ''), false)
   assert.equal(confirmMatches(undefined, 'app-api'), false)
+})
+
+
+test('assetHref：生成指向资产详情的哈希路由', () => {
+  assert.equal(assetHref(12), '#/assets?id=12')
+})
+
+test('反向关联：观测项详情中匹配资产并生成徽章链接', () => {
+  const assets = [
+    { id: 1, name: 'Web Server', custom: { monitorIds: [7] } },
+    { id: 2, name: 'Database', custom: { monitorIds: [99] } },
+  ]
+  const monitor = detail().monitor
+  const linked = findAssetsForMonitor(monitor.id, monitor.group, assets)
+  assert.deepEqual(linked, [{ id: 1, name: 'Web Server' }])
+  assert.equal(assetHref(linked[0].id), '#/assets?id=1')
+})
+
+test('反向关联：主机卡片中匹配资产并生成徽章链接', () => {
+  const assets = [
+    { id: 1, name: 'Production', custom: { hostId: 'aws' } },
+    { id: 2, name: 'Staging', custom: { hostId: 'az' } },
+  ]
+  const linked = findAssetsForHost('aws', assets)
+  assert.deepEqual(linked, [{ id: 1, name: 'Production' }])
+  assert.equal(assetHref(linked[0].id), '#/assets?id=1')
+})
+
+test('反向关联：点击徽章时触发正确的跳转或抽屉唤起', () => {
+  let openedAssetId: number | null = null
+  const onOpenAsset = (id: number) => {
+    openedAssetId = id
+  }
+  const asset = { id: 88, name: 'Core Router' }
+  const handleClick = (e: { preventDefault: () => void }) => {
+    e.preventDefault()
+    onOpenAsset(asset.id)
+  }
+  let prevented = false
+  handleClick({ preventDefault: () => { prevented = true } })
+  assert.equal(openedAssetId, 88)
+  assert.equal(prevented, true)
 })

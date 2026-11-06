@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, RefreshCw, Server } from 'lucide-react'
 import { Button, Empty, Spinner } from '../components/ui'
 import { api, type Host, type HostSummary, type HostsPayload } from '../lib/api'
@@ -9,8 +9,9 @@ import { DeleteHostModal } from './hosts/DeleteHostModal'
 import { OnboardModal } from './hosts/OnboardModal'
 import { t } from '../lib/i18n'
 
-export function HostsPage({ onSummary }: {
+export function HostsPage({ onSummary, onOpenAsset }: {
   onSummary?: (s: HostSummary) => void
+  onOpenAsset?: (id: number) => void
 }) {
   const H = useHosts({ onSummary })
   const hosts = H.data?.hosts ?? []
@@ -24,6 +25,15 @@ export function HostsPage({ onSummary }: {
   const [busyId, setBusyId] = useState('')
   const [opErr, setOpErr] = useState('')
   const [onboardId, setOnboardId] = useState<string | null>(null)
+  const [assets, setAssets] = useState<Array<{ id: number; name: string; custom?: any }>>([])
+
+  useEffect(() => {
+    let alive = true
+    api.assets.list({}).then((list) => {
+      if (alive && Array.isArray(list)) setAssets(list)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   // 加完主机立刻弹接入指引；观测项没建成只提示，主机本身已经加好了
   const onAdded = (next: HostsPayload, id: string) => {
@@ -126,6 +136,8 @@ export function HostsPage({ onSummary }: {
               key={h.id}
               h={h}
               busy={busyId === h.id}
+              assets={assets}
+              onOpenAsset={onOpenAsset}
               onTogglePause={togglePause}
               onDelete={setDelHost}
               onOnboard={(h) => setOnboardId(h.id)}
