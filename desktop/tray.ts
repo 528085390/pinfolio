@@ -16,6 +16,8 @@ export type TrayOptions = {
   onQuit: () => void
   /** 用户点了「检查更新」：调用 updater 的检查逻辑 */
   onCheckUpdate: () => void
+  /** 用户点了「快速记便签」：呼出或隐藏随手记浮窗 */
+  onQuickNote?: () => void
   /** 目标网页端地址（如 http://127.0.0.1:7788），用于在浏览器中打开 */
   webUrl?: string
   /** 兼容历史传参：数据目录 */
@@ -88,6 +90,12 @@ function buildMenu(win: BrowserWindow, opts: TrayOptions, refresh: () => void): 
       label: visible ? '隐藏主窗口' : '显示主窗口',
       click: () => toggleWindow(win),
     },
+    ...(opts.onQuickNote ? [{
+      label: '快速记便签 (Ctrl+Alt+N)',
+      click: () => {
+        opts.onQuickNote!()
+      },
+    }] : []),
     {
       label: '刷新页面',
       click: () => {

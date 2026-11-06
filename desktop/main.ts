@@ -1,4 +1,5 @@
-import { app, BrowserWindow, screen, shell } from 'electron'
+import { app, BrowserWindow, globalShortcut, screen, shell } from 'electron'
+import { createQuickNoteWindow, registerQuickNoteShortcut } from './quick-note.js'
 import type { Tray, WebContents } from 'electron'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -32,6 +33,7 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 /** 用户要求退出（托盘「退出」/ 系统关机）：close 事件据此决定「真关」还是「藏起来」 */
 let quitRequested = false
+let quickNoteWindow: BrowserWindow | null = null
 
 /**
  * 解析目标网页端 URL。
@@ -173,6 +175,19 @@ export async function createMainWindow(targetUrl: string): Promise<BrowserWindow
   return created
 }
 
+/** 显示 / 隐藏随手记浮动窗口 */
+function toggleQuickNote(targetUrl: string): void {
+  if (!quickNoteWindow || quickNoteWindow.isDestroyed()) {
+    quickNoteWindow = createQuickNoteWindow(targetUrl)
+  }
+  if (quickNoteWindow.isVisible() && quickNoteWindow.isFocused()) {
+    quickNoteWindow.hide()
+  } else {
+    quickNoteWindow.show()
+    quickNoteWindow.focus()
+  }
+}
+
 /** 已开着的窗口：还原 + 聚焦 */
 function focusMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -216,7 +231,11 @@ async function boot(): Promise<void> {
 
   // 创建托盘
   try {
+    const onToggleQuickNote = (): void => toggleQuickNote(targetUrl)
+    registerQuickNoteShortcut('CommandOrControl+Alt+N', onToggleQuickNote, { log })
+
     tray = createTray(mainWindow, {
+      onQuickNote: onToggleQuickNote,
       onQuit: requestQuit,
       onCheckUpdate: () => {
         void checkForUpdatesInteractive()
@@ -260,6 +279,21 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     quitRequested = true
+    try {
+      globalShortcut.unregisterAll()
+    } catch (err) {
+      log('[quick-note] 注销全局快捷键失败：', err)
+    }
+    if (quickNoteWindow && !quickNoteWindow.isDestroyed()) {
+      quickNoteWindow.destroy()
+      quickNoteWindow = null
+    }
+  })
+
+  app.on('will-quit', () => {
+    try {
+      globalShortcut.unregisterAll()
+    } catch {}
   })
 
   boot().catch((err: unknown) => {
