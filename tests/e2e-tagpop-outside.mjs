@@ -21,6 +21,14 @@ await login(page)
 await page.goto(BASE + '/notes', { waitUntil: 'networkidle' })
 await page.waitForTimeout(400)
 
+let createdNote = false
+if ((await page.locator('.note').count()) === 0) {
+  createdNote = true
+  await page.fill('.composer textarea', 'tagpop-test #测试')
+  await page.click('.composer button:has-text("记下")')
+  await page.waitForTimeout(600)
+}
+
 const TAG_BTN = 'button[title="从已有标签里挑一个插进便签"]'
 const isOpen = async () => (await page.locator('.tag-pop').count()) === 1
 async function openPop() {
@@ -117,6 +125,15 @@ await page.waitForTimeout(220)
 ok('收起后再打开仍然正常', await openPop())
 
 ok('无 console / pageerror', errors.length === 0, errors.join(' | '))
+
+if (createdNote) {
+  await page.evaluate(async () => {
+    const res = await fetch('/api/notes')
+    const list = await res.json()
+    const n = list.find((x) => x.content && x.content.includes('tagpop-test'))
+    if (n) await fetch('/api/notes/' + n.id, { method: 'DELETE' })
+  }).catch(() => {})
+}
 
 await browser.close()
 console.log('\n' + (fails.length === 0 ? '全部通过 ' + pass + '/' + pass : pass + ' 通过 / ' + fails.length + ' 失败'))

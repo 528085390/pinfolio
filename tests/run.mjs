@@ -29,6 +29,31 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const KEEP = process.argv.includes('--keep')
 const TEST_PASSWORD = 'e2e-password'
 
+function findKumaDir(start) {
+  if (process.env.KUMA_DIR && existsSync(process.env.KUMA_DIR)) return process.env.KUMA_DIR
+  let curr = start
+  for (let i = 0; i < 4; i++) {
+    const cand = join(curr, '..', 'kuma')
+    if (existsSync(cand)) return cand
+    curr = join(curr, '..')
+  }
+  return join(start, '..', 'kuma')
+}
+
+function findLiveDir(start) {
+  const local = join(start, 'data')
+  if (existsSync(join(local, 'secret.key'))) return local
+  let curr = start
+  for (let i = 0; i < 4; i++) {
+    const cand = join(curr, 'data')
+    if (existsSync(join(cand, 'secret.key'))) return cand
+    curr = join(curr, '..')
+  }
+  return local
+}
+
+const kumaDir = findKumaDir(ROOT)
+
 const CORE = [
   ['smoke', 'smoke.mjs'],
   ['e2e', 'e2e.mjs'],
@@ -130,7 +155,7 @@ async function startIsolated() {
   const dataDir = join(tmpdir(), 'pinfolio-e2e-' + Date.now())
   mkdirSync(dataDir, { recursive: true })
 
-  const liveDir = join(ROOT, 'data')
+  const liveDir = findLiveDir(ROOT)
   if (existsSync(liveDir)) {
     for (const f of readdirSync(liveDir)) {
       if (f.startsWith('pinboard.db')) continue
@@ -171,6 +196,7 @@ async function startIsolated() {
     env: {
       ...process.env,
       PINBOARD_DATA: dataDir,
+      KUMA_DIR: kumaDir,
       PORT: String(port),
       HOST: '127.0.0.1',
       PINBOARD_PASSWORD: TEST_PASSWORD,
@@ -264,6 +290,7 @@ const env = {
   ALERT_E2E_BASE: process.env.ALERT_E2E_BASE || base,
   PINBOARD_TOKEN: token,
   PINBOARD_PASSWORD: instance ? TEST_PASSWORD : (process.env.PINBOARD_PASSWORD || ''),
+  KUMA_DIR: kumaDir,
 }
 
 /* ---------------- outbound：全局出站模式（这一段会真的写 Kuma 的 general settings） ---------------- */
