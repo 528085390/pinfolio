@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, ExternalLink, Play, RefreshCw, Server, Sparkles, Wifi } from 'lucide-react'
 import type { Host, Monitor } from '../../lib/api'
+import { BASE } from '../../lib/base'
 import { cx } from '../../lib/cx'
+import { pathForPage, type Page } from '../../lib/router'
 import { shortGroup } from '../../lib/telemetry-link'
 import {
   parseAssetTelemetry,
@@ -10,6 +12,12 @@ import {
 } from '../../lib/telemetry-link'
 import type { AssetFormState } from './form'
 import { t } from '../../lib/i18n'
+
+function navigateTo(p: Page) {
+  const path = pathForPage(p, BASE)
+  window.history.pushState(null, '', path)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+}
 
 function Field({
   label,
@@ -508,7 +516,11 @@ export function LinkedTelemetry({
                 ) : null}
                 <a
                   className="btn btn-sm btn-ghost"
-                  href="#/hosts"
+                  href={pathForPage('hosts', BASE)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigateTo('hosts')
+                  }}
                   style={{ marginLeft: 'auto', gap: 4, fontSize: 11.5 }}
                 >
                   {t('前往主机页')} <ExternalLink size={12} />
@@ -584,7 +596,11 @@ export function LinkedTelemetry({
                 </span>
                 <a
                   className="btn btn-sm btn-ghost"
-                  href="#/monitors"
+                  href={pathForPage('monitors', BASE)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigateTo('monitors')
+                  }}
                   style={{ marginLeft: 'auto', gap: 4, fontSize: 11.5 }}
                 >
                   {t('前往观测台')} <ExternalLink size={12} />

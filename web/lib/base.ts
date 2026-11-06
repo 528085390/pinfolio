@@ -10,4 +10,4 @@ declare global {
 }
 
 export const BASE: string =
-  (typeof window !== 'undefined' && window.__PB_BASE__) || import.meta.env.BASE_URL || '/'
+  (typeof window !== 'undefined' && window.__PB_BASE__) || (import.meta.env && import.meta.env.BASE_URL) || '/'

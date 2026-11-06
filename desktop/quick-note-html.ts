@@ -177,7 +177,7 @@ export function getQuickNoteHtml(targetUrl: string): string {
   </div>
 
   <script>
-    const TARGET_URL = ${JSON.stringify(targetUrl)};
+    const TARGET_URL = ${JSON.stringify(targetUrl).replace(/</g, '\\u003c')};
     const noteInput = document.getElementById('noteInput');
     const tagPreview = document.getElementById('tagPreview');
     const pinnedCheckbox = document.getElementById('pinnedCheckbox');
