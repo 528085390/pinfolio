@@ -146,7 +146,10 @@ export function createQuickNoteWindow(
   const options = getQuickNoteWindowOptions()
   const win = new BW(options)
 
-  win.loadURL(getQuickNoteDataUrl(targetUrl)).catch((err: unknown) => {
+  const baseUrl = targetUrl.endsWith('/') ? targetUrl : targetUrl + '/'
+  win.loadURL(getQuickNoteDataUrl(targetUrl), {
+    baseURLForDataURL: baseUrl,
+  }).catch((err: unknown) => {
     log(`[quick-note] 加载随手记页面失败: ${err}`)
   })
 

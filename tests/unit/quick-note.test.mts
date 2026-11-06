@@ -139,13 +139,14 @@ test('getQuickNoteHtml：深色主题与随手记关键元素', () => {
   assert.ok(html.includes('保存便签'), '保存按钮文字')
 })
 
-test('getQuickNoteHtml：包含提交与关闭事件处理逻辑', () => {
+test('getQuickNoteHtml：包含提交与关闭事件处理逻辑及重新聚焦', () => {
   const html = getQuickNoteHtml('http://127.0.0.1:7788')
   assert.ok(html.includes('/api/notes'), '必须调用 /api/notes 接口')
   assert.ok(html.includes("credentials: 'include'"), '必须携带 Session Cookie 凭据')
   assert.ok(html.includes('window.close()'), '支持 window.close() 关闭/隐藏浮窗')
   assert.ok(html.includes('便签已保存'), '保存成功绿勾反馈')
   assert.ok(html.includes('extractTags'), '包含标签提取函数')
+  assert.ok(html.includes("window.addEventListener('focus'"), '包含窗口聚焦时自动定位输入框')
 })
 
 test('getQuickNoteHtml：安全转义 targetUrl 特殊字符', () => {
@@ -159,16 +160,18 @@ test('getQuickNoteDataUrl：返回合法的 data:text/html 地址', () => {
   assert.ok(dataUrl.includes(encodeURIComponent('随手记便签')))
 })
 
-test('createQuickNoteWindow：创建窗口、加载页面并挂载事件', () => {
+test('createQuickNoteWindow：创建窗口、加载页面并挂载事件（含 baseURLForDataURL 跨域修复）', () => {
   const events: Record<string, Function> = {}
   let loadedUrl = ''
+  let loadedOptions: any = null
   let hideCount = 0
   let onHideCalled = false
 
   class MockBrowserWindow {
     constructor(public options: any) {}
-    loadURL(url: string) {
+    loadURL(url: string, options?: any) {
       loadedUrl = url
+      loadedOptions = options
       return Promise.resolve()
     }
     on(event: string, handler: Function) {
@@ -196,6 +199,7 @@ test('createQuickNoteWindow：创建窗口、加载页面并挂载事件', () =>
 
   assert.ok(win)
   assert.ok(loadedUrl.startsWith('data:text/html;charset=utf-8,'))
+  assert.equal(loadedOptions?.baseURLForDataURL, 'http://127.0.0.1:7788/')
   assert.equal(typeof events['close'], 'function')
   assert.equal(typeof events['blur'], 'function')
 
@@ -215,5 +219,8 @@ test('createQuickNoteWindow：创建窗口、加载页面并挂载事件', () =>
   events['blur']()
   assert.equal(hideCount, 2)
   assert.equal(onHideCalled, true)
-})
 
+  // 测试末尾已有斜杠的 URL 规整
+  createQuickNoteWindow('http://127.0.0.1:7788/', undefined, mockDeps)
+  assert.equal(loadedOptions?.baseURLForDataURL, 'http://127.0.0.1:7788/')
+})

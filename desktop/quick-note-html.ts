@@ -13,7 +13,6 @@
  */
 
 export function getQuickNoteHtml(targetUrl: string): string {
-  const safeTarget = targetUrl.replace(/"/g, '&quot;')
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -207,6 +206,10 @@ export function getQuickNoteHtml(targetUrl: string): string {
     }
 
     noteInput.addEventListener('input', updateTagPreview);
+
+    window.addEventListener('focus', () => {
+      noteInput.focus();
+    });
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
