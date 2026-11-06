@@ -150,7 +150,7 @@ test('confirmMatches：去掉首尾空白后必须完全一样', () => {
 
 
 test('assetHref：生成指向资产详情的哈希路由', () => {
-  assert.equal(assetHref(12), '#/assets?id=12')
+  assert.equal(assetHref(12), '/assets?id=12')
 })
 
 test('反向关联：观测项详情中匹配资产并生成徽章链接', () => {
@@ -161,7 +161,7 @@ test('反向关联：观测项详情中匹配资产并生成徽章链接', () =>
   const monitor = detail().monitor
   const linked = findAssetsForMonitor(monitor.id, monitor.group, assets)
   assert.deepEqual(linked, [{ id: 1, name: 'Web Server' }])
-  assert.equal(assetHref(linked[0].id), '#/assets?id=1')
+  assert.equal(assetHref(linked[0].id), '/assets?id=1')
 })
 
 test('反向关联：主机卡片中匹配资产并生成徽章链接', () => {
@@ -171,21 +171,25 @@ test('反向关联：主机卡片中匹配资产并生成徽章链接', () => {
   ]
   const linked = findAssetsForHost('aws', assets)
   assert.deepEqual(linked, [{ id: 1, name: 'Production' }])
-  assert.equal(assetHref(linked[0].id), '#/assets?id=1')
+  assert.equal(assetHref(linked[0].id), '/assets?id=1')
 })
 
-test('反向关联：点击徽章时触发正确的跳转或抽屉唤起', () => {
-  let openedAssetId: number | null = null
-  const onOpenAsset = (id: number) => {
-    openedAssetId = id
-  }
-  const asset = { id: 88, name: 'Core Router' }
-  const handleClick = (e: { preventDefault: () => void }) => {
-    e.preventDefault()
-    onOpenAsset(asset.id)
-  }
-  let prevented = false
-  handleClick({ preventDefault: () => { prevented = true } })
-  assert.equal(openedAssetId, 88)
-  assert.equal(prevented, true)
+test('反向关联：多资产匹配并映射到完整资产链接', () => {
+  const assets = [
+    { id: 101, name: '生产网关', custom: { monitorIds: [7], hostId: 'aws' } },
+    { id: 102, name: '备用网关', custom: { monitorIds: [7], hostId: 'az' } },
+    { id: 103, name: '独立节点', custom: { monitorIds: [99], hostId: 'oj' } },
+  ]
+  const monitorLinked = findAssetsForMonitor(7, 'default', assets)
+  assert.equal(monitorLinked.length, 2)
+  assert.deepEqual(monitorLinked.map((a) => ({ ...a, href: assetHref(a.id) })), [
+    { id: 101, name: '生产网关', href: '/assets?id=101' },
+    { id: 102, name: '备用网关', href: '/assets?id=102' },
+  ])
+
+  const hostLinked = findAssetsForHost('aws', assets)
+  assert.equal(hostLinked.length, 1)
+  assert.deepEqual(hostLinked.map((a) => ({ ...a, href: assetHref(a.id) })), [
+    { id: 101, name: '生产网关', href: '/assets?id=101' },
+  ])
 })

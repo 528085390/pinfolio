@@ -37,5 +37,5 @@ export function toneOf(latest: { tone?: string | null; status: number | null } |
 
 /** 资产详情路由哈希生成 */
 export function assetHref(id: number): string {
-  return `#/assets?id=${id}`
+  return `/assets?id=${id}`
 }

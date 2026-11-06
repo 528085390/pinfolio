@@ -16,12 +16,14 @@ export function MonitorsPage({
   onSummary,
   focusId = null,
   onFocusDone,
+  onOpenAsset,
 }: {
   onSummary?: (s: MonitorSummary) => void
   /** 要从异常通知跳过来的观测项 id */
   focusId?: number | null
   /** 定位+高亮做完后回调，让上层把 focusId 清掉 */
   onFocusDone?: () => void
+  onOpenAsset?: (id: number) => void
 }) {
   const M = useMonitors({ onSummary, focusId, onFocusDone })
 
@@ -93,6 +95,7 @@ export function MonitorsPage({
         flavor={M.meta?.flavor ?? 'fork'}
         onClose={() => M.setOpenId(null)}
         onChanged={() => M.load(true)}
+        onOpenAsset={onOpenAsset}
       />
     </div>
   )
