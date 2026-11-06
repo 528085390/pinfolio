@@ -7,7 +7,7 @@ import { CustomFields } from './CustomFields'
 import { CURRENCIES, STATUSES, type AssetFormState } from './form'
 import { t } from '../../lib/i18n'
 
-/** 资产主表单：基本信息 + 自定义字段 + 备注预览。 */
+/** 资产主表单：基本信息 + 自定义字段 + 备注预览。运维观测关联见 LinkedTelemetry。 */
 export function BasicFields({ form, set, setCustom, fields, tags, tagsText, setTagsText }: {
   form: AssetFormState
   set: <K extends keyof AssetFormState>(key: K, value: AssetFormState[K]) => void

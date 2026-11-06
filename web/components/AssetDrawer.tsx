@@ -5,10 +5,12 @@ import { Button } from './ui'
 import { FormDrawer } from './FormDrawer'
 import { BasicFields } from './asset-drawer/BasicFields'
 import { LinkedNotes } from './asset-drawer/LinkedNotes'
+import { LinkedTelemetry } from './asset-drawer/LinkedTelemetry'
 import { blank, buildPayload, toForm, type AssetFormState } from './asset-drawer/form'
+import { mergeAssetTelemetry, type AssetTelemetry } from '../lib/telemetry-link'
 import { t } from '../lib/i18n'
 
-/** 资产详情 / 登记抽屉：外壳走 FormDrawer，内部是主表单 + 关联便签两段。 */
+/** 资产详情 / 登记抽屉：外壳走 FormDrawer，内部是主表单 + 运维观测关联 + 关联便签。 */
 export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
   open: boolean
   assetId: number | 'new' | null
@@ -68,6 +70,10 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
 
   function setCustom(key: string, value: any) {
     setForm((f) => ({ ...f, custom: { ...f.custom, [key]: value } }))
+  }
+
+  function setTelemetry(telemetry: Partial<AssetTelemetry>) {
+    setForm((f) => ({ ...f, custom: mergeAssetTelemetry(f.custom, telemetry) }))
   }
 
   async function save() {
@@ -146,6 +152,12 @@ export function AssetDrawer({ open, assetId, fields, tags, onClose, onSaved }: {
         tags={tags}
         tagsText={tagsText}
         setTagsText={setTagsText}
+      />
+
+      <LinkedTelemetry
+        form={form}
+        setCustom={setCustom}
+        setTelemetry={setTelemetry}
       />
 
       {currentId !== null ? (
