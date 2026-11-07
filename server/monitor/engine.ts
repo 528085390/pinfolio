@@ -73,7 +73,7 @@ export class MonitorEngine {
   /**
    * Safely notify beat subscriber without letting subscriber errors crash the engine.
    */
-  private notifyBeat(monitorId: number, beat: HeartbeatRow): void {
+  notifyBeat(monitorId: number, beat: HeartbeatRow): void {
     if (this.onBeat) {
       try {
         this.onBeat(monitorId, beat)
@@ -142,6 +142,27 @@ export class MonitorEngine {
         this.retryCounters.delete(id)
       }
     }
+  }
+
+  /**
+   * Cancel schedule timer for a specific monitor (e.g. when paused or deleted).
+   */
+  cancelSchedule(monitorId: number): void {
+    const timer = this.scheduleTimers.get(monitorId)
+    if (timer) {
+      clearTimeout(timer)
+      this.scheduleTimers.delete(monitorId)
+      this.retryCounters.delete(monitorId)
+    }
+  }
+
+  /**
+   * Schedule immediate or delayed probe for an active non-push monitor (e.g. when resumed).
+   */
+  scheduleMonitor(monitorId: number, delayMs = 1000): void {
+    const monitor = this.store.getMonitorById(monitorId)
+    if (!monitor || !monitor.active || monitor.type === 'push') return
+    this.scheduleNext(monitorId, delayMs)
   }
 
   /**

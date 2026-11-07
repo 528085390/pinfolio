@@ -67,6 +67,17 @@ export class MonitorStore {
     return row ? (row as unknown as MonitorRow) : null
   }
 
+  getMonitorByPushTokenOrId(token: string): MonitorRow | null {
+    const numericId = Number(token)
+    const validNumeric = Number.isInteger(numericId) && numericId > 0
+    const row = this.db
+      .prepare(
+        'SELECT * FROM monitors WHERE push_token = ? OR (type = ? AND id = ?) LIMIT 1'
+      )
+      .get(token, 'push', validNumeric ? numericId : -1)
+    return row ? (row as unknown as MonitorRow) : null
+  }
+
   getMonitorsByGroup(groupName: string): MonitorRow[] {
     return this.db
       .prepare('SELECT * FROM monitors WHERE group_name = ? ORDER BY id ASC')
