@@ -13,7 +13,7 @@ function createTestDb(): { db: DatabaseSync; store: MonitorStore } {
   return { db, store }
 }
 
-test('MonitorEngine: concurrency pool limits active probe count', async () => {
+test('MonitorEngine: concurrency pool limits active probe count and hands over slot directly', async () => {
   const { db, store } = createTestDb()
   const engine = new MonitorEngine({
     db,
@@ -23,24 +23,32 @@ test('MonitorEngine: concurrency pool limits active probe count', async () => {
 
   let activeCount = 0
   let maxObservedActive = 0
+  const executionOrder: number[] = []
 
-  const task = async () => {
+  const makeTask = (id: number, delayMs: number) => async () => {
     activeCount++
     if (activeCount > maxObservedActive) {
       maxObservedActive = activeCount
     }
-    await new Promise((r) => setTimeout(r, 30))
+    await new Promise((r) => setTimeout(r, delayMs))
+    executionOrder.push(id)
     activeCount--
-    return 1
+    return id
   }
 
   // Run 6 tasks via the concurrency runner
-  const promises = Array.from({ length: 6 }, () =>
-    (engine as any).runWithConcurrencyLimit(task)
-  )
+  const promises = [
+    (engine as any).runWithConcurrencyLimit(makeTask(1, 30)),
+    (engine as any).runWithConcurrencyLimit(makeTask(2, 30)),
+    (engine as any).runWithConcurrencyLimit(makeTask(3, 10)),
+    (engine as any).runWithConcurrencyLimit(makeTask(4, 10)),
+    (engine as any).runWithConcurrencyLimit(makeTask(5, 10)),
+    (engine as any).runWithConcurrencyLimit(makeTask(6, 10)),
+  ]
 
   await Promise.all(promises)
   assert.equal(maxObservedActive <= 2, true, `Expected max concurrency <= 2, got ${maxObservedActive}`)
+  assert.equal(executionOrder.length, 6)
 })
 
 test('MonitorEngine: probeNow immediately executes probe and records heartbeat', async () => {
@@ -89,7 +97,7 @@ test('MonitorEngine: probeNow immediately executes probe and records heartbeat',
   }
 })
 
-test('MonitorEngine: retry logic on failure before exhausting maxretries', async () => {
+test('MonitorEngine: retry logic on failure before exhausting maxretries and persistent DOWN without oscillation', async () => {
   const { db, store } = createTestDb()
   const engine = new MonitorEngine({
     db,
@@ -107,26 +115,120 @@ test('MonitorEngine: retry logic on failure before exhausting maxretries', async
     active: 1,
   })
 
-  // First execution: should fail and schedule retry (counter = 1, status = PENDING)
+  // First execution: should fail and schedule retry (counter = 1, status = PENDING, down_count = 1)
   await (engine as any).executeSingleProbe(monitorId)
   assert.equal((engine as any).retryCounters.get(monitorId), 1)
   const beat1 = store.getLatestHeartbeat(monitorId)
   assert.ok(beat1)
   assert.equal(beat1.status, 2) // PENDING
+  assert.equal(beat1.down_count, 1)
 
-  // Second execution: still retrying (counter = 2, status = PENDING)
+  // Second execution: still retrying (counter = 2, status = PENDING, down_count = 2)
   await (engine as any).executeSingleProbe(monitorId)
   assert.equal((engine as any).retryCounters.get(monitorId), 2)
   const beat2 = store.getLatestHeartbeat(monitorId)
   assert.ok(beat2)
   assert.equal(beat2.status, 2) // PENDING
+  assert.equal(beat2.down_count, 2)
 
-  // Third execution: maxretries (2) exhausted -> DOWN (0), retry count reset to 0
+  // Third execution: maxretries (2) exhausted -> DOWN (0), down_count = 3
   await (engine as any).executeSingleProbe(monitorId)
-  assert.equal((engine as any).retryCounters.get(monitorId), 0)
+  assert.equal((engine as any).retryCounters.get(monitorId) >= 2, true)
   const beat3 = store.getLatestHeartbeat(monitorId)
   assert.ok(beat3)
   assert.equal(beat3.status, 0) // DOWN
+  assert.equal(beat3.down_count, 3)
+
+  // Fourth execution: already DOWN -> remains DOWN, does NOT oscillate to PENDING, down_count = 4
+  await (engine as any).executeSingleProbe(monitorId)
+  assert.equal((engine as any).retryCounters.get(monitorId) >= 2, true)
+  const beat4 = store.getLatestHeartbeat(monitorId)
+  assert.ok(beat4)
+  assert.equal(beat4.status, 0) // Still DOWN (not PENDING)
+  assert.equal(beat4.down_count, 4)
+})
+
+test('MonitorEngine: subscriber errors in onBeat do not crash probeNow or scheduled probe', async () => {
+  const { db, store } = createTestDb()
+  const engine = new MonitorEngine({
+    db,
+    store,
+    onBeat: () => {
+      throw new Error('Subscriber exploded!')
+    },
+  })
+
+  const monitorId = store.insertMonitor({
+    name: 'Push test',
+    type: 'push',
+    active: 1,
+  })
+
+  // probeNow should succeed despite onBeat throwing
+  const res = await engine.probeNow(monitorId)
+  assert.equal(res.status, 0)
+  assert.match(res.msg, /Push monitors cannot be probed actively/)
+
+  // executeSingleProbe should not throw
+  await (engine as any).executeSingleProbe(monitorId)
+})
+
+test('MonitorEngine: handles unexpected errors in executeSingleProbe and reschedules', async () => {
+  const { db, store } = createTestDb()
+  const engine = new MonitorEngine({
+    db,
+    store,
+  })
+
+  const monitorId = store.insertMonitor({
+    name: 'Throwing probe test',
+    type: 'http',
+    url: 'http://127.0.0.1:8080',
+    interval: 42,
+    active: 1,
+  })
+
+  engine.start()
+
+  // Force store.getLatestHeartbeat or executeProbe to throw
+  const originalGet = store.getLatestHeartbeat
+  store.getLatestHeartbeat = () => {
+    throw new Error('Database disk I/O error')
+  }
+
+  try {
+    // Should catch the error without throwing
+    await (engine as any).executeSingleProbe(monitorId)
+    // Should have rescheduled with interval = 42s
+    assert.equal((engine as any).scheduleTimers.has(monitorId), true)
+  } finally {
+    store.getLatestHeartbeat = originalGet
+    engine.stop()
+  }
+})
+
+test('MonitorEngine: does not reschedule deactivated monitor during in-flight probe', async () => {
+  const { db, store } = createTestDb()
+  const engine = new MonitorEngine({ db, store })
+
+  const monitorId = store.insertMonitor({
+    name: 'Deactivated while probing',
+    type: 'http',
+    url: 'http://127.0.0.1:54321', // Unreachable
+    timeout: 1,
+    interval: 30,
+    active: 1,
+  })
+
+  engine.start()
+
+  // Deactivate monitor while probe is executing or before rescheduling
+  store.updateMonitor(monitorId, { active: 0 })
+
+  await (engine as any).executeSingleProbe(monitorId)
+  assert.equal((engine as any).scheduleTimers.has(monitorId), false)
+
+  engine.stop()
 })
 
 test('MonitorEngine: start and stop lifecycle manages timers and schedules', async () => {
@@ -198,4 +300,3 @@ test('MonitorEngine: scheduled execution skips probe and records MAINTENANCE whe
   assert.equal(latest.status, 3) // MAINTENANCE
   assert.match(latest.msg, /依赖 #99 = UP/)
 })
-

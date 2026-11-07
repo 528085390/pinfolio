@@ -48,22 +48,37 @@ export class MonitorEngine {
 
   /**
    * Concurrency runner that restricts active concurrent probe execution.
+   * Hands over execution slots directly to queued tasks without decrementing
+   * activeProbes to prevent queue jumping.
    */
   private async runWithConcurrencyLimit<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.activeProbes >= this.maxConcurrency) {
-      await new Promise<void>((resolve) => {
-        this.queue.push(resolve)
-      })
+    if (this.activeProbes < this.maxConcurrency && this.queue.length === 0) {
+      this.activeProbes++
+    } else {
+      await new Promise<void>((resolve) => this.queue.push(resolve))
     }
 
-    this.activeProbes++
     try {
       return await fn()
     } finally {
-      this.activeProbes--
-      if (this.queue.length > 0) {
-        const next = this.queue.shift()
-        if (next) next()
+      const next = this.queue.shift()
+      if (next) {
+        next() // Hand over execution slot directly
+      } else {
+        this.activeProbes--
+      }
+    }
+  }
+
+  /**
+   * Safely notify beat subscriber without letting subscriber errors crash the engine.
+   */
+  private notifyBeat(monitorId: number, beat: HeartbeatRow): void {
+    if (this.onBeat) {
+      try {
+        this.onBeat(monitorId, beat)
+      } catch (err) {
+        console.error(`[MonitorEngine] onBeat subscriber error for #${monitorId}:`, err)
       }
     }
   }
@@ -192,7 +207,11 @@ export class MonitorEngine {
 
     const prevBeat = this.store.getLatestHeartbeat(monitorId)
     const downCount =
-      result.status === 1 ? 0 : (prevBeat && prevBeat.status === 0 ? prevBeat.down_count : 0) + 1
+      result.status === 1
+        ? 0
+        : (prevBeat && (prevBeat.status === 0 || prevBeat.status === 2)
+            ? prevBeat.down_count
+            : 0) + 1
 
     const beat: Omit<HeartbeatRow, 'id'> = {
       monitor_id: monitorId,
@@ -205,148 +224,156 @@ export class MonitorEngine {
     }
 
     const beatId = this.store.recordHeartbeat(beat)
-    if (this.onBeat) {
-      this.onBeat(monitorId, { id: beatId, ...beat })
-    }
+    this.notifyBeat(monitorId, { id: beatId, ...beat })
 
     return result
   }
 
   /**
-   * Execute a single scheduled probe cycle with policy checking and retries.
+   * Execute a single scheduled probe cycle with policy checking, error resilience, and retries.
    */
   private async executeSingleProbe(monitorId: number): Promise<void> {
-    const monitor = this.store.getMonitorById(monitorId)
-    if (!monitor || !monitor.active) {
-      const existing = this.scheduleTimers.get(monitorId)
-      if (existing) {
-        clearTimeout(existing)
-        this.scheduleTimers.delete(monitorId)
+    try {
+      const monitor = this.store.getMonitorById(monitorId)
+      if (!monitor || !monitor.active) {
+        const existing = this.scheduleTimers.get(monitorId)
+        if (existing) {
+          clearTimeout(existing)
+          this.scheduleTimers.delete(monitorId)
+        }
+        this.retryCounters.delete(monitorId)
+        return
       }
-      this.retryCounters.delete(monitorId)
-      return
-    }
 
-    // Build policy evaluation context
-    const prevBeat = this.store.getLatestHeartbeat(monitorId)
-    const allMonitors = this.store.getAllMonitors(false)
-    const monitorsStatus: Record<number, number> = {}
+      // Build policy evaluation context
+      const prevBeat = this.store.getLatestHeartbeat(monitorId)
+      const allMonitors = this.store.getAllMonitors(false)
+      const monitorsStatus: Record<number, number> = {}
 
-    for (const m of allMonitors) {
-      if (m.id !== monitorId) {
-        const hb = this.store.getLatestHeartbeat(m.id)
-        if (hb) {
-          monitorsStatus[m.id] = hb.status
+      for (const m of allMonitors) {
+        if (m.id !== monitorId) {
+          const hb = this.store.getLatestHeartbeat(m.id)
+          if (hb) {
+            monitorsStatus[m.id] = hb.status
+          }
         }
       }
-    }
 
-    const ctx: PolicyContext = {
-      now: new Date(),
-      selfStatus: prevBeat?.status,
-      selfDownCount: prevBeat?.down_count,
-      selfPingMs: prevBeat?.ping,
-      monitorsStatus,
-    }
-
-    const policyEval = evaluatePolicy(monitor.policy_json, monitor.interval, ctx)
-
-    // Gate check
-    if (!policyEval.gate) {
-      const beat: Omit<HeartbeatRow, 'id'> = {
-        monitor_id: monitorId,
-        status: policyEval.status ?? 3,
-        ping: null,
-        msg: policyEval.reason || 'MAINTENANCE',
-        time: new Date().toISOString(),
-        duration: 0,
-        down_count: prevBeat?.down_count ?? 0,
-      }
-      const beatId = this.store.recordHeartbeat(beat)
-      if (this.onBeat) {
-        this.onBeat(monitorId, { id: beatId, ...beat })
+      const ctx: PolicyContext = {
+        now: new Date(),
+        selfStatus: prevBeat?.status,
+        selfDownCount: prevBeat?.down_count,
+        selfPingMs: prevBeat?.ping,
+        monitorsStatus,
       }
 
-      if (this.running) {
-        this.scheduleNext(monitorId, policyEval.interval * 1000)
-      }
-      return
-    }
+      const policyEval = evaluatePolicy(monitor.policy_json, monitor.interval, ctx)
 
-    // Execute probe under concurrency limit
-    const result = await this.runWithConcurrencyLimit(() => this.executeProbe(monitor))
-
-    if (result.status === 1) {
-      // Success
-      this.retryCounters.set(monitorId, 0)
-
-      const beat: Omit<HeartbeatRow, 'id'> = {
-        monitor_id: monitorId,
-        status: 1,
-        ping: result.ping,
-        msg: result.msg,
-        time: new Date().toISOString(),
-        duration: result.ping ?? 0,
-        down_count: 0,
-      }
-      const beatId = this.store.recordHeartbeat(beat)
-      if (this.onBeat) {
-        this.onBeat(monitorId, { id: beatId, ...beat })
-      }
-
-      if (this.running) {
-        this.scheduleNext(monitorId, policyEval.interval * 1000)
-      }
-    } else {
-      // Probe failed (status = 0)
-      const retries = this.retryCounters.get(monitorId) ?? 0
-      const maxRetries = monitor.maxretries ?? 0
-
-      if (maxRetries > 0 && retries < maxRetries) {
-        // Increment retry and record PENDING (2)
-        this.retryCounters.set(monitorId, retries + 1)
-
+      // Gate check
+      if (!policyEval.gate) {
         const beat: Omit<HeartbeatRow, 'id'> = {
           monitor_id: monitorId,
-          status: 2, // PENDING
-          ping: result.ping,
-          msg: result.msg,
+          status: policyEval.status ?? 3,
+          ping: null,
+          msg: policyEval.reason || 'MAINTENANCE',
           time: new Date().toISOString(),
-          duration: result.ping ?? 0,
-          down_count: retries + 1,
+          duration: 0,
+          down_count: prevBeat?.down_count ?? 0,
         }
         const beatId = this.store.recordHeartbeat(beat)
-        if (this.onBeat) {
-          this.onBeat(monitorId, { id: beatId, ...beat })
-        }
+        this.notifyBeat(monitorId, { id: beatId, ...beat })
 
-        if (this.running) {
-          // Schedule retry in 5000ms
-          this.scheduleNext(monitorId, 5000)
-        }
-      } else {
-        // Max retries reached or no retries configured -> DOWN (0)
-        this.retryCounters.set(monitorId, 0)
-        const downCount =
-          (prevBeat && prevBeat.status === 0 ? prevBeat.down_count : 0) + 1
-
-        const beat: Omit<HeartbeatRow, 'id'> = {
-          monitor_id: monitorId,
-          status: 0, // DOWN
-          ping: result.ping,
-          msg: result.msg,
-          time: new Date().toISOString(),
-          duration: result.ping ?? 0,
-          down_count: downCount,
-        }
-        const beatId = this.store.recordHeartbeat(beat)
-        if (this.onBeat) {
-          this.onBeat(monitorId, { id: beatId, ...beat })
-        }
-
-        if (this.running) {
+        // Check if monitor is still active before rescheduling
+        const current = this.store.getMonitorById(monitorId)
+        if (this.running && current?.active) {
           this.scheduleNext(monitorId, policyEval.interval * 1000)
         }
+        return
+      }
+
+      // Execute probe under concurrency limit
+      const result = await this.runWithConcurrencyLimit(() => this.executeProbe(monitor))
+
+      if (result.status === 1) {
+        // Success: reset retry counter and down_count
+        this.retryCounters.set(monitorId, 0)
+
+        const beat: Omit<HeartbeatRow, 'id'> = {
+          monitor_id: monitorId,
+          status: 1,
+          ping: result.ping,
+          msg: result.msg,
+          time: new Date().toISOString(),
+          duration: result.ping ?? 0,
+          down_count: 0,
+        }
+        const beatId = this.store.recordHeartbeat(beat)
+        this.notifyBeat(monitorId, { id: beatId, ...beat })
+
+        const current = this.store.getMonitorById(monitorId)
+        if (this.running && current?.active) {
+          this.scheduleNext(monitorId, policyEval.interval * 1000)
+        }
+      } else {
+        // Probe failed (status = 0)
+        const retries = this.retryCounters.get(monitorId) ?? 0
+        const maxRetries = monitor.maxretries ?? 0
+
+        // Carry over failure streak from PENDING or DOWN
+        const downCount =
+          (prevBeat && (prevBeat.status === 0 || prevBeat.status === 2)
+            ? prevBeat.down_count
+            : 0) + 1
+
+        if (maxRetries > 0 && retries < maxRetries) {
+          // Increment retry counter and record PENDING (2)
+          this.retryCounters.set(monitorId, retries + 1)
+
+          const beat: Omit<HeartbeatRow, 'id'> = {
+            monitor_id: monitorId,
+            status: 2, // PENDING
+            ping: result.ping,
+            msg: result.msg,
+            time: new Date().toISOString(),
+            duration: result.ping ?? 0,
+            down_count: downCount,
+          }
+          const beatId = this.store.recordHeartbeat(beat)
+          this.notifyBeat(monitorId, { id: beatId, ...beat })
+
+          const current = this.store.getMonitorById(monitorId)
+          if (this.running && current?.active) {
+            // Schedule fast retry in 5000ms
+            this.scheduleNext(monitorId, 5000)
+          }
+        } else {
+          // Max retries reached or already DOWN -> keep retry counter >= maxRetries
+          // so subsequent failures stay DOWN without oscillating back to PENDING
+          this.retryCounters.set(monitorId, Math.max(retries, maxRetries))
+
+          const beat: Omit<HeartbeatRow, 'id'> = {
+            monitor_id: monitorId,
+            status: 0, // DOWN
+            ping: result.ping,
+            msg: result.msg,
+            time: new Date().toISOString(),
+            duration: result.ping ?? 0,
+            down_count: downCount,
+          }
+          const beatId = this.store.recordHeartbeat(beat)
+          this.notifyBeat(monitorId, { id: beatId, ...beat })
+
+          const current = this.store.getMonitorById(monitorId)
+          if (this.running && current?.active) {
+            this.scheduleNext(monitorId, policyEval.interval * 1000)
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[MonitorEngine] Error executing probe for #${monitorId}:`, err)
+      const current = this.store.getMonitorById(monitorId)
+      if (this.running && current?.active) {
+        this.scheduleNext(monitorId, (current.interval || 60) * 1000)
       }
     }
   }
