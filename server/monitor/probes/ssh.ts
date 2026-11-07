@@ -138,6 +138,11 @@ export async function probeSsh(
           timer = null
         }
         try {
+          sock?.destroy()
+        } catch {
+          // ignore error closing already destroyed socket
+        }
+        try {
           client.end()
         } catch {
           // ignore error closing already closed client

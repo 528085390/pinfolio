@@ -72,6 +72,7 @@ export async function probeHttp(
     // Validate status code
     const accepted = isStatusAccepted(res.status, monitor.accepted_statuscodes)
     if (!accepted) {
+      await res.body?.cancel()
       const statusMsg = res.statusText ? `${res.status} - ${res.statusText}` : `${res.status}`
       return {
         status: 0,
@@ -102,6 +103,8 @@ export async function probeHttp(
           }
         }
       }
+    } else {
+      await res.body?.cancel()
     }
 
     const okMsg = res.statusText ? `${res.status} - ${res.statusText}` : `${res.status}`
