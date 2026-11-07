@@ -9,6 +9,23 @@ export enum MonitorStatus {
 
 export type OutboundMode = 'direct' | 'proxy' | 'follow' | null
 
+export interface ProbeResult {
+  status: number // 1 = UP, 0 = DOWN, 2 = PENDING, 3 = MAINTENANCE
+  ping: number | null // latency in ms
+  msg: string
+}
+
+export interface OutboundConfig {
+  mode: 'direct' | 'proxy'
+  proxy: string | null // e.g. "socks5h://127.0.0.1:1080"
+}
+
+export interface ResolvedOutbound {
+  mode: 'direct' | 'proxy'
+  proxy: string | null
+  reason: string
+}
+
 export type MonitorRow = {
   id: number
   name: string
