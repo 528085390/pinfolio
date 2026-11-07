@@ -1,7 +1,6 @@
-// 没有 Kuma 时，观测页要给引导卡，不是报错、也不是空白。
-// CI 里没有 Kuma，这条守住「没接 Kuma 也能用其余六页」这个承诺。
-// 自己起一个全新数据目录的实例（不碰真实库、也不碰 runner 那个隔离实例），
-// 断言：/api/monitors/meta → configured=false；/monitors 渲染引导卡三步；不渲染观测台。
+// 内化观测引擎后，新安装/空库时观测台原生可用，没有观测项时显示空状态，不报错、也不空白。
+// CI 里自己起一个全新数据目录的实例（不碰真实库、也不碰 runner 那个隔离实例），
+// 断言：/api/monitors/meta → configured=true；/monitors 渲染空状态；其余各页不受影响。
 import { spawn } from 'node:child_process'
 import { closeSync, mkdirSync, openSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -56,7 +55,6 @@ mkdirSync(dataDir, { recursive: true })
 const port = await freePort()
 const logPath = join(dataDir, 'server.log')
 const fd = openSync(logPath, 'a')
-// KUMA_SLUG 故意指向一个不存在的状态页：本机就算跑着 Kuma，这里也必须判定「没接上」。
 const child = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
   cwd: ROOT,
   env: {
@@ -66,6 +64,8 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
     HOST: '127.0.0.1',
     PINBOARD_PASSWORD: PASSWORD,
     PINBOARD_TOKEN: '',
+    KUMA_DIR: join(dataDir, 'no-kuma'),
+    KUMA_DB_PATH: join(dataDir, 'no-kuma.db'),
     KUMA_URL: '',
     KUMA_PASS: '',
     KUMA_SLUG: 'no-such-slug-e2e',
@@ -81,27 +81,27 @@ closeSync(fd)
 const base = 'http://127.0.0.1:' + port
 
 let browser = null
+let page = null
+let errors = []
 try {
   await waitHealth(base, child, logPath)
 
   browser = await chromium.launch({ executablePath: exe })
-  const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' })).newPage()
-  const errors = []
+  page = await (await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'zh-CN' })).newPage()
+  errors = []
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
 
   await login(page, base)
   // 用页面自己的 fetch 拿（带登录 cookie），免得另配 token
   const meta = await page.evaluate(async () => (await fetch('/api/monitors/meta')).json())
-  ok('meta.configured = false', meta.configured === false, JSON.stringify(meta))
-  ok('meta.flavor = upstream', meta.flavor === 'upstream', String(meta.flavor))
+  ok('meta.configured = true', meta.configured === true, JSON.stringify(meta))
+  ok('meta.flavor = fork', meta.flavor === 'fork', String(meta.flavor))
 
   await page.goto(base + '/monitors', { waitUntil: 'networkidle' })
-  await page.waitForSelector('.kuma-guide', { timeout: 20000 })
-  ok('观测页渲染引导卡', (await page.locator('.kuma-guide').count()) === 1)
-  ok('标题说明还没接上', (await page.locator('.kuma-guide-title').innerText()).includes('还没接上'))
-  ok('三步说明都在', (await page.locator('.kuma-guide-step-title').count()) === 3)
-  ok('没有渲染观测台', (await page.locator('.stat-label').count()) === 0)
+  await page.waitForSelector('.empty', { timeout: 20000 })
+  ok('观测页渲染空状态', (await page.locator('.empty').count()) >= 1)
+  ok('空状态说明没有观测项', (await page.locator('.empty').innerText()).includes('没有匹配的观测项'))
   ok('页面标题仍是观测', (await page.title()).includes('观测'), await page.title())
   ok('侧栏仍可点（其余六页不受影响）', (await page.locator('.nav-item').count()) >= 6)
   ok('无 console / page 错误', errors.length === 0, errors.join(' | '))

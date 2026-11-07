@@ -20,6 +20,16 @@ export interface MonitorEngineOptions {
   maxConcurrency?: number
 }
 
+let globalEngineInstance: MonitorEngine | null = null
+
+export function setGlobalEngine(engine: MonitorEngine | null): void {
+  globalEngineInstance = engine
+}
+
+export function getGlobalEngine(): MonitorEngine | null {
+  return globalEngineInstance
+}
+
 export class MonitorEngine {
   private db: DatabaseSync
   private store: MonitorStore
@@ -40,6 +50,7 @@ export class MonitorEngine {
       options.getGlobalOutbound ?? (() => ({ mode: 'direct', proxy: null }))
     this.onBeat = options.onBeat
     this.maxConcurrency = options.maxConcurrency ?? 6
+    setGlobalEngine(this)
   }
 
   isRunning(): boolean {

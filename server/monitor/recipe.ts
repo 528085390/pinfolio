@@ -67,7 +67,7 @@ export function resolveFromRules(rules: Rule[], m: { id: number; name: string; t
 
   return {
     source: 'default',
-    steps: [{ type: 'kuma-check', label: t(STEP_LABEL['kuma-check']), hint: t('探针会马上跑一次真实探测') }],
+    steps: [{ type: 'kuma-check', label: t(STEP_LABEL['kuma-check']), hint: t('重启检查循环，探针会马上跑一次真实探测') }],
     disabledReason: null,
   }
 }

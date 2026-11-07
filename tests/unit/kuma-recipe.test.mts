@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DEFAULT_TIMEOUT_S, STEP_LABEL, clip, normalizeSteps, parseRules, resolveFromRules, statusText, timeoutOf,
-} from '../../server/kuma/recipe.js'
+} from '../../server/monitor/recipe.js'
 
 const mon = (over: Record<string, any> = {}) => ({ id: 7, name: 'app-api', type: 'http', ...over })
 

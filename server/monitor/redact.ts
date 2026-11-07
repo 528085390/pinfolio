@@ -143,7 +143,7 @@ export function toView(bean: any, names?: Record<string, string>): MonitorView {
     maxretries: Number(bean?.maxretries || 0),
     retryInterval: Number((bean?.retryInterval ?? bean?.retry_interval) || 60),
     active: bean?.active === true || bean?.active === 1,
-    outboundMode: pinOf(bean?.outboundMode ?? bean?.outbound_mode),
+    outboundMode: pinOf(bean?.outboundMode),
     target: describeTarget(bean),
     policy: summarizePolicy(bean?.policyJson ?? bean?.policy_json, names),
   }

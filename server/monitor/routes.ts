@@ -12,9 +12,15 @@ import type { MonitorStore } from './store.js'
 import type { MonitorEngine } from './engine.js'
 import type { HeartbeatRow } from './types.js'
 
-function isJsonContentType(ct?: string | null): boolean {
+export function isJsonContentType(ct?: string | null): boolean {
   if (!ct) return false
   return ct.toLowerCase().includes('application/json')
+}
+
+export function kumaErrorStatus(e: any): 404 | 502 {
+  const msg = String(e?.message || '')
+  if (e?.code === 'notfound' || /not found|Cannot read properties of null|不存在|没找到/i.test(msg)) return 404
+  return 502
 }
 
 export interface MonitorsRouteOptions {
@@ -73,7 +79,7 @@ export function createMonitorsRoute(options: MonitorsRouteOptions): Hono {
     const latest = beats.length ? beats[beats.length - 1] : null
 
     return c.json({
-      monitor: { ...toView(monitor, names), group: monitor.group_name },
+      monitor: { ...toView({ ...monitor, outboundMode: monitor.outbound_mode }, names), group: monitor.group_name },
       latest,
       beats,
       action: resolveAction({ id: monitor.id, name: monitor.name, type: monitor.type }),
@@ -137,7 +143,7 @@ export function createMonitorsRoute(options: MonitorsRouteOptions): Hono {
     const updated = store.getMonitorById(id)
     return c.json({
       ok: true,
-      monitor: { ...toView(updated, names), group: next.group_name || monitor.group_name },
+      monitor: { ...toView({ ...updated, outboundMode: updated?.outbound_mode }, names), group: next.group_name || monitor.group_name },
     })
   })
 

@@ -7,7 +7,7 @@
  *
  * 坏条目一律丢掉而不是整份报错：手写 JSON 打错一个字，页面还是要能开。
  */
-import { isHttpUrl } from '../kuma/quick.js'
+import { isHttpUrl } from '../monitor/quick.js'
 
 export type DeployKind = 'project' | 'service' | 'site' | 'script' | 'task'
 

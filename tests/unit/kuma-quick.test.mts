@@ -2,7 +2,7 @@
 // 运行：pnpm test:unit
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { QUICK_NAME_MAX, QUICK_NOTE_MAX, hostOf, isHttpUrl, parseQuick } from '../../server/kuma/quick.js'
+import { QUICK_NAME_MAX, QUICK_NOTE_MAX, hostOf, isHttpUrl, parseQuick } from '../../server/monitor/quick.js'
 
 test('parseQuick：不是数组就给空数组（文件写坏了当没配置）', () => {
   assert.deepEqual(parseQuick(null), [])

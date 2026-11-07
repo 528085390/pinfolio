@@ -10,7 +10,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AT_KEY, MODE_KEY, PROXY_KEY, buildProxyWrite, diffWritten, maskProxy, viewOf,
-} from '../../server/kuma/outbound-view.js'
+} from '../../server/monitor/outbound-view.js'
 
 /** 密码哨兵：任何输出里出现它就算泄漏（评审要求的写法） */
 const PW = 'PW_SENTINEL_9f3'
