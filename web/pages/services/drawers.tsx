@@ -204,22 +204,22 @@ export function ServerDrawer({ open, editing, monitors, onClose, onSaved }: {
     >
       <div className="form-grid">
         <Field label="id" hint={t('小写字母 / 数字 / 点 / 下划线 / 短横线；改 id 会同步改部署里的引用')}>
-          <input className="input" value={id} autoFocus={!editing} placeholder={t('例如 wb-server2')} onChange={(e) => setId(e.target.value)} />
+          <input className="input" value={id} autoFocus={!editing} placeholder={t('例如 app-server')} onChange={(e) => setId(e.target.value)} />
         </Field>
         <Field label={t('名字')} hint={t('卡片标题，与观测台组名、主机页一致')}>
-          <input className="input" value={name} placeholder={t('例如 wb-server2')} onChange={(e) => setName(e.target.value)} />
+          <input className="input" value={name} placeholder={t('例如 app-server')} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label={t('厂商 · 区域')} hint={t('副标题，例如 阿里云 · 北京')}>
           <input className="input" value={vendor} placeholder={t('阿里云 · 北京')} onChange={(e) => setVendor(e.target.value)} />
         </Field>
         <Field label="IP" hint={t('卡头上显示的那个地址')}>
-          <input className="input" value={ip} placeholder="47.93.5.235" onChange={(e) => setIp(e.target.value)} />
+          <input className="input" value={ip} placeholder="203.0.113.2" onChange={(e) => setIp(e.target.value)} />
         </Field>
         <Field label={t('登录用户')}>
           <input className="input" value={user} placeholder="admin" onChange={(e) => setUser(e.target.value)} />
         </Field>
         <Field label={t('档案路径')} hint={t('本机文档或仓库地址，显示在卡片底部')}>
-          <input className="input" value={doc} placeholder="E:/services/wb-server2" onChange={(e) => setDoc(e.target.value)} />
+          <input className="input" value={doc} placeholder="E:/services/app-server" onChange={(e) => setDoc(e.target.value)} />
         </Field>
         <Field label={t('备注')} span={2}>
           <input className="input" value={note} placeholder={t('例如 1C1G · 东京')} onChange={(e) => setNote(e.target.value)} />

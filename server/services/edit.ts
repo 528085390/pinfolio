@@ -4,7 +4,7 @@
  * 页面上的每一次编辑最后都落到 data/services.json 这一份文件上：
  * 这里只做「校验 + 改对象」，写盘（备份 + tmp+rename）在 store.ts，HTTP 状态码在 routes.ts。
  * 统一返回 { ok: true, data } 或 { ok: false, error: '一句中文' }——错误文案直接给用户看，
- * 所以写成整句（「「wb-server2」上还有 3 条部署…，先删它们」），不要「invalid input」这种。
+ * 所以写成整句（「「app-server」上还有 3 条部署…，先删它们」），不要「invalid input」这种。
  */
 import { isHttpUrl } from '../kuma/quick.js'
 import {

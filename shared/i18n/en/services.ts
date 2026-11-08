@@ -29,7 +29,7 @@ export const services: Dict = {
   '添加服务器': 'Add server',
   '小写字母 / 数字 / 点 / 下划线 / 短横线；改 id 会同步改部署里的引用':
     'Lowercase letters / digits / dots / underscores / dashes; changing the id also updates the references in deployments',
-  '例如 wb-server2': 'e.g. wb-server2',
+  '例如 app-server': 'e.g. app-server',
   '卡片标题，与观测台组名、主机页一致': 'Card title — same as the monitor group name and the hosts page',
   '厂商 · 区域': 'Vendor · region',
   '副标题，例如 阿里云 · 北京': 'Subtitle, e.g. Alibaba Cloud · Beijing',

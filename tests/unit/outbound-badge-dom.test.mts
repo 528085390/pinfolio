@@ -161,7 +161,7 @@ test('徽标 · mode=proxy 但 proxy 为空（不该出现的脏数据）：不�
 // ───────────────────── 卡片「钉死」小标签 ─────────────────────
 
 const monitor = (outboundMode?: string) => ({
-  id: 6, name: 'app-api', type: 'http', group: 'wb-server2 (阿里云)',
+  id: 6, name: 'app-api', type: 'http', group: 'az (Azure · 美中)',
   status: 1, time: '2026-10-27T12:00:00.000Z', ping: 120, msg: '',
   description: '', showMsg: false, active: true, interval: 60,
   ...(outboundMode === undefined ? {} : { outboundMode }),
