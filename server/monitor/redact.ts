@@ -1,10 +1,5 @@
 import { t } from '../i18n.js'
 
-/**
- * Kuma monitor（bean）→ 前端能看的那点东西：脱敏、目标描述、策略说人话。
- * 全是纯函数，单独放一个文件是为了能单测 —— client.ts 里有 socket.io 连接。
- */
-
 export type PolicyInfo = { name: string; summary: string }
 
 export type MonitorView = {
@@ -18,19 +13,13 @@ export type MonitorView = {
   maxretries: number
   retryInterval: number
   active: boolean
-  /**
-   * 这一项自己钉死的出站模式（spec §10.3）：follow / direct / proxy。
-   * 抽屉的三选一要读它，所以它在白名单里；脏值 / 老版本没有这一列时一律报 follow。
-   */
   outboundMode: 'follow' | 'direct' | 'proxy'
-  /** 观测目标的一句话描述（URL / host:port / 推送型…），敏感部分已打码 */
   target: string
   policy: PolicyInfo | null
 }
 
 const SECRET_PARAM = /(key|token|pass|pwd|secret|auth|sign|sig|credential|cookie)/i
 
-/** URL 里的账号密码与敏感 query 参数一律打码。 */
 export function redactUrl(raw: string): string {
   const s = String(raw || '')
   if (!s) return ''
@@ -49,7 +38,6 @@ export function redactUrl(raw: string): string {
   }
 }
 
-/** 命令里 --password=xxx 这种也顺手打码，再截断。 */
 function redactCommand(raw: string, max = 120): string {
   const s = String(raw || '').replace(/((?:password|passwd|token|secret|api[_-]?key|authorization)\s*[=:]\s*)([^\s&'"]+)/gi, '$1***')
   return s.length > max ? s.slice(0, max) + '…' : s
@@ -66,9 +54,9 @@ export function describeTarget(bean: any): string {
   if (type === 'port' || type === 'ping') return host ? (port ? host + ':' + port : host) : '—'
   if (type === 'dns') return String(bean?.dns_resolve_server || bean?.hostname || '—')
   if (type === 'ssh') {
-    const user = String(bean?.sshUsername || '').trim()
+    const user = String((bean?.ssh_username ?? bean?.sshUsername) || '').trim()
     const head = (user ? user + '@' : '') + host + (port ? ':' + port : '')
-    const cmd = redactCommand(String(bean?.sshCommand || ''), 90)
+    const cmd = redactCommand(String((bean?.ssh_command ?? bean?.sshCommand) || ''), 90)
     return cmd ? head + '  ' + cmd : head
   }
   if (type === 'docker') return String(bean?.docker_container || '') || '—'
@@ -106,7 +94,6 @@ function describeWhen(when: any, names?: Record<string, string>): string {
   return bits.length ? bits.join(t(' 且 ')) : JSON.stringify(when).slice(0, 80)
 }
 
-/** 把 policy_json 说成人话（只读展示用，不参与求值）。 */
 export function summarizePolicy(raw: unknown, names?: Record<string, string>): PolicyInfo | null {
   if (raw === null || raw === undefined || raw === '') return null
   let p: any = raw
@@ -140,23 +127,21 @@ export function summarizePolicy(raw: unknown, names?: Record<string, string>): P
   return { name, summary: parts.join(t('；')) || JSON.stringify(p).slice(0, 200) }
 }
 
-/** 出站模式三态归一：只要不是这两个钉死值就是 follow（和 kuma 的 editMonitor 兜底一致） */
-function pinOf(raw: unknown): 'follow' | 'direct' | 'proxy' {
+export function pinOf(raw: unknown): 'follow' | 'direct' | 'proxy' {
   return raw === 'direct' || raw === 'proxy' ? raw : 'follow'
 }
 
-/** bean → 前端能看的那点东西。**只列白名单字段**，多一个都不给。 */
 export function toView(bean: any, names?: Record<string, string>): MonitorView {
   return {
     id: Number(bean?.id || 0),
     name: String(bean?.name || ''),
     type: String(bean?.type || 'http'),
     description: String(bean?.description || ''),
-    showMsg: bean?.showMsg === true || bean?.showMsg === 1,
+    showMsg: bean?.showMsg === true || bean?.showMsg === 1 || bean?.show_msg === 1,
     interval: Number(bean?.interval || 60),
     timeout: Number(bean?.timeout || 0),
     maxretries: Number(bean?.maxretries || 0),
-    retryInterval: Number(bean?.retryInterval || 60),
+    retryInterval: Number((bean?.retryInterval ?? bean?.retry_interval) || 60),
     active: bean?.active === true || bean?.active === 1,
     outboundMode: pinOf(bean?.outboundMode),
     target: describeTarget(bean),

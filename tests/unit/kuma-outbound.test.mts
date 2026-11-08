@@ -7,7 +7,7 @@
 // 运行：pnpm test:unit
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateOutboundBody, mergeProxySettings, describe as describeProxy } from '../../server/kuma/outbound.js'
+import { validateOutboundBody, mergeProxySettings, describe as describeProxy } from '../../server/monitor/outbound.js'
 
 /* 逐字照抄的错误文案（多一个字都算 bug） */
 const ERR_MODE = '出站模式只能是 direct 或 proxy'

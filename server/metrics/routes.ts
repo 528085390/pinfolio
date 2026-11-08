@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { t } from '../i18n.js'
 import { Hono } from 'hono'
-import { isJsonContentType } from '../kuma/http.js'
-import { addMonitor, deleteGroup, deleteMonitor, ensureGroup, kumaCliPath, kumaCliReady } from '../kuma/kuma-cli.js'
-import { groupNameFor, mergeServiceRules, planMonitors } from '../kuma/provision.js'
-import { getStatusPage } from '../kuma/source.js'
+import { isJsonContentType } from '../monitor/routes.js'
+import { groupNameFor, mergeServiceRules, planMonitors } from '../monitor/provision.js'
+import { MonitorStore } from '../monitor/store.js'
+import { getGlobalEngine } from '../monitor/engine.js'
+import { db } from '../db.js'
 import { metricsConfig, saveHosts } from './config.js'
 import { addHost, patchHost, removeHost, visibleFailures } from './hostmeta.js'
 import { buildIngestUrl, buildInstallCommand, INSTALL_URL } from './onboard.js'
@@ -19,25 +20,22 @@ export const hostsRoute = new Hono()
 
 const STALE_SEC = 900 // 3 个采集周期没上报就当离线
 const SERIES_SEC = 86400
+const monitorStore = new MonitorStore(db)
 
-/** 状态页里的观测项摊平（只取映射要用的 id / name / group）。Kuma 挂了就回空表。 */
-async function monitorRefs(): Promise<MonitorRef[]> {
+/** 观测项摊平（只取映射要用的 id / name / group）。读库失败就回空表。 */
+function monitorRefs(): MonitorRef[] {
   try {
-    const page = await getStatusPage()
-    const out: MonitorRef[] = []
-    for (const g of page?.publicGroupList || []) {
-      for (const m of g.monitorList || []) out.push({ id: m.id, name: m.name, group: g.name })
-    }
-    return out
+    const list = monitorStore.getAllMonitors()
+    return list.map((m) => ({ id: m.id, name: m.name, group: m.group_name }))
   } catch {
-    return [] // 主机页不能因为观测台挂了就整页报错，只是服务 chip 不可点
+    return [] // 主机页不能因为观测台异常就整页报错，只是服务 chip 不可点
   }
 }
 
 async function buildPayload() {
   const cfg = metricsConfig()
   const rules = loadServiceRules()
-  const refs = await monitorRefs()
+  const refs = monitorRefs()
   const latest = latestSamples()
   const now = Math.floor(Date.now() / 1000)
   const hosts = cfg.hosts.map((h) => {
@@ -128,7 +126,7 @@ function readTemplates(body: any): Templates {
       throw new Error(t('读不到私钥：{path}', { path: keyPath }))
     }
     // keyPath 是请求体给的，等于「任意文件读取」的入口：只收真私钥、限大小，
-    // 免得被拿来读 data/secret.key 之类的东西再顺着 Kuma 观测项带出去（坑 50）。
+    // 免得被拿来读 data/secret.key 之类的东西再顺着观测项带出去。
     if (key.length > KEY_MAX) throw new Error(t('私钥文件太大（超过 64 KB）：{path}', { path: keyPath }))
     if (!/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(key)) {
       throw new Error(t('这个文件不是 OpenSSH / PEM 私钥：{path}', { path: keyPath }))
@@ -170,26 +168,29 @@ hostsRoute.post('/', async (c) => {
         http: templates.http,
         services: templates.services,
       })
-      if (!kumaCliReady()) throw new Error(t('找不到 kuma-monitor：{path}', { path: kumaCliPath() }))
-      const groupId = await ensureGroup(groupName)
       const created: { id: number; name: string; unit?: string }[] = []
       try {
         for (const p of planned) {
-          created.push({ id: await addMonitor(p.payload, groupId), name: p.name, unit: p.unit })
+          const id = monitorStore.insertMonitor({
+            ...p.payload,
+            group_name: groupName,
+          })
+          created.push({ id, name: p.name, unit: p.unit })
         }
       } catch (e) {
         // 建到一半失败：把已经建出来的删掉，别留半套观测项
-        for (const m of created) await deleteMonitor(m.id).catch(() => {})
+        for (const m of created) monitorStore.deleteMonitor(m.id)
         throw e
       }
       const additions = created
         .filter((m) => m.unit)
         .map((m) => ({ host: host.id, unit: m.unit as string, monitor: m.id }))
       if (additions.length) saveServiceRules(mergeServiceRules(loadServiceRules(), additions))
-      // 记住这批 id：彻底删这台机时要去 Kuma 里把它们收掉，不然会一直探一个已经下线的地址
-      const tagged = patchHost(metricsConfig().hosts, host.id, { monitors: created.map((m) => m.id), group: groupId })
+      // 记住这批 id：彻底删这台机时要去收掉，不然会一直探一个已经下线的地址
+      const tagged = patchHost(metricsConfig().hosts, host.id, { monitors: created.map((m) => m.id) })
       if (tagged.ok) saveHosts(tagged.hosts)
-      provision = { ok: true, groupId, groupName, monitors: created }
+      getGlobalEngine()?.refreshSchedule()
+      provision = { ok: true, groupName, monitors: created }
     } catch (e: any) {
       provision = { ok: false, error: String(e?.message || e) }
     }
@@ -269,17 +270,16 @@ hostsRoute.delete('/:id', async (c) => {
   if (purge && target) {
     for (const mid of target.monitors ?? []) {
       try {
-        await deleteMonitor(mid)
+        monitorStore.deleteMonitor(mid)
         monitorsDeleted++
       } catch {
         monitorsFailed.push(mid)
       }
     }
-    // 观测项删完，组空了才删组（组里还有别的项时 CLI 会拒绝，忽略即可）
-    if (target.group) await deleteGroup(target.group).catch(() => {})
     const rules = loadServiceRules()
     const kept = removeServiceRules(rules, target.id)
     if (kept.length !== rules.length) saveServiceRules(kept)
+    getGlobalEngine()?.refreshSchedule()
   }
   return c.json({ ...(await buildPayload()), purged, monitorsDeleted, monitorsFailed })
 })

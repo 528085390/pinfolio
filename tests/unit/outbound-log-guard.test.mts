@@ -43,12 +43,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 /** 显式点名的受保护文件（少一个就红；要扩面就加到这里） */
 const GUARDED = [
   'server/routes/outbound.ts', // GET/POST /api/outbound：请求体（含明文密码）就在这里
-  'server/kuma/outbound-view.ts', // maskProxy / viewOf：这里的 raw 是 getSettings 的原值，带明文密码
-  'server/kuma/outbound-recheck.ts', // 重探：只许打 id 与错误消息
+  'server/monitor/outbound-view.ts', // maskProxy / viewOf：这里的 raw 是 getSettings 的原值，带明文密码
+
 ]
 
 /** 覆盖规则②：server/kuma 下文件名以 outbound 开头的 .ts 模块自动纳入（见文件头） */
-const AUTO_PREFIX_DIR = 'server/kuma'
+const AUTO_PREFIX_DIR = 'server/monitor'
 const AUTO_PREFIX_RE = /^outbound.*\.ts$/
 
 /**
@@ -59,14 +59,6 @@ const ALLOWED_LOGS: Array<{ file: string; arg: string }> = [
   {
     file: 'server/routes/outbound.ts',
     arg: "'[outbound] 切换后重探没启动：' + String(e?.message || e)",
-  },
-  {
-    file: 'server/kuma/outbound-recheck.ts',
-    arg: "'[outbound] 重探 #' + id + ' 失败：' + String(e?.message || e)",
-  },
-  {
-    file: 'server/kuma/outbound-recheck.ts',
-    arg: "'[outbound] 本轮重探 ' + kicked + '/' + ids.length + ' 条成功'",
   },
 ]
 
@@ -287,8 +279,7 @@ test('扫描面：三个点名的文件 + server/kuma 下所有 outbound*.ts 都
   const files = guardedFiles()
   for (const f of GUARDED) assert.ok(files.includes(f), '扫描面缺 ' + f)
   // 自动纳入的两条必须被前缀规则捡到，而不是靠 GUARDED 点名 —— 否则那条规则其实没生效
-  assert.ok(files.includes('server/kuma/outbound-view.ts'))
-  assert.ok(files.includes('server/kuma/outbound-recheck.ts'))
+  assert.ok(files.includes('server/monitor/outbound-view.ts'))
   // 造一个新名字，规则必须捡得到（这就是「将来新增同类模块也被扫到」那一条）
   assert.equal(AUTO_PREFIX_RE.test('outbound-新增模块.ts'), true)
   assert.equal(AUTO_PREFIX_RE.test('outbound.ts'), true)
@@ -299,7 +290,7 @@ test('出站模块的日志不含请求体 / 密码（白名单之外一律红�
   const r = scanGuarded()
   assert.deepEqual(r.bad, [])
   // 至少得真的扫到日志，否则上面那条空断言没有意义
-  assert.ok(r.calls >= 3, '扫描到的日志只有 ' + r.calls + ' 条')
+  assert.ok(r.calls >= 1, '扫描到的日志只有 ' + r.calls + ' 条')
 })
 
 test('护栏自证：注入打印请求体 / 密码的日志都会被抓红（护栏不能永远是绿的）', () => {
@@ -343,11 +334,11 @@ test('护栏自证：注入打印请求体 / 密码的日志都会被抓红（�
 test('护栏自证：白名单按「文件 + 内容」判 —— 合法日志换个文件就必须红', () => {
   const okSnippet = "console.warn('[outbound] 切换后重探没启动：' + String(e?.message || e))"
   // 白名单里没有 outbound-view.ts 的条目：把路由那条日志搬到掩码模块也必须红（那里能拿到明文密码）
-  assert.notDeepEqual(inspectSource(okSnippet, 'server/kuma/outbound-view.ts').bad, [])
+  assert.notDeepEqual(inspectSource(okSnippet, 'server/monitor/outbound-view.ts').bad, [])
   // 掩码模块里打原始 settings（复评 M8）—— 既不在白名单，也命中 settings 黑名单
   const m8 = 'function maskProxy(raw) {\n  console.log(settings)\n  return raw\n}'
-  assert.notDeepEqual(inspectSource(m8, 'server/kuma/outbound-view.ts').bad, [])
-  assert.notDeepEqual(inspectSource('console.log(raw)', 'server/kuma/outbound-view.ts').bad, [])
+  assert.notDeepEqual(inspectSource(m8, 'server/monitor/outbound-view.ts').bad, [])
+  assert.notDeepEqual(inspectSource('console.log(raw)', 'server/monitor/outbound-view.ts').bad, [])
 })
 
 test('护栏自证：注释里的 console 字样不影响判定（不制造假红）', () => {

@@ -6,7 +6,7 @@
  * 统一返回 { ok: true, data } 或 { ok: false, error: '一句中文' }——错误文案直接给用户看，
  * 所以写成整句（「「app-server」上还有 3 条部署…，先删它们」），不要「invalid input」这种。
  */
-import { isHttpUrl } from '../kuma/quick.js'
+import { isHttpUrl } from '../monitor/quick.js'
 import {
   DEPLOY_KINDS,
   MAX_DEPLOYS,

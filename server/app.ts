@@ -2,7 +2,14 @@ import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import type { ServerType } from '@hono/node-server'
 import type { AddressInfo } from 'node:net'
-import { DATA_DIR, db } from './db.js'
+import { DATA_DIR, ROOT, db } from './db.js'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { initMonitorTables, MonitorStore } from './monitor/store.js'
+import { MonitorEngine } from './monitor/engine.js'
+import { createMonitorsRoute, createPushRoute } from './monitor/routes.js'
+import { migrateKumaDb } from './monitor/migrate.js'
+import type { OutboundConfig } from './monitor/types.js'
 import { authMiddleware, isHttps } from './auth/middleware.js'
 import { authRoute } from './auth/routes.js'
 import { bootstrapPassword } from './auth/bootstrap.js'
@@ -11,7 +18,7 @@ import { assetsRoute } from './routes/assets.js'
 import { tagsRoute } from './routes/tags.js'
 import { fieldsRoute } from './routes/fields.js'
 import { metaRoute } from './routes/meta.js'
-import { monitorsRoute } from './kuma/routes.js'
+// monitorsRoute migrated to native server/monitor/routes.ts
 import { outboundRoute } from './routes/outbound.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
 import { hostsRoute } from './metrics/routes.js'
@@ -90,6 +97,43 @@ function urlHost(address: string): string {
   return address.includes(':') ? '[' + address + ']' : address
 }
 
+initMonitorTables(db)
+export const monitorStore = new MonitorStore(db)
+
+function getGlobalOutboundFromSettings(database: typeof db): OutboundConfig {
+  try {
+    const modeRow = database.prepare("SELECT value FROM settings WHERE key = 'monitorOutboundMode'").get() as any
+    const proxyRow = database.prepare("SELECT value FROM settings WHERE key = 'monitorOutboundProxy'").get() as any
+    const mode = modeRow?.value === 'proxy' ? 'proxy' : 'direct'
+    let proxyUrl: string | null = null
+    if (proxyRow?.value) {
+      try {
+        const parsed = JSON.parse(proxyRow.value)
+        if (parsed && typeof parsed === 'object') {
+          const proto = parsed.protocol || 'socks5h'
+          const auth = parsed.username
+            ? `${encodeURIComponent(parsed.username)}${parsed.password ? `:${encodeURIComponent(parsed.password)}` : ''}@`
+            : ''
+          proxyUrl = `${proto}://${auth}${parsed.host}:${parsed.port}`
+        } else if (typeof parsed === 'string') {
+          proxyUrl = parsed
+        }
+      } catch {
+        proxyUrl = String(proxyRow.value)
+      }
+    }
+    return { mode, proxy: proxyUrl }
+  } catch {
+    return { mode: 'direct', proxy: null }
+  }
+}
+
+export const monitorEngine = new MonitorEngine({
+  db,
+  store: monitorStore,
+  getGlobalOutbound: () => getGlobalOutboundFromSettings(db),
+})
+
 function createApp(): Hono {
   const app = new Hono()
   const api = new Hono()
@@ -131,7 +175,8 @@ function createApp(): Hono {
   api.route('/assets', assetsRoute)
   api.route('/tags', tagsRoute)
   api.route('/fields', fieldsRoute)
-  api.route('/monitors', monitorsRoute)
+  api.route('/monitors', createMonitorsRoute({ db, store: monitorStore, engine: monitorEngine }))
+  api.route('/push', createPushRoute({ store: monitorStore, engine: monitorEngine }))
   api.route('/outbound', outboundRoute)
   api.route('/mail', mailRoute)
   api.route('/hosts', hostsRoute)
@@ -165,6 +210,24 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
   // 静态加密（spec 03）：加载主密钥，把还躺在明文里的凭据就地加密。幂等，每次启动都跑。
   const secretKey = loadKey(DATA_DIR)
   const sealed = migrateSecrets(db, secretKey, DATA_DIR)
+  // 自动迁移 Kuma 数据：如果 monitors 为空且存在 kuma.db
+  if (monitorStore.getAllMonitors().length === 0) {
+    const kumaDbCandidate = process.env.KUMA_DB_PATH || (
+      existsSync('e:/bqj/kuma/data/kuma.db')
+        ? 'e:/bqj/kuma/data/kuma.db'
+        : resolve(ROOT, '..', 'kuma', 'data', 'kuma.db')
+    )
+    if (existsSync(kumaDbCandidate)) {
+      try {
+        const res = migrateKumaDb(kumaDbCandidate, db)
+        if (res.migrated > 0) {
+          console.log(`  Kuma 数据已就地迁移  ->  监控项 ${res.migrated} 个 / 心跳 ${res.beats} 条`)
+        }
+      } catch (err) {
+        console.warn('[monitor] Kuma 数据迁移失败：', err)
+      }
+    }
+  }
   if (sealed.mail || sealed.kuma || sealed.metrics) {
     console.log('  凭据已就地加密  ->  邮箱 ' + sealed.mail + ' 条 / Kuma 口令 ' + sealed.kuma + ' / 指标源 ' + sealed.metrics)
   }
@@ -173,6 +236,7 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
   // 不会挂出双份轮询 / 双份 03:00 备份链：各模块内部有自己的重入守卫。
   const stops: Array<() => void> = []
   const server: ServerType = serve({ fetch: app.fetch, port, hostname }, () => {
+    monitorEngine.start()
     // 启动时先生成一次快照（失败只打日志，不影响服务）
     void writeSnapshot()
     stops.push(
@@ -184,6 +248,7 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
       startBackupScheduler(db),
       // 每天扫一次没人引用的图片（见 server/attachments/store.ts）
       startAttachmentSweep(),
+      () => monitorEngine.stop(),
     )
   })
 

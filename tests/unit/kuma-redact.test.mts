@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { describeTarget, redactUrl, summarizePolicy, toView } from '../../server/kuma/redact.js'
+import { describeTarget, redactUrl, summarizePolicy, toView } from '../../server/monitor/redact.js'
 
 test('redactUrl：打码账号密码与敏感 query', () => {
   const out = redactUrl('https://user:pass@example.com/path?token=abc&ok=1')

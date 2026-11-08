@@ -1,5 +1,5 @@
 import { Hono, type Context } from 'hono'
-import { isJsonContentType } from '../kuma/http.js'
+import { isJsonContentType } from '../monitor/routes.js'
 import {
   addDeploy,
   addServer,

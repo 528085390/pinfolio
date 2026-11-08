@@ -5,7 +5,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   groupNameFor, planMonitors, mergeServiceRules,
-} from '../../server/kuma/provision.js'
+} from '../../server/monitor/provision.js'
 
 const base = {
   hostId: 'oj',

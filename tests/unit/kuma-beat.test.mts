@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mapBeat, toIso, toneChar } from '../../server/kuma/beat.js'
+import { mapBeat, toIso, toneChar } from '../../server/monitor/payload.js'
 
 test('toneChar：四种前缀', () => {
   assert.equal(toneChar('[绿] 正常'), '绿')

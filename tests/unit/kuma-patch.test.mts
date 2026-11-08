@@ -3,8 +3,8 @@
 // 运行：pnpm test:unit
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { asInt, buildMonitorPatch, normalizeForKuma, policyNameRefs } from '../../server/kuma/patch.js'
-import { isJsonContentType, kumaErrorStatus } from '../../server/kuma/http.js'
+import { asInt, buildMonitorPatch, normalizeForKuma, policyNameRefs } from '../../server/monitor/patch.js'
+import { isJsonContentType, kumaErrorStatus } from '../../server/monitor/routes.js'
 // 抽屉表单层（form.ts）的 outboundMode 也在这里钉：它和后端是同一份值域契约，分开测最容易漂
 import { buildPatch, emptyForm, pinHintText, sameForm, toForm } from '../../web/components/monitor-drawer/form.js'
 import { readFileSync } from 'node:fs'
@@ -253,18 +253,18 @@ test('normalizeForKuma：outboundMode 原样透传（值域校验只在 buildMon
 })
 
 test('路由层不丢字段：PATCH 把请求体整包交给 buildMonitorPatch，next 再整包交给 editMonitor', () => {
-  const src = readFileSync(new URL('../../server/kuma/routes.ts', import.meta.url), 'utf8')
-  const start = src.indexOf("monitorsRoute.patch('/:id'")
-  const end = src.indexOf("monitorsRoute.post('/:id/pause'")
+  const src = readFileSync(new URL('../../server/monitor/routes.ts', import.meta.url), 'utf8')
+  const start = src.indexOf("app.patch('/:id'")
+  const end = src.indexOf("app.post('/:id/pause'")
   assert.ok(start > 0 && end > start, '找不到 PATCH 处理块')
   const blockSrc = src.slice(start, end)
-  assert.match(blockSrc, /buildMonitorPatch\(body, bean, beans\)/)
-  assert.match(blockSrc, /editMonitor\(next\)/)
+  assert.match(blockSrc, /buildMonitorPatch\(body, monitor, allMap\)/)
+  assert.match(blockSrc, /store\.updateMonitor\(id,/)
   // 路由里一旦出现 body.<字段> 就是白名单，新字段会被静默丢掉 —— 一个都不许有
   assert.deepEqual([...blockSrc.matchAll(/\bbody\.([A-Za-z_]\w*)/g)].map((m) => m[1]), [])
-  // 出站这一侧的通道也不许挑字段
-  const client = readFileSync(new URL('../../server/kuma/client.ts', import.meta.url), 'utf8')
-  assert.match(client, /export async function editMonitor\(bean: any\): Promise<void> \{\s*await call\('editMonitor', bean\)/)
+
+
+
 })
 
 /* ---------------- 抽屉表单层（web/components/monitor-drawer/form.ts） ---------------- */

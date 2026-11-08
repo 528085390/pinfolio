@@ -27,6 +27,7 @@ const PUBLIC: Array<[string, string]> = [
 ]
 
 export function isPublic(method: string, path: string): boolean {
+  if (path.startsWith('/api/push/')) return true
   return PUBLIC.some(([m, p]) => m === method && p === path)
 }
 
