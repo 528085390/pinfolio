@@ -19,6 +19,9 @@ export const db = new DatabaseSync(DB_PATH)
 db.exec('PRAGMA journal_mode = WAL')
 db.exec('PRAGMA foreign_keys = ON')
 db.exec('PRAGMA busy_timeout = 5000')
+db.exec('PRAGMA synchronous = NORMAL')
+db.exec('PRAGMA cache_size = -20000')
+db.exec('PRAGMA temp_store = MEMORY')
 
 // 表结构演进走有序迁移（server/migrations.ts）：每步一个事务，只追加、不改旧步。
 migrate(db, undefined, { dataDir: DATA_DIR })
