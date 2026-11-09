@@ -514,3 +514,12 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 ③ **全局出站代理与单项钉死**：落地出站 SOCKS5 代理路由，支持全局直连/代理模式切换（设置页），同时支持在抽屉内对单个监控项独立钉死出站规则（直连或走代理）。
 ④ **自动化快照体系**：观测配置与状态快照收拢为 `SNAPSHOT-MONITORS.md`（写操作防抖 1.5 秒自动重写），与系统总览 `SNAPSHOT.md` 并行自治。
 ⑤ **测试与安全防护**：全面内化并迁移全套单测与集成测试，测试套件增加至 740 项全绿（740/740 passed，0 failures）；删除监控项前自动 `VACUUM INTO` 备份 `pinboard.db` 留存最近 5 份快照。
+
+**已完成（2026-11-09，结构优化、单测并发稳定性加固与迁移收敛）**：用户要求「看看要不要优化结构升级项目」并选定方案 B（深度优化 · 工程卫生 + 架构收敛 + 前端懒加载）。
+① **工作区卫生治理**：清理根目录下因历史测试环境变量未展开生成的 `%SystemDrive%`、Chrome 显卡缓存 `NVIDIA Corporation`、未定义路径 `undefined` 及历史日志 `t12-baseline.log`，清除 `pinboard` 仓库中未跟踪的 `.bak` 文件。
+② **单测并发稳定性加固**：针对 `monitor-drawer-pin-dom.test.mts`、`outbound-card-dom.test.mts` 与 `outbound-badge-dom.test.mts` 等 Vite SSR 测试桩，在 `createServer` 中显式配置 `server: { middlewareMode: true, hmr: false, ws: false }`，彻底解决并发单测争抢 WebSocket 默认端口 24678 导致的偶发测试失败与挂起。
+③ **消除构建警告与动态导入冲突**：修复 `LinkedTelemetry.tsx` 中 `resolveApi` 对 `../../lib/api.js` 的动态/静态导入混用，彻底消除 Vite 构建时的 `[INEFFECTIVE_DYNAMIC_IMPORT]` 警告。
+④ **日志安全自动轮转**：在 `tools/pinboard.ps1` 增加 `Rotate-Log` 机制，启动前检测若 `logs/pinboard.log` 超过 20MB 则自动归档为 `.log.1`；严格保证文件存为 UTF-8 带 BOM（字节 239, 187, 191），保证 Windows PowerShell 5.1 解析绝对无语法错误。
+⑤ **表结构演进规范收敛（v4 迁移）**：抽离 `server/schema/monitor.ts`（导出 `MONITOR_SCHEMA`），将 `monitors` 和 `heartbeats` 表结构与索引正式收纳入 `server/migrations.ts` 的 `v4` 版本演进管线，享受版本化与自动 `pre-migrate` 备份保护；`server/monitor/store.ts` 接入复用。
+⑥ **前端大页面路由代码分割（React.lazy）**：在 `web/App.tsx` 中对低频/重型页面（`MailPage`、`BackupPage`、`ServicesPage`）应用 `React.lazy` 懒加载，包裹统一 `<Suspense>` 占位；主 JS bundle 从 617 kB 直降至 448 kB（-27%），并生成独立的小 chunk，消除 Vite chunk > 500 kB 提示，大幅优化反代公网访问首屏耗时。
+验证：`pnpm typecheck` 0 错误；`pnpm test:unit` **741/741 passed**；全量构建 `pnpm build`（web 340ms + server 25ms）0 警告；7788 运行时健康探测 200 OK。
