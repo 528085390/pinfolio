@@ -102,6 +102,10 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
   const region = hostRegion(h.note)
   const flag = hostFlag(h.note)
   const probe = h.probe ?? null
+  // 有观测项 ≠ 有探针数据：aws 那台挂着的 port / http 项全停了，后端的 probe 是个「空壳」
+  // （latencyMs 为 null、beats 为空）。这种空壳整行不渲染，否则卡上会出现「延迟 无数据 丢包 无数据」
+  // 加一条全灰的空色条（2026-11-09 用户看图指出）。
+  const hasProbe = !!probe && ((probe.beats?.length ?? 0) > 0 || probe.latencyMs !== null)
   // 色条沿用观测台的渲染（四态色 + 悬停看这一拍的时间 / 响应 / 消息）
   const cells = (probe?.beats ?? []).map((b) => ({ status: b.status, tone: null }))
   const details = (probe?.beats ?? []).map((b) => ({ time: b.time || null, msg: b.msg || null, ping: b.ping }))
@@ -200,7 +204,7 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
             ))}
           </div>
 
-          {probe ? (
+          {hasProbe && probe ? (
             <div className="host-probe">
               <span className="host-probe-item">
                 <em>{t('延迟')}</em>
@@ -214,13 +218,18 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
             </div>
           ) : null}
 
-          <Spark series={h.series} />
+          {/* 曲线 + 底栏一起贴到卡底：多块盘的机器（oj 的 / 与 /var/oled、os 的 / 与 /mnt/data）
+              比别的卡多一两行，如果让它自然往下堆，同一排卡片的曲线就不在同一水平线上（2026-11-09 用户看图指出）。
+              .host-bottom 的 margin-top:auto 把富余空间都吃在中间，曲线与底栏因此永远对齐。 */}
+          <div className="host-bottom">
+            <Spark series={h.series} />
 
-          <div className="host-foot">
-            <span className="host-foot-os">{t('运行')} {uptime(h.uptime_s)}</span>
-            <span className="host-foot-top">
-              {(h.top || []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')}
-            </span>
+            <div className="host-foot">
+              <span className="host-foot-os">{t('运行')} {uptime(h.uptime_s)}</span>
+              <span className="host-foot-top">
+                {(h.top || []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')}
+              </span>
+            </div>
           </div>
         </>
       )}

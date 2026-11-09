@@ -68,6 +68,10 @@
   box-shadow: var(--shadow-sm);
   padding: 13px 15px 12px;
   min-width: 0;
+  /* 纵向 flex：内容（行数因盘数 / 有无探针而不同）之上，靠 .host-bottom 的 auto 上边距
+     把富余空间吃在中间，同一排卡片的曲线与底栏才会对齐 */
+  display: flex;
+  flex-direction: column;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .host-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
@@ -200,6 +204,9 @@
 .host-meter-track > i.tone-warn { background: var(--warn); }
 .host-meter-track > i.tone-bad { background: var(--danger); }
 
+/* 曲线 + 底栏这一块贴卡底：多盘卡多出来的几行不会把曲线顶下去 */
+.host-bottom { margin-top: auto; }
+
 .host-spark {
   display: block;
   width: 100%;
@@ -243,7 +250,7 @@
 
 .host-foot {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
   margin-top: 11px;
@@ -254,13 +261,19 @@
   min-width: 0;
 }
 .host-foot-os { flex: none; }
+/* top 3 进程不截成「…」：最多换两行，行数一致（两行高），超出才省略 */
 .host-foot-top {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.5;
   text-align: right;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-height: calc(2 * 1.5 * 10.5px);
 }
 
 /* 暂停的主机：卡片保留、灰掉，不参与在线统计，也不算离线 */
@@ -367,5 +380,6 @@
 
 @media (max-width: 720px) {
   .host-foot { flex-direction: column; align-items: flex-start; gap: 3px; }
-  .host-foot-top { text-align: left; }
+  /* 卡片此时是竖排，不再需要「两行等高」撑对齐，省掉那段空白 */
+  .host-foot-top { text-align: left; min-height: 0; }
 }

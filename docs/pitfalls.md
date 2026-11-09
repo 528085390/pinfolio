@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（83 条）
+# pinboard 已知问题与坑（84 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -141,3 +141,5 @@
 79. **`dialog.showErrorBox` 在 Windows 上是同步模态阻塞**（同一天）：Electron 的 `dialog.showErrorBox(title, content)` 在 Windows 上调用的是 Win32 原生 `MessageBox`，它会直接阻塞 Node.js 事件循环直至用户点击确定关闭弹窗。如果在崩溃捕获或未处理异常中使用它，必须意识到弹窗未关闭前，所有的后台定时器、托盘响应和心跳均会被挂起。
 
 83. **`node --test` 默认满并发下，vite SSR 型 DOM 测试的子进程会挂住不退，整个 `pnpm test` 永远等不到汇总**（2026-11-09 跑主机卡改版的全量测试时踩的）：`tests/unit/*.test.mts` 里有一批用 `vite createServer({ middlewareMode })` + `ssrLoadModule` 渲染真 JSX 的用例（`outbound-badge-dom` / `outbound-card-dom` / `monitor-drawer-pin-dom`）。单独跑任何一个都是 5 秒内 exit 0，但 81 个文件一起放开并发时，某个 DOM 用例的 vite 实例 / esbuild service 句柄没被回收，子进程停在事件循环里不退出，父 runner 就一直等——现象是日志停在 50~80 KB、没有 `ℹ tests` 汇总、后台留着一两个 `--test` 进程。定位手法：`Get-CimInstance Win32_Process` 看还活着的子进程命令行，末尾就是卡住的文件。修法：`test:unit` 加 `--test-concurrency=2`（760 例 25 秒跑完，exit 0）。**别用 `--test-force-exit` 绕过**——它会在 libuv 收尾时踩 `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\\win\\async.c` 让本来绿的文件凭空变红（`tunnel.test.mts` 就中过招）。
+84. **「有观测项」不等于「有探针数据」——判空要看数据，不能只看对象在不在**（2026-11-09 主机卡改版后用户看图指出）：`GET /api/hosts` 的 `probe` 字段对每台机都会下发，aws 那 4 个观测项全停用后仍然给了一个**空壳**（`latencyMs: null`、`beats: []`）。前端原来只判 `probe ? …`，于是卡上渲染出「延迟 无数据 丢包 无数据」加一条全灰空色条——数据其实没有，界面却摆出一副「有探针、只是挂了」的样子。修法：`hasProbe = !!probe && (beats.length > 0 || latencyMs !== null)`，整行条件渲染。**普适教训**：后端为了省事给的「占位结构」和「真数据」长得一样，前端判空必须落到有内容的字段上，别判对象/数组本身。
+
