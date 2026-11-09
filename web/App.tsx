@@ -1,10 +1,8 @@
+import { Suspense, lazy } from 'react'
 import { NotesPage } from './pages/NotesPage'
-import { MailPage } from './pages/MailPage'
 import { AssetsPage } from './pages/AssetsPage'
 import { MonitorsPage } from './pages/MonitorsPage'
 import { HostsPage } from './pages/HostsPage'
-import { ServicesPage } from './pages/ServicesPage'
-import { BackupPage } from './pages/BackupPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
 import { AlertStack } from './components/AlertStack'
@@ -13,6 +11,10 @@ import { Topbar } from './app/Topbar'
 import { useShell } from './app/useShell'
 import { Spinner } from './components/ui'
 import { t, useLocale } from './lib/i18n'
+
+const MailPage = lazy(() => import('./pages/MailPage').then((m) => ({ default: m.MailPage })))
+const ServicesPage = lazy(() => import('./pages/ServicesPage').then((m) => ({ default: m.ServicesPage })))
+const BackupPage = lazy(() => import('./pages/BackupPage').then((m) => ({ default: m.BackupPage })))
 
 // 组合层：外壳状态在 useShell，侧栏与顶栏是纯展示，页面按 URL 选。
 export function App() {
@@ -49,7 +51,9 @@ export function App() {
           {s.error ? <div className="alert" style={{ margin: '0 0 14px' }}>{t('接口出错：{msg}', { msg: s.error })}</div> : null}
           {!s.ready ? (
             <div className="empty"><Spinner /></div>
-          ) : s.page === 'notes' ? (
+          ) : (
+            <Suspense fallback={<div className="empty"><Spinner /></div>}>
+              {s.page === 'notes' ? (
             <NotesPage tags={s.tags} refreshMeta={s.refreshMeta} onOpenAsset={s.openAsset} archivedCount={s.stats?.archived ?? 0} />
           ) : s.page === 'mail' ? (
             <MailPage onSummary={s.setMailSum} />
@@ -72,6 +76,8 @@ export function App() {
             <SettingsPage tags={s.tags} fields={s.fields} stats={s.stats} refreshMeta={s.refreshMeta} theme={s.theme} setTheme={s.setTheme} />
           ) : (
             <BackupPage />
+          )}
+            </Suspense>
           )}
         </div>
       </div>
