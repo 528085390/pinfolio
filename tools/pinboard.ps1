@@ -61,7 +61,19 @@ function Show-Status {
     Write-Host ('  日志    : ' + $LogFile)
 }
 
+function Rotate-Log {
+    if (Test-Path $LogFile) {
+        $item = Get-Item $LogFile -ErrorAction SilentlyContinue
+        if ($item -and $item.Length -gt 20MB) {
+            $rotated = $LogFile + '.1'
+            if (Test-Path $rotated) { Remove-Item $rotated -Force -ErrorAction SilentlyContinue }
+            Move-Item $LogFile $rotated -Force -ErrorAction SilentlyContinue
+            Write-Host ('  日志已超 20MB，已轮转归档至 ' + $rotated) -ForegroundColor DarkGray
+        }
+    }
+}
 function Start-Pinboard {
+    Rotate-Log
     $l = Get-Listener
     if ($l) {
         Write-Host ('pinfolio 已经在运行 (pid ' + $l.OwningProcess + ')，只打开页面。') -ForegroundColor Yellow
