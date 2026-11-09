@@ -45,7 +45,7 @@ async function renderSection(outboundMode: 'follow' | 'direct' | 'proxy', state:
     configFile: false, // 不加载仓库 vite.config（root 会变成 web/，这里也不需要 dev server 配置）
     logLevel: 'error',
     plugins: state ? [stubHook(state)] : [],
-    server: { middlewareMode: true, hmr: false },
+    server: { middlewareMode: true, hmr: false, ws: false },
     appType: 'custom',
   })
   try {

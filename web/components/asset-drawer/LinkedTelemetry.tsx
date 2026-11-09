@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, ExternalLink, Play, RefreshCw, Server, Sparkles, Wifi } from 'lucide-react'
 import type { Host, Monitor } from '../../lib/api'
+import { api } from '../../lib/api'
 import { BASE } from '../../lib/base'
 import { cx } from '../../lib/cx'
 import { pathForPage, type Page } from '../../lib/router'
@@ -43,8 +44,8 @@ async function resolveApi() {
   if (typeof window !== 'undefined' && (window as any).api) {
     return (window as any).api
   }
-  const mod = await import('../../lib/api.js')
-  return mod.api
+
+  return api
 }
 
 /**
