@@ -300,3 +300,18 @@ test('MonitorEngine: scheduled execution skips probe and records MAINTENANCE whe
   assert.equal(latest.status, 3) // MAINTENANCE
   assert.match(latest.msg, /依赖 #99 = UP/)
 })
+
+test('MonitorEngine: start schedules heartbeat pruning, and stop clears timer', () => {
+  const { db, store } = createTestDb()
+  const engine = new MonitorEngine({ db, store })
+
+  assert.equal((engine as any).pruneTimer, null)
+  engine.start()
+  assert.ok((engine as any).pruneTimer)
+  assert.ok((engine as any).initialPruneTimer)
+
+  engine.stop()
+  assert.equal((engine as any).pruneTimer, null)
+  assert.equal((engine as any).initialPruneTimer, null)
+  assert.equal(engine.isRunning(), false)
+})
