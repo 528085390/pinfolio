@@ -4,10 +4,10 @@
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: 34px; padding: 0 13px; border-radius: 9px; font-size: 13px; font-weight: 500;
   border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
-  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, transform 0.06s;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s, transform var(--dur-press);
 }
 .btn:hover { background: var(--surface-2); }
-.btn:active { transform: translateY(1px); }
+.btn:active { transform: scale(.97); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff8ee; }
 .btn-primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }

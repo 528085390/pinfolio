@@ -79,16 +79,16 @@ try {
   ok('抽屉里有心跳条', (await drawer.locator('.monitor-beats').count()) === 1)
   ok('抽屉里有立即观测按钮', (await drawer.locator('button', { hasText: '立即观测' }).count()) >= 1)
 
-  // Esc 关闭
+  // Esc 关闭（ui.tsx 的 presence 会让抽屉多留 260ms 播退场，所以等它真正脱离 DOM 再断言，别按固定时长猜）
   await page.keyboard.press('Escape')
-  await page.waitForTimeout(300)
+  await page.waitForSelector('.drawer', { state: 'detached', timeout: 5000 }).catch(() => {})
   ok('Esc 关闭抽屉', (await page.locator('.drawer').count()) === 0)
 
   // 遮罩关闭
   await page.locator('.monitor-card').first().locator('.asset-icon').click()
   await page.waitForTimeout(500)
   await page.locator('.overlay').click({ position: { x: 30, y: 300 } })
-  await page.waitForTimeout(300)
+  await page.waitForSelector('.drawer', { state: 'detached', timeout: 5000 }).catch(() => {})
   ok('点遮罩关闭抽屉', (await page.locator('.drawer').count()) === 0)
 
   // 表格视图行点击

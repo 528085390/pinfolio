@@ -1,7 +1,9 @@
 /* 命令面板 —— 原 styles.css 第 356-366 行 */
-/* ---------- command palette ---------- */
+/* ---------- command palette ----------
+   ⌘K 每天几十上百次、纯键盘触发 → 零动画（spec §4.1 频率决策表）。
+   曾经这里是 animation: pop 0.16s；要加反馈就加 60–80ms 的透明度过渡，别再孵回位移动画。 */
 .palette-wrap { position: fixed; inset: 0; z-index: 45; display: flex; justify-content: center; align-items: flex-start; padding-top: 11vh; pointer-events: none; }
-.palette { pointer-events: auto; width: min(580px, 100%); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; animation: pop 0.16s ease-out; }
+.palette { pointer-events: auto; width: min(580px, 100%); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; }
 .palette-input-row { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); }
 .palette-input { flex: 1; border: 0; outline: none; background: transparent; padding: 14px 0; font-size: 15px; color: var(--ink); }
 .palette-list { max-height: 52vh; overflow-y: auto; padding: 6px; }
