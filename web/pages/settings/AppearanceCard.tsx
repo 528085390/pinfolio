@@ -56,14 +56,21 @@ export function AppearanceCard({ theme, setTheme, style, setStyle, refract, setR
 
       {/* 折射只是玻璃的次级开关：暖纸下没有玻璃层可折射，非 Chromium 上也画不出来 */}
       {style === 'glass' && canRefract() ? (
-        <div className="row" style={{ gap: 6, marginBottom: 10 }}>
-          <span style={{ fontSize: 12, color: 'var(--muted)', minWidth: 34 }}>{t('折射')}</span>
-          {REFRACTS.map((o) => (
-            <button key={o.v} className={'chip' + (refract === o.v ? ' active' : '')} onClick={() => setRefract(o.v)}>
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="row" style={{ gap: 6, marginBottom: refract === 'on' ? 4 : 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)', minWidth: 34 }}>{t('折射')}</span>
+            {REFRACTS.map((o) => (
+              <button key={o.v} className={'chip' + (refract === o.v ? ' active' : '')} onClick={() => setRefract(o.v)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {/* 折射要靠 backdrop-filter: url(#…) 画位移贴图，只有 Chromium / 桌面端（Electron）认；
+              其它引擎整块跳过、回落成普通毛玻璃，所以开启时明说一句，免得以为关了没反应。 */}
+          {refract === 'on' ? (
+            <div className="field-hint" style={{ marginBottom: 10, paddingLeft: 40 }}>{t('折射仅在 Chromium / 桌面端生效')}</div>
+          ) : null}
+        </>
       ) : null}
 
       <div className="row" style={{ gap: 6, marginBottom: 10 }}>

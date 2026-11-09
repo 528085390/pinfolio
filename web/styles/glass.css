@@ -3,6 +3,13 @@
    暖纸主题（data-style 缺省或 ='paper'）下，本片没有一条规则命中 → 视觉零变化、可即时回退。
    映射原则照 HIG：玻璃只做功能层（壳 / 浮层），内容卡片一律标准材质。 */
 
+/* ⚠️ 前缀顺序：本片所有 backdrop-filter 都写成「-webkit- 在前、无前缀在后」。
+   生产构建用 lightningcss（Vite 8 的 CSS 压缩器）压 CSS，它把这两个写法当成同一个属性、
+   只保留**后出现**的那一条：反过来写，产物里无前缀那条会被删掉，而 Chromium 不认
+   -webkit-backdrop-filter，玻璃层就彻底没模糊（正是 spec §6「变成裸透明块」那条风险）。
+   2026-11-09 实测：改前产物只剩 -webkit-backdrop-filter，真 Chrome 里 computed 是 none。
+   要动这些声明的顺序，先 npx vite build 后 grep 产物里还有没有 `backdrop-filter:`。 */
+
 /* ---------- 令牌：亮色（spec §3.2，逐字照抄） ---------- */
 [data-style='glass'][data-theme='light'] {
   /* 底色：冷中性，给玻璃一个可透的浅背景 */
@@ -97,8 +104,8 @@
 /* 侧栏：文字最多 → regular + 更强的模糊（--glass-blur-strong），右边缘亮边 */
 [data-style='glass'] .sidebar {
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-sat));
   -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-sat));
   border-right-color: var(--glass-border);
   box-shadow: var(--glass-highlight);
 }
@@ -106,8 +113,8 @@
 /* 顶栏：更薄的一层（20px，比侧栏轻），下边界降为 --glass-line */
 [data-style='glass'] .topbar {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(var(--glass-sat));
   -webkit-backdrop-filter: blur(20px) saturate(var(--glass-sat));
+  backdrop-filter: blur(20px) saturate(var(--glass-sat));
   border-bottom-color: var(--glass-line);
   box-shadow: var(--glass-highlight);
 }
@@ -115,8 +122,8 @@
 /* 抽屉：regular，30px；左边缘亮边 */
 [data-style='glass'] .drawer {
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(30px) saturate(var(--glass-sat));
   -webkit-backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  backdrop-filter: blur(30px) saturate(var(--glass-sat));
   border-left-color: var(--glass-border);
   box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
@@ -124,16 +131,16 @@
 /* Modal / 命令面板：同上 + 浮层圆角（表里给的具体值 18px / 16px） */
 [data-style='glass'] .modal-card {
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(30px) saturate(var(--glass-sat));
   -webkit-backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  backdrop-filter: blur(30px) saturate(var(--glass-sat));
   border-color: var(--glass-border);
   border-radius: 18px;
   box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 [data-style='glass'] .palette {
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(30px) saturate(var(--glass-sat));
   -webkit-backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  backdrop-filter: blur(30px) saturate(var(--glass-sat));
   border-color: var(--glass-border);
   border-radius: 16px;
   box-shadow: var(--glass-highlight), var(--shadow-lg);
@@ -144,8 +151,8 @@
    纸主题的 .overlay（overlay.css 的 blur(2px)）保持原样。 */
 [data-style='glass'] .overlay {
   background: rgba(8, 12, 20, 0.32);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* 按钮 / chip：轻材料，不加 blur（小面积上跑 backdrop-filter 不值）。
@@ -173,8 +180,8 @@
 :where([data-style='glass']) .svc-card,
 :where([data-style='glass']) .note {
   background: var(--surface);
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: var(--glass-shadow);
 }
 
@@ -203,8 +210,8 @@
   [data-style='glass'] .drawer,
   [data-style='glass'] .modal-card,
   [data-style='glass'] .palette {
-    backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
 }
 
@@ -217,5 +224,42 @@
   [data-style='glass'][data-theme='dark'] {
     --glass-border: var(--ink);
     --glass-line: var(--line-strong);
+  }
+}
+
+/* ---------- 真折射（spec §3.6）：Chromium 专属的 Liquid Glass 位移 ----------
+   能力探测不猜：只有 Chromium 认 -webkit-app-region，Safari / Firefox 不认 → 整块跳过。
+   （backdrop-filter: url(#…) 在 WebKit / Gecko 是「解析通过但不绘制」，没有报错也没有回退，
+   只靠值本身探测会得到「没模糊的透明块」，所以必须用 @supports 前置判据。）
+   开关是 [data-glass-refract='on']（设置页外观卡的「折射」chip，写 dataset.glassRefract）；
+   关掉或非 Chromium 时本块完全不命中，回到上面 §3.5 的纯 blur + saturate。
+   滤镜定义在 web/components/GlassDefs.tsx 的 #pb-glass-refract（只挂一次）。
+   覆盖面只限功能层；内容卡片（.card / .asset-card / .svc-card / .note）一律不加（spec §2.4）。 */
+
+/* 降级（写在折射之前，靠源顺序保证「能画就画」）：旧 Chromium 认 -webkit-app-region，
+   却解析不了 backdrop-filter 里的 url() 滤镜 —— 折射块里的整条声明会无效，
+   于是由这里回落成同一档的纯 blur + saturate，不会变成没模糊的裸透明块。 */
+@supports (-webkit-app-region: none) and (not (backdrop-filter: url(#pb-glass-refract))) {
+  [data-style='glass'][data-glass-refract='on'] .sidebar,
+  [data-style='glass'][data-glass-refract='on'] .topbar,
+  [data-style='glass'][data-glass-refract='on'] .drawer,
+  [data-style='glass'][data-glass-refract='on'] .modal-card,
+  [data-style='glass'][data-glass-refract='on'] .palette {
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+  }
+}
+
+/* 真折射：功能层的 backdrop-filter 从纯 blur 升级成「模糊 + 饱和 + 位移滤镜」。
+   统一 18px / 180%：折射本身已经在放大边缘，再叠 30px 的强模糊会看不出位移，
+   而且滤镜链越长越贵（spec §2.4）。折射关掉时仍是 §3.5 的 20–32px 强模糊。 */
+@supports (-webkit-app-region: none) {
+  [data-style='glass'][data-glass-refract='on'] .sidebar,
+  [data-style='glass'][data-glass-refract='on'] .topbar,
+  [data-style='glass'][data-glass-refract='on'] .drawer,
+  [data-style='glass'][data-glass-refract='on'] .modal-card,
+  [data-style='glass'][data-glass-refract='on'] .palette {
+    -webkit-backdrop-filter: blur(18px) saturate(180%) url(#pb-glass-refract);
+    backdrop-filter: blur(18px) saturate(180%) url(#pb-glass-refract);
   }
 }

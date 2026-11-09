@@ -6,6 +6,7 @@ import { HostsPage } from './pages/HostsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
 import { AlertStack } from './components/AlertStack'
+import { GlassDefs } from './components/GlassDefs'
 import { Sidebar } from './app/Sidebar'
 import { Topbar } from './app/Topbar'
 import { useShell } from './app/useShell'
@@ -26,6 +27,9 @@ export function App() {
 
   return (
     <div className="app">
+      {/* 折射滤镜定义：0×0 的 SVG，absolute 定位，不参与布局；只渲染一次，不随状态重渲染 */}
+      <GlassDefs />
+
       <Sidebar
         page={s.page}
         setPage={s.setPage}

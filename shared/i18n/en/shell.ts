@@ -43,6 +43,7 @@ export const shell: Dict = {
   '玻璃': 'Glass',
   '折射': 'Refraction',
   '标准': 'Standard',
+  '折射仅在 Chromium / 桌面端生效': 'Refraction only takes effect in Chromium / the desktop app',
   '主题': 'Theme',
   '语言': 'Language',
   '浅色': 'Light',
