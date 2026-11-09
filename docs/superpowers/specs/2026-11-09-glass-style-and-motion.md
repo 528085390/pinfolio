@@ -522,6 +522,24 @@ function applyThemeWithTransition(mutate: () => void) {
 - **无壁纸时**回到旧行为：`.content` 透明、body 走暖色 mesh（不是纯白），与 10.5 之前的玻璃观感一致。
 - 便签瀑布流列数：满幅后内容内宽回到 ~1032，3 列恢复（10.5 第 6 条的副作用自然消失）。
 
+### 10.8 磨砂只发生在卡片上（第四次返工，作废 10.7 的「预模糊 + 整块正文磨砂」）
+
+用户：「壁纸应该能看见，你怎么把整个壁纸都模糊了？应该在卡片上才出毛玻璃效果」。10.7 把照片在 `body::before` 里预模糊 24px、再给整块 `.content` 加 blur(20px)，等于「把整个壁纸糊了」——壁纸在缝隙里也是虚的，观感只剩一层灰雾。
+
+现在的分工（`glass.css` 壁纸段第三次改写）：
+
+| 层 | 处理 |
+|---|---|
+| `body::before` | 照片**原图**，只压一层 scrim（亮 `rgba(247,242,232,.42)` 兼去饱和 / 暗 `rgba(20,14,8,.45)`），**不挂任何 filter** |
+| `.content` | `background: transparent`、`backdrop-filter: none` —— 卡片缝隙里看到的是清晰照片 |
+| 卡片（`.card/.note/.asset-card/.svc-card/.host-card/.monitor-card`） | 唯一磨砂层：`--card-glass` 半透填充（亮 .62 / 暗 .62）+ `backdrop-filter: blur(14px) saturate(160%)` |
+| 侧栏 / 顶栏 / 抽屉 / 弹窗 / 命令面板 | 仍是玻璃板（半透 + blur），侧栏 32px、顶栏 20px、抽屉 30px |
+| 卡片里的内容面（表格/统计块/输入框，`--surface`） | 92% 实底：嵌在玻璃里的表格不该再半透一层 |
+
+- **14px 是性能与观感的折中**：便签页一屏十几张卡片，每张各算一次 backdrop；再往上加会明显吃滚动帧。
+- **验收**（`tmp/sdd/verify-glass-v2.mjs`，24/24 PASS）：`body::before` filter `none`；`.content` `rgba(0,0,0,0)` + bf `none`；`.note` `rgba(255,253,247,0.62)` + `blur(14px) saturate(1.6)`；`.nav-item` 对比度 5.59、`.note` 14.02；关壁纸后正文回透明 + 暖色 mesh；纸主题零回归。
+- **量法补记**：`σ 缝隙 > σ 卡内` 这类边界对比只能当方向性证据（本次实测 0.004 vs 0.000，取样条落在低纹理区就都接近 0）；真正的判据是 computed `backdrop-filter` + 截图肉眼。
+
 ### 10.6 仍然未验证 / 未做
 
 - Electron 桌面端（`dist-desktop`）未跑视觉验证。
