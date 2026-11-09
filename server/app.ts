@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { compress } from 'hono/compress'
 import { serve } from '@hono/node-server'
 import type { ServerType } from '@hono/node-server'
 import type { AddressInfo } from 'node:net'
@@ -134,9 +135,12 @@ export const monitorEngine = new MonitorEngine({
   getGlobalOutbound: () => getGlobalOutboundFromSettings(db),
 })
 
-function createApp(): Hono {
+export function createApp(): Hono {
   const app = new Hono()
   const api = new Hono()
+
+  // 全局响应压缩（gzip / deflate）
+  app.use('*', compress())
 
   // 安全响应头（壳与 /api 都加）。CSP 只写 frame-ancestors / base-uri：
   // 完整的 CSP 会挡住 nginx 子路径部署时注入的 <script>window.__PB_BASE__</script>，
