@@ -16,7 +16,7 @@ test('空库迁移到最新版本，表齐全', () => {
   assert.equal(to, MIGRATIONS[MIGRATIONS.length - 1].version)
   assert.equal(currentVersion(db), to)
   const t = tables(db)
-  for (const name of ['tags', 'field_defs', 'assets', 'notes', 'note_tags', 'asset_tags', 'mail_accounts', 'mail_local_read', 'host_metrics']) {
+  for (const name of ['tags', 'field_defs', 'assets', 'notes', 'note_tags', 'asset_tags', 'mail_accounts', 'mail_local_read', 'host_metrics', 'attachments', 'monitors', 'heartbeats']) {
     assert.ok(t.includes(name), '缺表 ' + name)
   }
 })
@@ -55,4 +55,16 @@ test('迁移中途抛错：回滚该步、版本号停在上一步', () => {
   assert.throws(() => migrate(db, bad), /boom/)
   assert.equal(currentVersion(db), 1)
   assert.ok(tables(db).includes('a'))
+})
+
+test('v3 库能够平滑升级至 v4，且具备 monitors 与 heartbeats', () => {
+  const db = new DatabaseSync(':memory:')
+  migrate(db, MIGRATIONS.slice(0, 3))
+  assert.equal(currentVersion(db), 3)
+  const to = migrate(db, MIGRATIONS)
+  assert.equal(to, 4)
+  assert.equal(currentVersion(db), 4)
+  const t = tables(db)
+  assert.ok(t.includes('monitors'))
+  assert.ok(t.includes('heartbeats'))
 })

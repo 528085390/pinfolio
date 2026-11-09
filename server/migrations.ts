@@ -4,6 +4,7 @@ import { ATTACHMENTS_SCHEMA } from './schema/attachments.js'
 import { CORE_SCHEMA } from './schema/core.js'
 import { MAIL_SCHEMA } from './schema/mail.js'
 import { METRICS_SCHEMA } from './schema/metrics.js'
+import { MONITOR_SCHEMA } from './schema/monitor.js'
 import { PRESET_TAGS } from './tags.js'
 import { t } from './i18n.js'
 
@@ -12,7 +13,7 @@ import { t } from './i18n.js'
 
 export type Migration = { version: number; up: (db: DatabaseSync) => void }
 
-const SCHEMA = [CORE_SCHEMA, MAIL_SCHEMA, METRICS_SCHEMA, ATTACHMENTS_SCHEMA].join('\n')
+const SCHEMA = [CORE_SCHEMA, MAIL_SCHEMA, METRICS_SCHEMA, ATTACHMENTS_SCHEMA, MONITOR_SCHEMA].join('\n')
 
 // 迁移前钩子：05 的自动备份注册进来，迁移前先快照一份。
 const preMigrateHooks: Array<() => void> = []
@@ -82,10 +83,17 @@ function v3(db: DatabaseSync) {
   db.exec(ATTACHMENTS_SCHEMA)
 }
 
+// v4：原生观测引擎（2026-11-08 内化，2026-11-09 纳入统一迁移）。
+// 新建 monitors 与 heartbeats 表及索引；若已存在则由 CREATE TABLE IF NOT EXISTS 幂等放行。
+function v4(db: DatabaseSync) {
+  db.exec(MONITOR_SCHEMA)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: v1 },
   { version: 2, up: v2 },
   { version: 3, up: v3 },
+  { version: 4, up: v4 },
 ]
 
 export type MigrateOptions = {
