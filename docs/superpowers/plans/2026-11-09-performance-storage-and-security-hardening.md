@@ -42,7 +42,7 @@
 - Consumes: `db` from `node:sqlite`
 - Produces: 配置了 `synchronous = NORMAL`、`cache_size = -20000`、`temp_store = MEMORY` 的单例连接
 
-- [ ] **Step 1: 编写 PRAGMA 检查单测 `tests/unit/db-pragma.test.mts`**
+- [x] **Step 1: 编写 PRAGMA 检查单测 `tests/unit/db-pragma.test.mts`**
   ```typescript
   import { test } from 'node:test'
   import assert from 'node:assert/strict'
@@ -57,11 +57,11 @@
   })
   ```
 
-- [ ] **Step 2: 运行测试验证**
+- [x] **Step 2: 运行测试验证**
   运行：`cd pinboard; node --import tsx --test "tests/unit/db-pragma.test.mts"`
   Expected: PASS。
 
-- [ ] **Step 3: 在 `server/db.ts` 中配置 PRAGMA**
+- [x] **Step 3: 在 `server/db.ts` 中配置 PRAGMA**
   在 `db.exec('PRAGMA busy_timeout = 5000')` 后追加：
   ```typescript
   db.exec('PRAGMA synchronous = NORMAL')
@@ -69,11 +69,11 @@
   db.exec('PRAGMA temp_store = MEMORY')
   ```
 
-- [ ] **Step 4: 运行现有数据库单测**
+- [x] **Step 4: 运行现有数据库单测**
   运行：`cd pinboard; node --import tsx --test "tests/unit/probe-store.test.mts"`
   Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
   ```bash
   git add server/db.ts tests/unit/db-pragma.test.mts
   git commit -m "perf(db): configure sqlite wal pragmas (synchronous normal, 20mb cache, memory temp store)"
@@ -91,10 +91,10 @@
 - Consumes: `MonitorStore.pruneHeartbeats(keepDays = 7)`
 - Produces: `ProbeEngine.schedulePrune()` 启动自动排期，并在 `stop()` 时安全注销
 
-- [ ] **Step 1: 在 `tests/unit/probe-engine.test.mts` 中添加心跳定时清理测试**
+- [x] **Step 1: 在 `tests/unit/probe-engine.test.mts` 中添加心跳定时清理测试**
   断言 `engine.start()` 后能成功调度清理，并在 `engine.stop()` 后清理定时器句柄。
 
-- [ ] **Step 2: 在 `server/monitor/engine.ts` 中实现 `schedulePrune()`**
+- [x] **Step 2: 在 `server/monitor/engine.ts` 中实现 `schedulePrune()`**
   在 `ProbeEngine` 中增加属性 `private pruneTimer: NodeJS.Timeout | null = null`。
   定义 `schedulePrune()`：
   - 启动 5 秒后首次调用 `this.store.pruneHeartbeats(7)`；
@@ -102,11 +102,11 @@
   - 全部定时器均设置 `.unref?.()`。
   在 `stop()` 中注销 `pruneTimer`。
 
-- [ ] **Step 3: 运行测试验证**
+- [x] **Step 3: 运行测试验证**
   运行：`cd pinboard; node --import tsx --test "tests/unit/probe-engine.test.mts"`
   Expected: PASS。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
   ```bash
   git add server/monitor/engine.ts tests/unit/probe-engine.test.mts
   git commit -m "feat(monitor): schedule daily automatic heartbeat pruning in probe engine"
@@ -124,25 +124,25 @@
 - Consumes: `compress` from `'hono/compress'`
 - Produces: 为支持的客户端请求自动返回 Gzip 压缩后的 Response
 
-- [ ] **Step 1: 编写压缩单测 `tests/unit/app-compression.test.mts`**
+- [x] **Step 1: 编写压缩单测 `tests/unit/app-compression.test.mts`**
   使用 Hono 的 `app.request()` 模拟发送 `Accept-Encoding: gzip` 请求，断言返回的 `Content-Encoding` 为 `gzip`。
 
-- [ ] **Step 2: 运行测试确认测试执行逻辑**
+- [x] **Step 2: 运行测试确认测试执行逻辑**
   运行：`cd pinboard; node --import tsx --test "tests/unit/app-compression.test.mts"`
   Expected: FAIL (因 app 尚未挂载 compress 中间件)。
 
-- [ ] **Step 3: 在 `server/app.ts` 中挂载 `compress()`**
+- [x] **Step 3: 在 `server/app.ts` 中挂载 `compress()`**
   ```typescript
   import { compress } from 'hono/compress'
   ...
   app.use('*', compress())
   ```
 
-- [ ] **Step 4: 运行测试验证 PASS**
+- [x] **Step 4: 运行测试验证 PASS**
   运行：`cd pinboard; node --import tsx --test "tests/unit/app-compression.test.mts"`
   Expected: PASS。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
   ```bash
   git add server/app.ts tests/unit/app-compression.test.mts
   git commit -m "perf(server): enable global gzip compression middleware"
@@ -160,7 +160,7 @@
 - Consumes: `p` 请求路径
 - Produces: 排除 `/favicon.ico` 和 `/robots.txt` 走出长缓存
 
-- [ ] **Step 1: 更新 `server/static.ts` 的 `cacheable` 判定**
+- [x] **Step 1: 更新 `server/static.ts` 的 `cacheable` 判定**
   将：
   ```typescript
   const cacheable = !(p === '/index.html' || p.endsWith('.webmanifest') || p.startsWith('/icons/') || p === '/apple-touch-icon.png')
@@ -170,11 +170,11 @@
   const cacheable = !(p === '/index.html' || p.endsWith('.webmanifest') || p.startsWith('/icons/') || p === '/apple-touch-icon.png' || p === '/favicon.ico' || p === '/robots.txt')
   ```
 
-- [ ] **Step 2: 运行静态资源与路径测试**
+- [x] **Step 2: 运行静态资源与路径测试**
   运行：`cd pinboard; node --import tsx --test "tests/unit/web-paths.test.mts"`
   Expected: PASS。
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
   ```bash
   git add server/static.ts
   git commit -m "fix(static): prevent long-term immutable caching for favicon.ico and robots.txt"
@@ -187,16 +187,16 @@
 **Files:**
 - Modify: `pinboard/docs/status-history.md`
 
-- [ ] **Step 1: 运行 TypeScript 类型检查**
+- [x] **Step 1: 运行 TypeScript 类型检查**
   运行：`cd pinboard; pnpm typecheck`
   Expected: 0 errors。
 
-- [ ] **Step 2: 运行全量单测套件**
+- [x] **Step 2: 运行全量单测套件**
   运行：`cd pinboard; pnpm test`
   Expected: 全部单元测试与 snippet test 通过。
 
-- [ ] **Step 3: 验证服务运行时与健康接口**
+- [x] **Step 3: 验证服务运行时与健康接口**
   验证 `curl.exe -s http://127.0.0.1:7788/api/health` 返回 `{"ok":true,...}`。
 
-- [ ] **Step 4: 追加记录并提交**
+- [x] **Step 4: 追加记录并提交**
   在 `docs/status-history.md` 追加当日本次优化的完成记录并提交 Git。
