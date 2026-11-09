@@ -24,6 +24,16 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Songti SC', Georgia, serif;
   --font-mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+
+  /* 壳层材质令牌。缺省值 = 暖纸主题的原字面量（所以 data-style 不写时视觉零变化）；
+     玻璃风格在 glass.css 里覆盖它们，或直接换成 --glass-* 系列。 */
+  --topbar-bg: color-mix(in srgb, var(--paper) 82%, transparent);
+  --topbar-blur: 10px;
+  --sidebar-bg: var(--surface);
+  --drawer-bg: var(--paper);
+  --modal-bg: var(--paper);
+  --overlay-bg: rgba(28, 20, 10, 0.34);
+  --overlay-blur: 2px;
 }
 
 [data-theme='dark'] {

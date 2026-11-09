@@ -1,0 +1,202 @@
+/* 玻璃风格（<html data-style='glass'>）—— 设计权威 docs/superpowers/specs/2026-11-09-glass-style-and-motion.md §3
+   本片必须是 index.css 的最后一条 @import：它要压过 shell / overlay / palette / controls 的既有取值。
+   暖纸主题（data-style 缺省或 ='paper'）下，本片没有一条规则命中 → 视觉零变化、可即时回退。
+   映射原则照 HIG：玻璃只做功能层（壳 / 浮层），内容卡片一律标准材质。 */
+
+/* ---------- 令牌：亮色（spec §3.2，逐字照抄） ---------- */
+[data-style='glass'][data-theme='light'] {
+  /* 底色：冷中性，给玻璃一个可透的浅背景 */
+  --paper: #eef1f7;
+  --surface: rgba(255, 255, 255, 0.86);      /* 内容层：接近实底，不叠第二层半透明 */
+  --surface-2: rgba(25, 33, 48, 0.05);
+  --surface-3: rgba(25, 33, 48, 0.09);
+  --ink: #101827;
+  --ink-2: #3c4658;
+  --muted: #6b7385;
+  --line: rgba(16, 24, 40, 0.10);
+  --line-strong: rgba(16, 24, 40, 0.16);
+  --accent: #0a84ff;          /* Apple systemBlue */
+  --accent-strong: #0069d9;
+  --accent-soft: rgba(10, 132, 255, 0.12);
+  --accent-ring: rgba(10, 132, 255, 0.22);
+  --ok: #12874a;  --warn: #a86600;  --danger: #d92d20;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 14px 34px -22px rgba(16, 24, 40, 0.35);
+  --shadow-lg: 0 30px 80px -34px rgba(16, 24, 40, 0.45);
+
+  /* 玻璃：功能层专用，别给内容卡片用 */
+  --glass-bg: rgba(255, 255, 255, 0.60);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-blur: 24px;
+  --glass-blur-strong: 32px;
+  --glass-sat: 180%;
+  --glass-border: rgba(255, 255, 255, 0.55);   /* 亮顶边 = 光落在材料上 */
+  --glass-line: rgba(16, 24, 40, 0.08);        /* 玻璃内部的弱分隔 */
+  --glass-shadow: 0 12px 32px -20px rgba(16, 24, 40, 0.32);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.60);
+  --glass-tint: rgba(255, 255, 255, 0.55);     /* 按钮 / chip 这类「轻材料」 */
+}
+
+/* ---------- 令牌：暗色（spec §3.3，逐字照抄） ---------- */
+[data-style='glass'][data-theme='dark'] {
+  --paper: #0b0d12;
+  --surface: rgba(30, 33, 41, 0.88);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --surface-3: rgba(255, 255, 255, 0.11);
+  --ink: #f2f5fa;  --ink-2: #c4ccda;  --muted: #8b93a5;
+  --line: rgba(255, 255, 255, 0.10);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --accent: #0a84ff;  --accent-strong: #4ba3ff;
+  --accent-soft: rgba(10, 132, 255, 0.20);
+  --accent-ring: rgba(10, 132, 255, 0.30);
+  --ok: #34d399;  --warn: #fbbf24;  --danger: #ff6961;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.32), 0 18px 40px -24px rgba(0, 0, 0, 0.80);
+  --shadow-lg: 0 34px 90px -36px rgba(0, 0, 0, 0.90);
+
+  --glass-bg: rgba(22, 25, 32, 0.60);
+  --glass-bg-strong: rgba(22, 25, 32, 0.72);
+  --glass-blur: 24px;
+  --glass-blur-strong: 32px;
+  --glass-sat: 160%;
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 16px 40px -22px rgba(0, 0, 0, 0.75);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --glass-tint: rgba(255, 255, 255, 0.10);
+}
+
+/* ---------- 彩光底（spec §3.4：静态 mesh，绝不写动画） ----------
+   玻璃底下必须有东西可透，否则只会糊成一块灰。四个 radial-gradient 固定在视口上，
+   滚动时不动（HIG 明确反对缓慢移动的背景）。 */
+[data-style='glass'] body {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(42% 38% at 16% 8%,  rgba(10, 132, 255, 0.22), transparent 68%),
+    radial-gradient(38% 34% at 86% 4%,  rgba(175, 82, 222, 0.18), transparent 68%),
+    radial-gradient(46% 42% at 72% 92%, rgba(48, 176, 148, 0.16), transparent 70%),
+    radial-gradient(36% 34% at 12% 84%, rgba(255, 149, 0, 0.14), transparent 70%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+/* 暗色：同一组色相，透明度略高（黑底上要更亮才透得出来） */
+[data-style='glass'][data-theme='dark'] body {
+  background-image:
+    radial-gradient(42% 38% at 16% 8%,  rgba(10, 132, 255, 0.30), transparent 68%),
+    radial-gradient(38% 34% at 86% 4%,  rgba(175, 82, 222, 0.24), transparent 68%),
+    radial-gradient(46% 42% at 72% 92%, rgba(48, 176, 148, 0.20), transparent 70%),
+    radial-gradient(36% 34% at 12% 84%, rgba(255, 149, 0, 0.16), transparent 70%);
+}
+
+/* ---------- 功能层：玻璃（spec §3.5 映射表） ----------
+   性能预算：同屏可见的 backdrop-filter ≤ 3 层（侧栏 + 顶栏 + 至多一个浮层），
+   所以按钮 / chip 只给 --glass-tint，列表项不加任何 backdrop-filter。 */
+
+/* 侧栏：文字最多 → regular + 更强的模糊（--glass-blur-strong），右边缘亮边 */
+[data-style='glass'] .sidebar {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-sat));
+  border-right-color: var(--glass-border);
+  box-shadow: var(--glass-highlight);
+}
+
+/* 顶栏：更薄的一层（20px，比侧栏轻），下边界降为 --glass-line */
+[data-style='glass'] .topbar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--glass-sat));
+  border-bottom-color: var(--glass-line);
+  box-shadow: var(--glass-highlight);
+}
+
+/* 抽屉：regular，30px；左边缘亮边 */
+[data-style='glass'] .drawer {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  border-left-color: var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+
+/* Modal / 命令面板：同上 + 浮层圆角（表里给的具体值 18px / 16px） */
+[data-style='glass'] .modal-card {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  border-color: var(--glass-border);
+  border-radius: 18px;
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+}
+[data-style='glass'] .palette {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(30px) saturate(var(--glass-sat));
+  border-color: var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+}
+
+/* 遮罩：玻璃下加深并加大模糊（纸主题保留原来的 2px） */
+[data-style='glass'] .overlay {
+  background: rgba(8, 12, 20, 0.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* 按钮 / chip：轻材料，不加 blur（小面积上跑 backdrop-filter 不值）。
+   :not() 排除掉带底色的变体，否则会盖掉 btn-primary / btn-danger / chip.active 的实底。 */
+[data-style='glass'] .btn:not(.btn-primary):not(.btn-ghost):not(.btn-danger),
+[data-style='glass'] .chip:not(.active) {
+  background: var(--glass-tint);
+}
+
+/* ---------- 内容层：标准材质，禁止玻璃（HIG 红线） ----------
+   86% 实底来自 --surface；这里显式关掉 backdrop-filter，防止以后被「顺手」加回来。
+   抽屉里的 .card 同理：绝不在玻璃上再叠一层半透明卡片。 */
+[data-style='glass'] .card,
+[data-style='glass'] .asset-card,
+[data-style='glass'] .svc-card,
+[data-style='glass'] .note {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--glass-shadow);
+}
+
+/* ---------- 无障碍降级（spec §4.7） ---------- */
+
+/* 用户要求「降低透明度」：撤掉模糊，玻璃退成 96% 实底 + 实边（≈ 回到实心观感）。
+   直接改令牌而不是逐个选择器写死，保持一处改、全层生效。 */
+@media (prefers-reduced-transparency: reduce) {
+  [data-style='glass'][data-theme='light'] {
+    --glass-bg: rgba(255, 255, 255, 0.96);
+    --glass-bg-strong: rgba(255, 255, 255, 0.96);
+    --glass-border: var(--line-strong);
+  }
+  [data-style='glass'][data-theme='dark'] {
+    --glass-bg: rgba(22, 25, 32, 0.96);
+    --glass-bg-strong: rgba(22, 25, 32, 0.96);
+    --glass-border: var(--line-strong);
+  }
+  [data-style='glass'] .sidebar,
+  [data-style='glass'] .topbar,
+  [data-style='glass'] .drawer,
+  [data-style='glass'] .modal-card,
+  [data-style='glass'] .palette {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* 用户要求「更高对比度」：玻璃边与内部线换成实色，文字不再依赖玻璃透明度 */
+@media (prefers-contrast: more) {
+  [data-style='glass'][data-theme='light'] {
+    --glass-border: var(--ink);
+    --glass-line: var(--line-strong);
+  }
+  [data-style='glass'][data-theme='dark'] {
+    --glass-border: var(--ink);
+    --glass-line: var(--line-strong);
+  }
+}
