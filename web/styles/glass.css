@@ -33,6 +33,7 @@
 
   /* 玻璃：功能层专用，别给内容卡片用 */
   --glass-bg: rgba(255, 252, 246, 0.62);
+  --card-glass: rgba(255, 253, 247, 0.92);
   --glass-bg-strong: rgba(255, 252, 246, 0.86);
   --glass-blur: 24px;
   --glass-blur-strong: 32px;
@@ -43,8 +44,6 @@
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.64);
   --glass-tint: rgba(255, 252, 244, 0.55);     /* 按钮 / chip 这类「轻材料」 */
   --glass-tint-hover: rgba(240, 230, 212, 0.80);
-  /* 壁纸态正文磨砂层的底色，壁纸关闭时不参与 */
-  --content-glass: rgba(247, 242, 232, 0.86); /* hover 稍深一点（同色相、更实） */
 }
 
 /* ---------- 令牌：暗色（spec §3.3，逐字照抄） ---------- */
@@ -66,7 +65,6 @@
 
   --glass-bg: rgba(28, 24, 19, 0.62);
   --glass-bg-strong: rgba(28, 24, 19, 0.86);
-  --content-glass: rgba(24, 20, 15, 0.88);
   --glass-blur: 24px;
   --glass-blur-strong: 32px;
   --glass-sat: 160%;
@@ -267,36 +265,36 @@
   }
 }
 
-/* ---------- 壁纸：给玻璃一块「有东西可透」的背景 ----------
+/* ---------- 壁纸：壁纸是「看得清的照片」，磨砂只发生在卡片/面板上 ----------
    没有壁纸时，玻璃后面的彩光底几乎是一块纯色，24–32px 模糊之后只剩白块 ——
    观感上就是「换了个配色」（实测：侧栏纹理 σ 0.063–0.070，与纯色无差）。
-   壁纸不是铺在面板里，而是铺在**整个窗口最底层**：侧栏、顶栏、正文都是磨砂玻璃板，
-   照片从每一块板的后面透上来。照片本身先被 24px 预模糊（body::before 的 filter），
-   所以透上来的是一片色雾而不是花纹——面板的填充就可以压得很薄，文字还读得清。
+   所以壁纸铺在**整个窗口最底层，保持清晰**（body::before 不挂 filter，只压一层浅色 scrim）：
+   照片在卡片之间的缝隙里是原图，卡片自己在照片上做 backdrop-filter —— 磨砂只出现在
+   卡片/面板的范围内（HIG 的正确做法，也是「透过玻璃看见壁纸」的观感来源）。
+   正文 .content 完全透明、不加 blur：一旦给整块正文磨砂，就等于「把整个壁纸糊了」。
    图片地址由设置页写进 <html> 的 --wallpaper-url（web/lib/theme-prefs.ts 的 applyWallpaperVar）。 */
 [data-style='glass'][data-wallpaper='on'] {
-  --wallpaper-scrim: transparent;
-  --content-glass: rgba(247, 242, 232, 0.58);
+  /* 亮色下照片很艳，浅色 scrim 兼当"去饱和"用：.42 既压住花底，又还能看清画面 */
+  --wallpaper-scrim: rgba(247, 242, 232, 0.42);
 }
 [data-style='glass'][data-wallpaper='on'][data-theme='dark'] {
-  --wallpaper-scrim: rgba(20, 14, 8, 0.42);
-  --content-glass: rgba(26, 22, 17, 0.58);
+  --wallpaper-scrim: rgba(20, 14, 8, 0.45);
 }
 [data-style='glass'][data-wallpaper='on'] body {
   background-color: var(--paper);
   background-image: none;
 }
-/* 壁纸层：固定在最底层，比视口大一圈避免模糊吃掉边缘；预模糊 + 压一层暗色 scrim */
+/* 壁纸层：固定在最底层，**保持清晰**（没有 filter）——磨砂交给上面每一块玻璃板自己做。
+   scrim 只是把照片整体往主题色方向压一点，保证直接铺在照片上的标题/正文读得清。 */
 [data-style='glass'][data-wallpaper='on'] body::before {
   content: '';
   position: fixed;
-  inset: -6%;
+  inset: 0;
   z-index: 0;
   background-image: linear-gradient(var(--wallpaper-scrim), var(--wallpaper-scrim)), var(--wallpaper-url, none);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: blur(24px) saturate(140%);
   pointer-events: none;
 }
 /* 外壳整层透明，让壁纸层露出来；面板块自己带磨砂填充 */
@@ -305,34 +303,45 @@
   z-index: 1;
   background: transparent;
 }
-/* 侧栏：blur-strong（32px）+ 薄填充，照片的颜色直接透上来 */
+/* 侧栏：blur-strong（32px）+ 薄填充，照片的颜色与纹理直接透上来 */
 [data-style='glass'][data-wallpaper='on'] .sidebar {
   background-color: var(--glass-bg-strong);
 }
-/* 正文：磨砂玻璃板（照片在上面已经被预模糊过一遍，这里再补 20px） */
+/* 正文：完全透明、不加 blur —— 照片在卡片缝隙里保持清晰可辨。
+   整块正文磨砂 = 「把整个壁纸糊了」，用户已明确否掉（spec §10.8）。 */
 [data-style='glass'][data-wallpaper='on'] .content {
-  background-color: var(--content-glass);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 [data-style='glass'][data-wallpaper='on'] .topbar {
   border-bottom: 1px solid var(--glass-border);
 }
-/* 卡片也半透：透的是已经磨过的色雾，不是照片原图，所以正文对比度还在 */
+/* 卡片：壁纸上唯一的磨砂层。半透填充 + 14px 模糊，照片在卡片边缘里外一虚一实，
+   「玻璃」才成立；不透明卡片或整块正文磨砂都做不到这个效果。
+   14px 是性能与观感的折中：便签页一屏十几张卡片，每张各算一次 backdrop。 */
 [data-style='glass'][data-wallpaper='on'] .card,
 [data-style='glass'][data-wallpaper='on'] .asset-card,
 [data-style='glass'][data-wallpaper='on'] .svc-card,
+[data-style='glass'][data-wallpaper='on'] .host-card,
+[data-style='glass'][data-wallpaper='on'] .monitor-card,
 [data-style='glass'][data-wallpaper='on'] .note {
-  background-color: var(--surface);
+  background-color: var(--card-glass);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
 }
 /* 壁纸态的不透明度：填充越薄越透，模糊与饱和补可读性 */
 [data-style='glass'][data-wallpaper='on'][data-theme='light'] {
-  --glass-bg: rgba(255, 252, 246, 0.42);
-  --glass-bg-strong: rgba(255, 252, 246, 0.56);
-  --surface: rgba(255, 253, 247, 0.80);
+  --glass-bg: rgba(255, 252, 246, 0.50);
+  --glass-bg-strong: rgba(255, 252, 246, 0.55);
+  /* 卡片玻璃：薄到能看出壁纸的形状，模糊与饱和补可读性 */
+  --card-glass: rgba(255, 253, 247, 0.62);
+  /* 卡片里的内容面（表格、统计块、输入框）：保持较实，不然嵌在玻璃里又是一层花 */
+  --surface: rgba(255, 253, 247, 0.92);
 }
 [data-style='glass'][data-wallpaper='on'][data-theme='dark'] {
-  --glass-bg: rgba(28, 24, 19, 0.42);
-  --glass-bg-strong: rgba(28, 24, 19, 0.56);
-  --surface: rgba(38, 34, 27, 0.80);
+  --glass-bg: rgba(28, 24, 19, 0.38);
+  --glass-bg-strong: rgba(28, 24, 19, 0.46);
+  --card-glass: rgba(38, 34, 27, 0.62);
+  --surface: rgba(30, 26, 21, 0.92);
 }
