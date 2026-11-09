@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
 import type { HeartbeatRow, MonitorRow } from './types.ts'
 import { MonitorStore } from './store.ts'
@@ -262,4 +263,15 @@ export function writeMonitorSnapshot(
     fs.mkdirSync(dir, { recursive: true })
   }
   fs.writeFileSync(snapshotPath, markdown, 'utf8')
+}
+
+const entry = process.argv[1] ? pathToFileURL(process.argv[1]).href : ''
+if (entry && import.meta.url === entry) {
+  const { db } = await import('../db.js')
+  const store = new MonitorStore(db)
+  const target =
+    process.env.MONITOR_SNAPSHOT ||
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'SNAPSHOT-MONITORS.md')
+  writeMonitorSnapshot(target, store)
+  console.log('已生成 ' + target)
 }

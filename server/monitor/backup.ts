@@ -62,7 +62,7 @@ export function refreshMonitorSnapshot(store: MonitorStore, delay = 1500): void 
   snapshotTimer = setTimeout(() => {
     snapshotTimer = null
     const target =
-      process.env.MONITOR_SNAPSHOT || resolve(ROOT, '..', 'kuma', 'SNAPSHOT.md')
+      process.env.MONITOR_SNAPSHOT || resolve(ROOT, 'SNAPSHOT-MONITORS.md')
     try {
       writeMonitorSnapshot(target, store)
     } catch (e) {

@@ -60,7 +60,7 @@ async function renderCard(state: CardState | null): Promise<string> {
     configFile: false, // 不加载仓库的 vite.config（root 会变成 web/，而且这里不需要 dev server 配置）
     logLevel: 'error',
     plugins: state ? [stubHook(state)] : [],
-    server: { middlewareMode: true },
+    server: { middlewareMode: true, hmr: false },
     appType: 'custom',
   })
   try {

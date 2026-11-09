@@ -15,6 +15,7 @@ tmp/e2e-payload-*.json
 tmp/e2e-policy-*.json
 # 自动生成，内容派生自 data/（个人资产/IP/账号），不进版本库
 SNAPSHOT.md
+SNAPSHOT-MONITORS.md
 # 个人/本机配置：仓库只带 *.example.json
 monitor-actions.json
 host-services.json

@@ -25,7 +25,7 @@
     "dev:desktop": "pnpm build:web && pnpm build:desktop:main && pnpm build:desktop:vendor && electron .",
     "start": "node --env-file-if-exists=.env --import tsx server/index.ts",
     "start:dist": "node --env-file-if-exists=.env dist/server.js",
-    "snapshot": "tsx server/snapshot.ts",
+    "snapshot": "tsx server/snapshot.ts && tsx server/monitor/snapshot.ts",
     "typecheck": "tsc --noEmit",
     "test": "pnpm typecheck && pnpm test:unit && tsx tests/snippet-test.mts",
     "test:unit": "node --import tsx --test \"tests/unit/*.test.mts\"",
