@@ -35,6 +35,7 @@
   --glass-shadow: 0 12px 32px -20px rgba(16, 24, 40, 0.32);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.60);
   --glass-tint: rgba(255, 255, 255, 0.55);     /* 按钮 / chip 这类「轻材料」 */
+  --glass-tint-hover: rgba(226, 232, 242, 0.80); /* hover 稍深一点（同色相、更实） */
 }
 
 /* ---------- 令牌：暗色（spec §3.3，逐字照抄） ---------- */
@@ -64,6 +65,7 @@
   --glass-shadow: 0 16px 40px -22px rgba(0, 0, 0, 0.75);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.10);
   --glass-tint: rgba(255, 255, 255, 0.10);
+  --glass-tint-hover: rgba(255, 255, 255, 0.20);
 }
 
 /* ---------- 彩光底（spec §3.4：静态 mesh，绝不写动画） ----------
@@ -137,27 +139,39 @@
   box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 
-/* 遮罩：玻璃下加深并加大模糊（纸主题保留原来的 2px） */
+/* 遮罩：只加深底色，不叠模糊 —— 遮罩不叠模糊，守住 ≤3 层预算（spec §2.4）：
+   抽屉打开时侧栏 + 顶栏 + 抽屉已经 3 层 backdrop-filter，遮罩再加一层就破预算。
+   纸主题的 .overlay（overlay.css 的 blur(2px)）保持原样。 */
 [data-style='glass'] .overlay {
-  background: rgba(8, 12, 20, 0.28);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(8, 12, 20, 0.32);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* 按钮 / chip：轻材料，不加 blur（小面积上跑 backdrop-filter 不值）。
-   :not() 排除掉带底色的变体，否则会盖掉 btn-primary / btn-danger / chip.active 的实底。 */
-[data-style='glass'] .btn:not(.btn-primary):not(.btn-ghost):not(.btn-danger),
-[data-style='glass'] .chip:not(.active) {
+   :not() 排除掉带底色的变体，否则会盖掉 btn-primary / btn-danger / chip.active 的实底。
+   :where() 把前缀与 :not() 链的特异性归零：本规则只剩 .btn / .chip 的 0,1,0，
+   弱于 controls.css 的 .btn:hover（0,2,0），所以下面的 hover 能正常生效；
+   又因为 glass.css 排在最后，仍能覆盖 .btn 的基础底色。 */
+:where([data-style='glass']) .btn:where(:not(.btn-primary):not(.btn-ghost):not(.btn-danger)),
+:where([data-style='glass']) .chip:where(:not(.active)) {
   background: var(--glass-tint);
+}
+/* 玻璃态自己的 hover：比 --glass-tint 稍深一点，既有反馈又保持玻璃观感。
+   btn-primary / btn-ghost / btn-danger 的既有 hover 不受影响（上面已排除）。 */
+:where([data-style='glass']) .btn:where(:not(.btn-primary):not(.btn-ghost):not(.btn-danger)):hover {
+  background: var(--glass-tint-hover);
 }
 
 /* ---------- 内容层：标准材质，禁止玻璃（HIG 红线） ----------
    86% 实底来自 --surface；这里显式关掉 backdrop-filter，防止以后被「顺手」加回来。
    抽屉里的 .card 同理：绝不在玻璃上再叠一层半透明卡片。 */
-[data-style='glass'] .card,
-[data-style='glass'] .asset-card,
-[data-style='glass'] .svc-card,
-[data-style='glass'] .note {
+/* :where() 降到 0,1,0：否则 0,2,0 的特异性会把 .note:hover / .asset-card:hover /
+   .svc-card:hover（各 0,2,0，写在前面）的 box-shadow 永久压死，卡片 hover 就没反馈了。 */
+:where([data-style='glass']) .card,
+:where([data-style='glass']) .asset-card,
+:where([data-style='glass']) .svc-card,
+:where([data-style='glass']) .note {
   background: var(--surface);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -173,11 +187,16 @@
     --glass-bg: rgba(255, 255, 255, 0.96);
     --glass-bg-strong: rgba(255, 255, 255, 0.96);
     --glass-border: var(--line-strong);
+    /* btn / chip 的「轻材料」也得退成不透明实色，否则半透明 tint 还在 */
+    --glass-tint: #f7f9fc;
+    --glass-tint-hover: #edf1f8;
   }
   [data-style='glass'][data-theme='dark'] {
     --glass-bg: rgba(22, 25, 32, 0.96);
     --glass-bg-strong: rgba(22, 25, 32, 0.96);
     --glass-border: var(--line-strong);
+    --glass-tint: #20242c;
+    --glass-tint-hover: #2a2f38;
   }
   [data-style='glass'] .sidebar,
   [data-style='glass'] .topbar,
