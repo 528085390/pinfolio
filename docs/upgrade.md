@@ -70,7 +70,7 @@ curl -s http://127.0.0.1:7788/api/health      # {"ok":true,"id":"..."}
 1. The home page opens and you can log in (an upgrade does not drop your session, unless the password was changed).
 2. All eight pages open: Notes / Mail / Assets / Monitors / Hosts / Services / Backup / Settings.
 3. The backup page's "last backup" time is normal, and the remote database (if configured) answers "Test connection".
-4. The monitors page has data (which means the Kuma password can still be decrypted) — if it turned into the setup card, `data/secret.key` was most likely lost or replaced.
+4. The monitors page has data (meaning database and credentials load normally), and probe heartbeats update cleanly.
 5. The log has no errors other than `凭据已就地加密`.
 
 ## FAQ

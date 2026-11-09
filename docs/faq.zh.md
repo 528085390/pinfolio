@@ -29,11 +29,7 @@ Windows 双击 `start.cmd`。见 [`deploy.md`](deploy.zh.md)。
 
 ## 功能
 
-**没装 Uptime Kuma 会怎样？** 只有「观测」这一页显示一张三步引导卡，其余七页完全正常。
-探测本身是 Kuma 在跑，pinfolio 只是它的界面。
-
-**能连上游原版 Kuma 吗？** 能。程序按 `policyJson` 字段识别是不是改造版 fork；上游原版只是不显示
-「立即观测」这类 fork 专属入口。要强制指定用 `KUMA_FLAVOR=fork|upstream`。
+**观测台需要安装 Uptime Kuma 吗？** 不需要。pinfolio 内置了原生多协议探针引擎（HTTP / TCP 端口 / SSH 远程命令 / Push 推送），心跳直接落入本地 SQLite 数据库，单进程即可完整自治。
 
 **邮件为什么是只读的？** 这是刻意的：取信一律 `BODY.PEEK`，永远不会把邮件标成已读、也不会删信、移动。
 「本页已读」只记在本地数据库里。想看别的文件夹就在下拉里切。
@@ -46,11 +42,10 @@ Windows 双击 `start.cmd`。见 [`deploy.md`](deploy.zh.md)。
 **数据存在哪？** 全在 `PINBOARD_DATA`（默认 `data/`）：`pinboard.db` 是主库，`secret.key` 是加密主密钥，
 `backups/` 是备份包，`audit/` 是每天的观测心跳 CSV。
 
-**密码是明文存吗？** 登录密码是 scrypt 哈希；邮箱密码 / Kuma 口令 / 指标 token 用 AES-256-GCM 加密
+**密码是明文存吗？** 登录密码是 scrypt 哈希；邮箱密码 / 指标 token / 代理凭据 用 AES-256-GCM 加密
 （`enc:v1:…`），主密钥在 `data/secret.key` 或 `PINBOARD_SECRET`。
 
-**`secret.key` 丢了怎么办？** 那些加密字段就解不开了：邮件账号要重新填密码，Kuma 口令要重新配，
-指标源地址要重新填。其余数据（便签、资产、观测历史）不受影响。所以**备份要连 `secret.key` 一起**，
+**`secret.key` 丢了怎么办？** 那些加密字段就解不开了：邮件账号要重新填密码，出站代理凭据与指标源地址要重新填。其余数据（便签、资产、观测历史）不受影响。所以**备份要连 `secret.key` 一起**，
 并且别把它和备份放在同一台机器上（两边一起丢就白加密了）。
 
 **忘了登录密码？** 停服务，跑 `node --import tsx server/index.ts --reset-password`（或容器里同样的命令），
@@ -67,7 +62,7 @@ Windows 双击 `start.cmd`。见 [`deploy.md`](deploy.zh.md)。
 **备份怎么开？** 默认就开着：每天 03:00 打包到 `data/backups/`，保留 14 份。`BACKUP=0` 关掉，
 `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` 可调。也可以配 MySQL / PostgreSQL 当远端目的地。
 
-**怎么恢复？** 见 [`backup-restore.md`](backup-restore.zh.md)：整机换、只回滚库、从远端取回、只恢复 Kuma 四种场景。
+**怎么恢复？** 见 [`backup-restore.md`](backup-restore.zh.md)：整机换、只回滚库、从远端取回三种场景。
 
 **升级会丢数据吗？** 不会。迁移前会自动拍快照（保留 5 份），迁移失败就中止启动。步骤见 [`upgrade.md`](upgrade.zh.md)。
 

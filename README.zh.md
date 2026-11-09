@@ -3,7 +3,7 @@
 [![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-495%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
+[![Tests](https://img.shields.io/badge/unit%20tests-740%20passing-brightgreen)](#%E5%BC%80%E5%8F%91)
 [![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **中文** · [English](README.md)
@@ -62,9 +62,10 @@
 - 卡片 / 表格两种视图，按类型、状态、标签筛选（标签条显示在用标签），搜索覆盖名称、序列号、备注。
 
 ### 观测台
-- 数据来自**本机的 Uptime Kuma**（默认 `http://127.0.0.1:3001`，状态页 `obs`）；Kuma 只当探测后端，界面在这里。
+- 由进程内**原生多协议探针引擎**驱动（支持 HTTP / TCP 端口 / SSH 远程命令 / Push 推送），心跳与状态直接写入 `data/pinboard.db`，彻底无需外部 Uptime Kuma 进程与端口。
+- 设置页支持全局出站路由模式（直连 / SOCKS5 代理），并在观测项抽屉中提供单项独立钉死（跟随全局 / 钉：直连 / 钉：代理）。
 - 一屏看完：顶部四块统计（观测项 / 正常 / 异常 / 24h 可用率），下面按机器分组的卡片，每张带最近 40 次心跳、响应时间、24h 可用率和窗口内异常次数。30 秒自动刷新，卡片 / 表格可切换。
-- 点卡片打开抽屉：改名、改频率、暂停 / 恢复、删除（手输名字二次确认）、**立即观测**；全部写回 Kuma。
+- 点卡片打开抽屉：改名、改频率、暂停 / 恢复、删除（手输名字二次确认）、**立即观测**（执行即时测活或自定义配方）。
 - 完整行为、跳转管理页、立即观测配方：[`docs/features.zh.md`](docs/features.zh.md#观测台)。
 
 ### 邮件
@@ -82,8 +83,8 @@
 
 ### 备份
 - **自动跑**：每天 03:00 打一个包到 `data/backups/`（`BACKUP=0` 关掉，`BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` 可调），保留 14 份，多的删最旧。
-- **包里有什么**：库的一致性快照（`node:sqlite` 的 `backup()`，WAL 下不用停服）、**当天每个时间点的观测心跳 CSV**（`time,monitor_id,monitor_name,status,msg,ping`，审计用）、观测项定义、`data/*.json|txt`（含 `secret.key`）、根目录四个配置，以及逐成员 sha256 的 `manifest.json`；Kuma 全量库**只放在周日那份**里。
-- **比 Kuma 活得久的审计**：每天的 CSV 同时在 `data/audit/` 留一份，**不受 14 份限制**（Kuma 自己只留 365 天）。
+- **包里有什么**：库的一致性快照（`node:sqlite` 的 `backup()`，WAL 下不用停服）、**当天每个时间点的观测心跳 CSV**（`time,monitor_id,monitor_name,status,msg,ping`，审计用）、观测项定义、`data/*.json|txt`（含 `secret.key`）、根目录四个配置，以及逐成员 sha256 的 `manifest.json`。
+- **长期审计归档**：每天的 CSV 同时在 `data/audit/` 留一份，**不受 14 份限制**。
 - **第二个目的地：远程数据库**（MySQL / PostgreSQL）：同一个包写进远端库的一行，上传后回读 sha256 校验，密码跟其它凭据一样加密落盘；页面里能测试连接、上传、取回、删除。
 - **备份页**（侧栏第 7 项、手机底部第 7 个图标）：两个目的地各显示份数 / 上次时间 / 上次结果，可「立即备份」、下载、看清单、删除单份。
 - 恢复步骤、`secret.key` 丢了怎么办、审计 CSV 怎么用：[`docs/backup-restore.zh.md`](docs/backup-restore.zh.md)。

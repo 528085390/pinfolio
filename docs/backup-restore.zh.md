@@ -12,15 +12,14 @@
 
 | 成员 | 内容 | 什么时候有 |
 |---|---|---|
-| `pinboard.db` | 库的一致性快照（`node:sqlite` 的 `backup()`，WAL 下不用停服） | 每次 |
+| `pinboard.db` | 库的一致性快照（`node:sqlite` 的 `backup()`，WAL 下不用停服；含便签、资产、观测项定义与心跳数据） | 每次 |
 | `heartbeats-YYYYMMDD.csv.gz` | 当天全部观测心跳：`time,monitor_id,monitor_name,status,msg,ping` | 每次（当天没有心跳就是只有表头） |
-| `monitors.json` | 观测项定义（id / 名字 / 分组 / 间隔 / URL），对着 CSV 看是谁 | 每次（Kuma 连不上就没有） |
-| `kuma.db` | Kuma 全量快照 | **只在周日的包里**（约 3.3 MB gz） |
-| `data/metrics.json`、`data/kuma-pass.txt`、`data/secret.key` | 主机采集配置 / Kuma 口令 / **主密钥** | 存在才打 |
+| `monitors.json` | 观测项定义（id / 名字 / 分组 / 间隔 / URL），对着 CSV 看是谁 | 每次 |
+| `data/metrics.json`、`data/secret.key` | 主机采集配置 / **主密钥** | 存在才打 |
 | `monitor-links.json`、`monitor-actions.json`、`host-services.json`、`quick-links.json` | 项目根目录的四个配置 | 存在才打 |
 | `manifest.json` | 每个成员的名字 / 大小 / sha256 + 生成时间 + 实例 id | 每次 |
 
-日常一份约 0.5–0.7 MB，周日那份约 3.9 MB。页面上的「清单」读的就是 `manifest.json`。
+日常一份约 0.5–0.7 MB。页面上的「清单」读的就是 `manifest.json`。
 
 ## 自动与手动
 
@@ -43,8 +42,6 @@ node dist/server.js --backup --remote   # 只传远端库
 | `BACKUP_HOUR` | `3` | 每天几点跑（0–23） |
 | `BACKUP_KEEP` | `14` | 本机保留份数，多的删最旧 |
 | `BACKUP_DIR` | `<data>/backups` | 备份包目录 |
-| `KUMA_DB` | `../kuma/data/kuma.db` | 心跳 CSV 与 `kuma.db` 的来源 |
-
 ## 远端数据库
 
 在备份页右下角「连接远程数据库」里填：类型（MySQL / PostgreSQL）、地址、端口、库名、用户名、密码、表名
@@ -89,25 +86,20 @@ MySQL 的 `max_allowed_packet` 默认 64 MB，包超过限制时页面会直说�
 
 备份页远端栏那一行的「取回」→ 落到 `data/backups/`，之后按 A 的第 1–4 步。
 
-### D. 只恢复观测（Kuma）
-
-周日的包里才有 `kuma.db`。恢复前先 `kuma\tools\kuma.ps1 stop`（**不能只停 pinfolio**），
-覆盖 `kuma/data/kuma.db`，删掉 `kuma.db-wal` / `kuma.db-shm`，再 `kuma.ps1 start`。
-
 ## secret.key 丢了怎么办
 
-`secret.key`（或 `PINBOARD_SECRET`）是邮箱密码 / Kuma 口令 / 指标 token 的加密密钥，**丢了这些字段就解不开**。
+`secret.key`（或 `PINBOARD_SECRET`）是邮箱密码 / 指标 token 的加密密钥，**丢了这些字段就解不开**。
 
 - 有备份包：解开包里那份 `data/secret.key` 放回去即可。
 - 没有：删掉 `data/secret.key` 让程序重新生成（旧密文永远解不开），然后**在页面里重填**邮箱密码、
-  Kuma 口令（或直接改 `data/kuma-pass.txt`）、主机采集地址。解密失败时账号列表会提示「请点编辑重填一次」，
+  主机采集地址。解密失败时账号列表会提示「请点编辑重填一次」，
   不会假装成「没设密码」。
 
 ## 观测历史（审计）
 
 - 每个包里的 `heartbeats-YYYYMMDD.csv.gz` 覆盖**当天**的心跳；跨天要拼多份包。
 - 同时每天在 `data/audit/heartbeats-YYYYMMDD.csv.gz` 留一份，**不受 14 份保留策略影响**——这是长期审计的来源。
-  Kuma 自己的 `keepDataPeriodDays` 是 365 天，超过就删，所以别只依赖 Kuma。
+  长期审计靠这个目录归档。
 - 用法：`zcat heartbeats-20261026.csv.gz | head`，或直接用 pandas / Excel 打开（UTF-8，字段里有逗号会加引号）。
 
 ## 验收一次备份
@@ -128,4 +120,4 @@ MySQL 的 `max_allowed_packet` 默认 64 MB，包超过限制时页面会直说�
 - **备份跑失败但服务正常**：设计如此，失败只记日志与页面状态，不影响请求。看 `logs/pinboard.log` 里的 `[backup]` 行。
 - **远端连接超时**：先确认数据库监听地址（MySQL 默认只监听 127.0.0.1；容器里要填宿主 IP 或 `host.docker.internal`）。
 - **PostgreSQL 报 `relation "pinfolio_backups" does not exist`**：保存配置后先点一次「立即上传」，表是那时建的。
-- **包越来越大**：周日那份带 `kuma.db`，正常；如果每天都是 4 MB，检查是不是 `kuma.db` 每天都在包里（只有周日该有）。
+

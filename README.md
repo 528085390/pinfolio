@@ -3,7 +3,7 @@
 [![CI](https://github.com/528085390/pinfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/528085390/pinfolio/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Tests](https://img.shields.io/badge/unit%20tests-495%20passing-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/unit%20tests-740%20passing-brightgreen)](#development)
 [![Image](https://img.shields.io/badge/ghcr.io-pinfolio-2496ed?logo=docker&logoColor=white)](https://github.com/528085390/pinfolio/pkgs/container/pinfolio)
 
 **English** · [中文](README.zh.md)
@@ -61,9 +61,10 @@ Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `t
 - Card or table view, filter by kind / status / tag (a tag bar shows what's in use), search over name, serial and notes.
 
 ### Monitors
-- Data comes from a **local Uptime Kuma** (default `http://127.0.0.1:3001`, status page `obs`); Kuma is only the probing backend, the UI is here.
+- Powered by a **native multi-protocol probe engine** (HTTP / TCP Port / SSH Command / Push) running directly inside the pinfolio process. Probes store results straight into `data/pinboard.db` without needing an external Uptime Kuma instance.
+- Global outbound network mode (direct / SOCKS5 proxy) in Settings, plus per-monitor pinning (follow global / pin direct / pin proxy) in the detail drawer.
 - One screen: tiles (monitors / up / down / 24h uptime), then cards grouped by machine, each with the last 40 heartbeats, response time, 24h uptime and incident count. 30-second auto-refresh, card or table view.
-- Clicking a card opens a drawer to rename, change the interval, pause, delete (type the name to confirm) and **check now**; all of it is written back to Kuma.
+- Clicking a card opens a drawer to rename, change the interval, pause, delete (type the name to confirm) and **check now** (recipe execution).
 - Full behaviour, jump-to-admin links and recipes: [`docs/features.md`](docs/features.md#monitors).
 
 ### Mail
@@ -81,8 +82,8 @@ Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `t
 
 ### Backup
 - **Runs by itself**: every day at 03:00 it packs a tarball into `data/backups/` (`BACKUP=0` turns it off, `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` adjust it). 14 kept, oldest deleted.
-- **What is in the box**: a consistent database snapshot (`node:sqlite`'s `backup()`, so WAL does not need a stop), **the day's heartbeats as CSV** (`time,monitor_id,monitor_name,status,msg,ping`) for auditing, the monitor definitions, `data/*.json|txt` including `secret.key`, the four root configs, and a `manifest.json` with a sha256 per member. The full `kuma.db` rides along **only in the Sunday pack**.
-- **Audit trail that outlives Kuma**: each day's CSV also lands in `data/audit/`, exempt from the 14-copy rule (Kuma itself only keeps 365 days).
+- **What is in the box**: a consistent database snapshot (`node:sqlite`'s `backup()`, so WAL does not need a stop), **the day's heartbeats as CSV** (`time,monitor_id,monitor_name,status,msg,ping`) for auditing, the monitor definitions, `data/*.json|txt` including `secret.key`, the four root configs, and a `manifest.json` with a sha256 per member.
+- **Audit trail**: each day's CSV also lands in `data/audit/`, exempt from the 14-copy rule.
 - **Second destination: a remote database** — MySQL or PostgreSQL; the same tarball becomes one row (sha256 re-read and verified after upload), password encrypted at rest like every other credential. Test the connection, upload, fetch a copy back, or delete a row from the page.
 - **Backup page** (7th item, 7th phone tab): copies, last run, last result, "Back up now", download, content list and delete — per destination.
 - Restore steps, what to do when `secret.key` is lost, and the audit CSV: [`docs/backup-restore.md`](docs/backup-restore.md).

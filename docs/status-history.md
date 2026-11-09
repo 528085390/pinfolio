@@ -507,3 +507,10 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 
 验证：`pnpm typecheck` 0 错误；`pnpm test:unit` **580/580**（单测从 490 增至 580，新增 90 个桌面端纯逻辑与跨模块单测）；`pnpm smoke:desktop` 退出码 0，端到端截图取证通过；`pnpm build:desktop` 输出 `pinfolio-Setup-0.5.0.exe`（123,315,883 B ≈ 117.6 MB，解包 asar 14.9 MB）；冷启动至 DOM 可交互约 1.2 秒；空闲常驻内存约 90-110 MB；生产服务 7788 pid 29312 与真实库全程未受任何干扰。
 文档同步：新增 `docs/desktop.zh.md`；`docs/pitfalls.md` 新增坑 66–78；`docs/architecture.md` 补齐双形态与桌面端模块职责；两份 README 增加桌面端快速开始与文档入口；`AGENTS.md` 与 `CHANGELOG.md` 同步。
+
+**已完成（2026-11-09，观测引擎全面原生内化与单进程单库重构）**：用户要求「kuma项目已经过时了，删了吧」，将观测台彻底内化为原生服务、完全消除外部依赖。
+① **架构彻底统一**：全面移除对外部 Uptime Kuma 3001 端口、计划任务 `KumaObs` 及 `kuma\` 目录的依赖。原 `server/kuma/*` 胶水层全面重构升级为 `server/monitor/*` 原生探针引擎（`engine.ts`、`store.ts`、`probes/`、`outbound.ts`、`policy.ts`、`snapshot.ts`、`recipe.ts`、`provision.ts`、`patch.ts`、`payload.ts`、`redact.ts`、`backup.ts`、`links.ts`、`quick.ts`）。
+② **原生多协议支持**：内置 HTTP(S)、TCP 端口、SSH 远程命令、Push 推送等探针实现；心跳与监控项状态直接落库至 `pinboard.db`（`monitors` 与 `monitor_beats` 表），彻底告别双库双进程，单进程 7788 自治运行。
+③ **全局出站代理与单项钉死**：落地出站 SOCKS5 代理路由，支持全局直连/代理模式切换（设置页），同时支持在抽屉内对单个监控项独立钉死出站规则（直连或走代理）。
+④ **自动化快照体系**：观测配置与状态快照收拢为 `SNAPSHOT-MONITORS.md`（写操作防抖 1.5 秒自动重写），与系统总览 `SNAPSHOT.md` 并行自治。
+⑤ **测试与安全防护**：全面内化并迁移全套单测与集成测试，测试套件增加至 740 项全绿（740/740 passed，0 failures）；删除监控项前自动 `VACUUM INTO` 备份 `pinboard.db` 留存最近 5 份快照。

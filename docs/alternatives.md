@@ -14,7 +14,7 @@ Checked in October 2026. Features move; when in doubt, check the project itself.
 | Asset inventory, custom fields | yes | — | yes | — | — |
 | Expiry / warranty reminders | yes | — | yes | — | — |
 | Price totals | yes | — | price per item, no total | — | — |
-| Uptime checks | reads Kuma | — | — | yes, it probes | — |
+| Uptime checks | native probes (HTTP/TCP/SSH/Push) | — | — | yes, it probes | — |
 | Host CPU / memory / disk | yes | — | — | — | — |
 | Read-only merged inbox | yes | — | — | — | — |
 | Bookmarks | — | — | — | — | yes |
@@ -27,7 +27,7 @@ Checked in October 2026. Features move; when in doubt, check the project itself.
 
 - **More than one user.** One password, one owner, no roles, no invitations, no sharing. If a family or a team needs separate accounts, every project in the table above has real user management and pinfolio does not.
 - **SSO, OIDC, 2FA.** A scrypt password, 30-day sliding sessions, a device list you can revoke, and bearer tokens for scripts. That is the whole auth surface.
-- **Probe your services.** The monitors page is a UI over an Uptime Kuma instance, read through Kuma's socket.io API. No Kuma, no monitors page. pinfolio never opens a connection to your services itself.
+- **Complex notification escalation matrices.** The monitors page embeds a native probe engine (HTTP/TCP/SSH/Push) for self-contained health checks, but does not provide dispatch matrices to dozens of chat bots or webhooks; it aims for a calm, unified overview.
 - **Write to your mailbox.** Mail is read-only by design: `SELECT` / `SEARCH` / `FETCH BODY.PEEK[]`, not a single `STORE`, so opening a message cannot mark it read on the server. No reply, no move, no delete.
 - **Keep long-term metrics.** Host charts cover the last 24 hours. The daily heartbeat CSVs in `data/audit/` are the long-term record. There is no alerting engine and no Prometheus or Grafana integration.
 - **Import anything.** The JSON export on the settings page is the only data path out. There is no Memos or HomeBox importer, and none is planned.
@@ -44,7 +44,7 @@ Go, one container, AGPL-3.0. Labels, locations, attachments, warranty dates, CSV
 
 ### Uptime Kuma — you need alerts, not an overview
 
-Node, MIT. Twenty-odd check types, notifications to everything, public status pages, maintenance windows, 2FA. pinfolio has no notification engine at all; it reads a Kuma instance and draws a calmer overview over it. If you do not already run Kuma, start there.
+Node, MIT. Twenty-odd check types, notifications to everything, public status pages, maintenance windows, 2FA. pinfolio provides built-in native probes for unified single-binary convenience, but does not include multi-channel notification engines. If you need wide notification fanouts or public status pages, Uptime Kuma is the tool for that.
 
 ### linkding — bookmarks
 
@@ -57,7 +57,7 @@ flatnotes and Blinko (notes), TriliumNext (hierarchical notes), Joplin (client p
 ## When pinfolio is the right fit
 
 - One person's stuff on one machine. No roles, no invitations, no sharing — by design, because that removes most of the auth surface.
-- You already run Uptime Kuma, or you are willing to, and you want the monitoring view to sit next to the notes about those machines.
+- You want the monitoring view to sit next to the asset inventory and notes about those machines in a single self-contained process without setting up external monitoring.
 - You want a note about a server and the server itself under the same tag.
 - You would rather back up one directory than three databases.
 

@@ -92,7 +92,7 @@ Only `N → N+1` upgrades are guaranteed; crossing several major versions means 
 - Manual: "Back up now" on the backup page, or `docker compose exec pinfolio node dist/server.js --backup`.
 - Getting it out: click "Download" on the backup page, or `docker compose cp pinfolio:/data/backups/<file> .`.
 
-The pack contains `secret.key`. **Lose the master key and the mailbox passwords / Kuma password / metrics source can no longer be decrypted** — treat the whole pack as a password and keep it off public cloud drives.
+The pack contains `secret.key`. **Lose the master key and the mailbox passwords / metrics source can no longer be decrypted** — treat the whole pack as a password and keep it off public cloud drives.
 
 ---
 
@@ -164,27 +164,21 @@ The repo ships an `.env.example`; copy it to `.env` and edit. `.env` is in `.git
 | `TRUST_PROXY` | off | Set to `1` behind a reverse proxy so `X-Forwarded-*` is read (the client IP is the last entry of `X-Forwarded-For`) |
 | `BACKUP` | on | `0` / `off` / `false` turns off the daily 03:00 backup |
 | `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` | `3` / `14` / `<data>/backups` | Hour and copy count of the scheduled backup |
-| `KUMA_URL` / `KUMA_SLUG` / `KUMA_USER` / `KUMA_PASS` | `http://127.0.0.1:3001` / `obs` / `admin` / read from `data/kuma-pass.txt` | Data source for the monitors page (`KUMA_SLUG` = the Kuma status page slug) |
-| `KUMA_DB` / `KUMA_DIR` | `<KUMA_DIR>/data/kuma.db` / `<parent dir>/kuma` | The Kuma database the day's heartbeats are exported from during backup, and the checkout it lives in |
-| `METRICS_INSTALL_URL` | derived from `PUBLIC_URL` | Where the host-metrics install command is hosted |
-| `KUMA_FLAVOR` | auto-detected | Force `fork` / `upstream` for whether Kuma is the modified build (detection uses the `policyJson` field) |
+| `MONITOR_SNAPSHOT` | `<app root>/SNAPSHOT-MONITORS.md` | Output path for the markdown monitor snapshot |
 | `PINBOARD_METRICS_BASE` / `PINBOARD_MAIL_PROXY` | from `data/metrics.json` / empty | Fallbacks for the metrics pull base and the mail proxy (normally set in the UI) |
-| `MONITOR_ACTIONS` / `MONITOR_LINKS` / `MONITOR_QUICK` / `HOST_SERVICES` / `KUMA_CLI` | see the code | Monitor recipes / jump links / quick links / service mapping |
+| `MONITOR_ACTIONS` / `MONITOR_LINKS` / `MONITOR_QUICK` / `HOST_SERVICES` | see the code | Monitor recipes / jump links / quick links / service mapping |
 | `SERVICES_FILE` | `<data dir>/services.json` | Deployment map for the services page (`servers` / `services` / `deploys` / `monitors`), re-read on every request; without the file the page is empty |
 
 ---
 
 ## Does the monitors page need Uptime Kuma
 
-Yes. The monitors page does not probe anything itself; it reads Uptime Kuma's JSON API:
+No. As of 2026-11-08, the probing engine has been natively internalized into pinfolio (single 7788 process):
 
-- Local use: that fork under `kuma/` runs on 3001 and works by default.
-- Another machine: set `KUMA_URL` (protocol and port included, e.g. `http://192.168.1.10:3001`), `KUMA_USER` and `KUMA_PASS`.
-- **With nothing connected the page is not blank**: it shows a three-step setup guide (start Kuma → create a status page with the slug `obs` → fill in `KUMA_URL` / `KUMA_SLUG` / `KUMA_PASS`),
-  and says the other seven pages work as usual. Detection goes through `GET /api/monitors/meta`: either the environment variables are set explicitly, or a public status page is readable at the default address — both count as connected.
-- Connected but unreachable shows a connection failure (not the setup guide); the other seven pages (notes / mail / assets / hosts / services / backup / settings) are unaffected.
-- Stock upstream Kuma connects too: detected automatically from whether a monitor has `policyJson`, and on upstream the detail drawer does not show "check now"; to force it, set `KUMA_FLAVOR=auto|fork|upstream`.
-- The heartbeat CSV in a backup pack comes from the `kuma.db` that `KUMA_DB` points at; a wrong path only loses the "day's heartbeats" item, the backup itself is still made.
+- **Built-in multi-protocol probe engine**: HTTP(S), TCP port, SSH remote command, and external Push probes run in-process and persist directly to `pinboard.db`.
+- **Zero external dependencies**: External Uptime Kuma (port 3001) and scheduled tasks are completely retired and removed.
+- **Outbound network proxying**: Configurable globally in Settings (direct or SOCKS5 proxy) and pinnable per monitor in the drawer.
+- **Integrated backup**: The daily backup exports heartbeats and monitor definitions directly from SQLite.
 
 ---
 

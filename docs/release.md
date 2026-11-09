@@ -26,7 +26,7 @@
 
    ```bash
    pnpm test                                  # typecheck + 单测 + 片段
-   PINBOARD_PASSWORD=<本机密码> node tests/run.mjs    # 15 套 e2e（需要本机 Kuma 与邮箱配置）
+   PINBOARD_PASSWORD=<本机密码> node tests/run.mjs    # e2e 测试（需要本机 7788 实例与邮箱配置）
    ```
 
 4. **构建一次**：`pnpm build`，确认 `dist/server.js` 与 `dist/web/` 都出来了。

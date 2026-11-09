@@ -24,13 +24,15 @@
 | PATCH/DELETE | `/tags/:id` | 改名改色 / 删除 |
 | GET/POST | `/fields` | 自定义字段列表 / 新建 |
 | PATCH/DELETE | `/fields/:id` | 修改 / 删除 |
-| GET | `/monitors` | 观测台数据：`{ kuma, updatedAt, summary, groups, quick }`，聚合 Kuma 状态页 + 心跳；`quick` 是根目录 `quick-links.json` 的快捷入口卡（`{ name, url, note, label, icon }[]`，只是外链、不进 summary 与筛选）；`?fresh=1` 强制重取观测项清单（清单缓存 5 分钟，心跳 5 秒） |
-| GET | `/monitors/meta` | 连的是哪个 Kuma、到底配没配：`{ configured, flavor, url }`。`flavor` 由 monitor 上的 `policyJson` 判定（`fork`/`upstream`，缓存 5 分钟，探测失败按 upstream，可用 `KUMA_FLAVOR` 强制）；`configured=false` 时前端显示引导卡 |
+| GET | `/monitors` | 观测台数据：`{ updatedAt, summary, groups, quick }`，聚合内置原生多协议探针（HTTP/TCP/SSH/Push）心跳与状态；`quick` 是根目录 `quick-links.json` 的快捷入口卡；每项包含最近 40 拍 `beatTimes` / `beatMsgs` / `beatPings` 对齐悬停 |
 | GET | `/monitors/:id` | 单个观测项详情：`{ monitor, latest, beats, action, link }`（敏感字段已脱敏，不含 SSH 私钥 / 密码 / token） |
-| PATCH | `/monitors/:id` | 改名 / 改介绍 / 改频率 / 改超时重试（`name` `description` `interval` `timeout` `maxretries` `retryInterval` `showMsg`），写回 Kuma；重名、被策略按名字引用、超时 ≥ 频率都会被拒 |
-| POST | `/monitors/:id/pause`、`/monitors/:id/resume` | 暂停 / 恢复观测（Kuma 不再探测，历史心跳保留） |
-| DELETE | `/monitors/:id?confirm=<名字>` | 删除观测项（名字必须原样输对）；先备份 `kuma/data/kuma.db` 到 `kuma/backups/`，再连带历史心跳删除 |
-| POST | `/monitors/:id/check` | 立即观测：按配方顺序执行并逐步骤返回 `{ ok, steps: [{ type, label, ok, detail, ms }], latest }`；暂停中或推送型没配方会被拒 |
+| PATCH | `/monitors/:id` | 改名 / 改介绍 / 改频率 / 改超时重试 / 单项出站代理钉死（`outboundMode: follow|direct|proxy`），事务性写入 `pinboard.db` 并防抖更新快照 |
+| POST | `/monitors/:id/pause`、`/monitors/:id/resume` | 暂停 / 恢复观测（探针引擎停止/恢复探测，历史心跳保留） |
+| DELETE | `/monitors/:id?confirm=<名字>` | 删除观测项（名字必须原样输对）；先 VACUUM INTO 备份当前库到 `data/backups/pinboard-monitor-del-*.db`，再连带历史心跳删除 |
+| POST | `/monitors/:id/check` | 立即观测：按配方顺序执行并逐步骤返回 `{ ok, steps: [{ type, label, ok, detail, ms }], latest }`；暂停中会被拒 |
+| GET/POST | `/push/:token` | Push 类型心跳外部上报接口：接收状态打点与消息，记录心跳并更新状态 |
+| GET/POST | `/outbound` | 获取全局出站网络配置 / 保存配置（`mode: direct|proxy`, `proxy: { protocol, host, port, username, password }`） |
+| POST | `/outbound/test` | 测试全局出站代理连通性 |
 | GET/POST | `/mail/accounts` | 信箱列表（`?counts=1` 带未读数）/ 新建。**任何返回都不含密码**，只给 `hasPassword`；带 `proxy` 字段（空 = 直连） |
 | PUT/DELETE | `/mail/accounts/:id` | 修改（密码留空 = 不改）/ 删除（连带清掉本地已读标记） |
 | POST | `/mail/accounts/test` | 测连接，收原始参数或 `{id}`（复用已存密码与代理）；失败返回可读中文原因（配了代理会说明是「经代理 …」失败） |

@@ -29,11 +29,7 @@ The prerequisite is being able to reach it from the phone: a direct LAN connecti
 
 ## Features
 
-**What happens if Uptime Kuma is not installed?** Only the monitors page shows a three-step setup card; the other seven pages are entirely normal.
-The probing itself is run by Kuma — pinfolio is only its interface.
-
-**Can it connect to stock upstream Kuma?** Yes. It detects whether this is the modified fork from the `policyJson` field; on stock upstream it merely does not show
-fork-only entry points such as "check now". To force it, use `KUMA_FLAVOR=fork|upstream`.
+**Does the monitors page require Uptime Kuma?** No. pinfolio embeds a native multi-protocol probe engine (HTTP / TCP Port / SSH Command / Push), storing heartbeats and status directly in the local SQLite database as a self-contained service.
 
 **Why is mail read-only?** It is deliberate: fetching always uses `BODY.PEEK`, so mail is never marked read, deleted or moved.
 "Read on this page" is recorded only in the local database. To see another folder, switch in the dropdown.
@@ -46,11 +42,10 @@ and no more cross-linking is planned.
 **Where does the data live?** All of it is under `PINBOARD_DATA` (default `data/`): `pinboard.db` is the main database, `secret.key` is the encryption master key,
 `backups/` holds the backup packs, and `audit/` the daily monitor heartbeat CSVs.
 
-**Are passwords stored in plain text?** The login password is a scrypt hash; mailbox passwords / the Kuma password / the metrics token are encrypted with AES-256-GCM
+**Are passwords stored in plain text?** The login password is a scrypt hash; mailbox passwords / the metrics token / proxy credentials are encrypted with AES-256-GCM
 (`enc:v1:…`), and the master key is in `data/secret.key` or `PINBOARD_SECRET`.
 
-**What if `secret.key` is lost?** Those encrypted fields can no longer be decrypted: mailbox accounts need their passwords entered again, the Kuma password needs re-configuring,
-and the metrics source address needs entering again. The rest of the data (notes, assets, monitor history) is unaffected. So **a backup has to include `secret.key`**,
+**What if `secret.key` is lost?** Those encrypted fields can no longer be decrypted: mailbox accounts need their passwords entered again, outbound proxy credentials and metrics source addresses need entering again. The rest of the data (notes, assets, monitor history) is unaffected. So **a backup has to include `secret.key`**,
 and do not put it on the same machine as the backup (losing both at once makes the encryption pointless).
 
 **Forgot the login password?** Stop the service, run `node --import tsx server/index.ts --reset-password` (or the same command inside the container),
@@ -67,7 +62,7 @@ Using it yourself, modifying it yourself and deploying it yourself are all unres
 **How do I turn backups on?** They are on by default: every day at 03:00 it packs everything into `data/backups/`, keeping 14 copies. `BACKUP=0` turns it off,
 `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` are adjustable. MySQL / PostgreSQL can also be configured as a remote destination.
 
-**How do I restore?** See [`backup-restore.md`](backup-restore.md): four scenarios — a whole-machine move, rolling back only the database, fetching back from the remote, and restoring only Kuma.
+**How do I restore?** See [`backup-restore.md`](backup-restore.md): three scenarios — a whole-machine move, rolling back only the database, and fetching back from the remote.
 
 **Will upgrading lose data?** No. A snapshot is taken automatically before migrating (5 kept), and a failed migration aborts startup. Steps are in [`upgrade.md`](upgrade.md).
 

@@ -92,7 +92,7 @@ docker compose logs pinfolio        # 看是哪一步失败
 - 手动：备份页「立即备份」，或 `docker compose exec pinfolio node dist/server.js --backup`。
 - 取出来：备份页点「下载」，或 `docker compose cp pinfolio:/data/backups/<文件> .`。
 
-包里含 `secret.key`。**主密钥丢了，邮箱密码 / Kuma 口令 / 指标源就都解不开**——请把整包当密码对待，别放公开网盘。
+包里含 `secret.key`。**主密钥丢了，邮箱密码 / 指标源就都解不开**——请把整包当密码对待，别放公开网盘。
 
 ---
 
@@ -164,27 +164,21 @@ powershell -File tools\pinboard.ps1 start
 | `TRUST_PROXY` | 关 | 前置反代时设 `1`，才读 `X-Forwarded-*`（客户端 IP 取 `X-Forwarded-For` 最后一段） |
 | `BACKUP` | 开 | `0` / `off` / `false` 关掉每天 03:00 的定时备份 |
 | `BACKUP_HOUR` / `BACKUP_KEEP` / `BACKUP_DIR` | `3` / `14` / `<data>/backups` | 定时备份的时间与保留份数 |
-| `KUMA_URL` / `KUMA_SLUG` / `KUMA_USER` / `KUMA_PASS` | `http://127.0.0.1:3001` / `obs` / `admin` / 读 `data/kuma-pass.txt` | 观测页的数据源（`KUMA_SLUG` = Kuma 状态页 slug） |
-| `KUMA_DB` / `KUMA_DIR` | `<KUMA_DIR>/data/kuma.db` / `<上级目录>/kuma` | 备份时导出当天心跳的 Kuma 库与它的仓库目录 |
-| `METRICS_INSTALL_URL` | 按 `PUBLIC_URL` 推 | 主机指标安装命令的托管地址 |
-| `KUMA_FLAVOR` | 自动探测 | `fork` / `upstream` 强制指定 Kuma 是不是改造版（探测靠 `policyJson` 字段） |
+| `MONITOR_SNAPSHOT` | `<应用根目录>/SNAPSHOT-MONITORS.md` | 观测台快照输出路径 |
 | `PINBOARD_METRICS_BASE` / `PINBOARD_MAIL_PROXY` | 读 `data/metrics.json` / 空 | 指标拉取基址、邮箱代理的兜底值（正常在页面里配） |
-| `MONITOR_ACTIONS` / `MONITOR_LINKS` / `MONITOR_QUICK` / `HOST_SERVICES` / `KUMA_CLI` | 见代码 | 观测项配方 / 跳转 / 快捷入口 / 服务映射 |
+| `MONITOR_ACTIONS` / `MONITOR_LINKS` / `MONITOR_QUICK` / `HOST_SERVICES` | 见代码 | 观测项配方 / 跳转 / 快捷入口 / 服务映射 |
 | `SERVICES_FILE` | `<数据目录>/services.json` | 服务页的部署关系（`servers` / `services` / `deploys` / `monitors`），每次请求热读；没有这个文件就是空页面 |
 
 ---
 
-## 观测页要不要接 Uptime Kuma
+## 观测页是否需要外部 Uptime Kuma
 
-要。观测页本身不探测，它读 Uptime Kuma 的 JSON API：
+不需要。自 2026-11-08 起，观测引擎已全面原生内化至 pinfolio（7788 单进程）：
 
-- 本机自用：`kuma/` 那个改造版跑在 3001，默认就通。
-- 别的机器：设 `KUMA_URL`（含协议与端口，例如 `http://192.168.1.10:3001`）、`KUMA_USER`、`KUMA_PASS`。
-- **完全没接时观测页不会空白**：给一张三步引导卡（起 Kuma → 建 slug 为 `obs` 的状态页 → 填 `KUMA_URL` / `KUMA_SLUG` / `KUMA_PASS`），
-  并写明其余七页照常可用。判定走 `GET /api/monitors/meta`：显式配了环境变量，或者默认地址上读得到公开状态页，都算接上了。
-- 接了但连不上时，观测页显示连接失败（不是引导卡）；其余七页（便签 / 邮件 / 资产 / 主机 / 服务 / 备份 / 设置）不受影响。
-- 上游原版 Kuma 也能连：按观测项有没有 `policyJson` 自动识别，上游版下详情抽屉不显示「立即观测」；要强制指定就设 `KUMA_FLAVOR=auto|fork|upstream`。
-- 备份包里的心跳 CSV 来自 `KUMA_DB` 指向的 `kuma.db`；路径不对只是少了「当天心跳」这一项，备份本身照做。
+- **内置原生探测引擎**：支持 HTTP(S) / TCP 端口 / SSH 远程命令 / Push 外部推送四种协议，直接运行在进程内并写入 `pinboard.db`。
+- **无需外部依赖**：外部 Uptime Kuma 进程（3001 端口）、旧计划任务均已退役删除，单进程单 SQLite 库开箱即用。
+- **出站代理支持**：可在设置页配置全局出站 SOCKS5 代理或直连，并在各观测项抽屉中独立钉死。
+- **自动备份集成**：每天备份时直接从本地 `pinboard.db` 读取观测项定义与当天心跳并打包，无需依赖外部数据库。
 
 ---
 
