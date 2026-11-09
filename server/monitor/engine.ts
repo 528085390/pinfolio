@@ -43,7 +43,6 @@ export class MonitorEngine {
   private scheduleTimers = new Map<number, NodeJS.Timeout>()
   private retryCounters = new Map<number, number>()
   private pruneTimer: NodeJS.Timeout | null = null
-  private initialPruneTimer: NodeJS.Timeout | null = null
 
   constructor(options: MonitorEngineOptions) {
     this.db = options.db
@@ -103,29 +102,24 @@ export class MonitorEngine {
    * Schedule daily 7-day heartbeat pruning: runs initial check after 5s, then every 24h.
    */
   private schedulePruning(): void {
-    if (this.pruneTimer || this.initialPruneTimer) return
+    if (this.pruneTimer) return
 
-    this.initialPruneTimer = setTimeout(() => {
-      this.initialPruneTimer = null
-      try {
-        this.store.pruneHeartbeats(7)
-      } catch (err) {
-        console.error('[MonitorEngine] Initial heartbeat pruning error:', err)
-      }
-    }, 5000)
-    this.initialPruneTimer.unref?.()
-
-    this.pruneTimer = setInterval(() => {
-      try {
-        const deleted = this.store.pruneHeartbeats(7)
-        if (deleted > 0) {
-          console.log(`[MonitorEngine] Pruned ${deleted} expired heartbeats (>7 days)`)
+    const schedule = (delayMs: number) => {
+      this.pruneTimer = setTimeout(() => {
+        try {
+          const deleted = this.store.pruneHeartbeats(7)
+          if (deleted > 0) {
+            console.log(`[MonitorEngine] Pruned ${deleted} expired heartbeats (>7 days)`)
+          }
+        } catch (err) {
+          console.error('[MonitorEngine] Heartbeat pruning error:', err)
         }
-      } catch (err) {
-        console.error('[MonitorEngine] Heartbeat pruning error:', err)
-      }
-    }, 24 * 60 * 60 * 1000)
-    this.pruneTimer.unref?.()
+        schedule(24 * 60 * 60 * 1000)
+      }, delayMs)
+      this.pruneTimer.unref?.()
+    }
+
+    schedule(5000)
   }
 
   start(): void {
@@ -150,12 +144,8 @@ export class MonitorEngine {
    * Stop all active schedules and reset timers.
    */
   stop(): void {
-    if (this.initialPruneTimer) {
-      clearTimeout(this.initialPruneTimer)
-      this.initialPruneTimer = null
-    }
     if (this.pruneTimer) {
-      clearInterval(this.pruneTimer)
+      clearTimeout(this.pruneTimer)
       this.pruneTimer = null
     }
     this.running = false

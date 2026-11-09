@@ -308,10 +308,8 @@ test('MonitorEngine: start schedules heartbeat pruning, and stop clears timer', 
   assert.equal((engine as any).pruneTimer, null)
   engine.start()
   assert.ok((engine as any).pruneTimer)
-  assert.ok((engine as any).initialPruneTimer)
 
   engine.stop()
   assert.equal((engine as any).pruneTimer, null)
-  assert.equal((engine as any).initialPruneTimer, null)
   assert.equal(engine.isRunning(), false)
 })
