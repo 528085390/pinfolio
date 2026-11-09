@@ -36,8 +36,13 @@ export const shell: Dict = {
   '本机文件 + 远程数据库 · 每天 03:00': 'Local files + remote databases · daily at 03:00',
   '字段、标签、账号与安全': 'Fields, tags, account and security',
 
-  // 设置页外观卡（主题 + 语言）
+  // 设置页外观卡（风格 + 折射 + 主题 + 语言）
   '外观': 'Appearance',
+  '风格': 'Style',
+  '暖纸': 'Paper',
+  '玻璃': 'Glass',
+  '折射': 'Refraction',
+  '标准': 'Standard',
   '主题': 'Theme',
   '语言': 'Language',
   '浅色': 'Light',

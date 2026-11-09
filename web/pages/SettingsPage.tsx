@@ -1,4 +1,5 @@
 import type { FieldDef, Stats, Tag } from '../lib/api'
+import type { RefractPref, StylePref } from '../lib/theme-prefs'
 import { AppearanceCard } from './settings/AppearanceCard'
 import { DataCard } from './settings/DataCard'
 import { OutboundCard } from './settings/OutboundCard'
@@ -9,13 +10,17 @@ import { TagsCard } from './settings/TagsCard'
 import { useSettings } from './settings/useSettings'
 
 // 组合层：四张卡片各自独立，状态与动作都在 useSettings 里。
-export function SettingsPage({ tags, fields, stats, refreshMeta, theme, setTheme }: {
+export function SettingsPage({ tags, fields, stats, refreshMeta, theme, setTheme, style, setStyle, refract, setRefract }: {
   tags: Tag[]
   fields: FieldDef[]
   stats: Stats | null
   refreshMeta: () => void
   theme: string
   setTheme: (t: string) => void
+  style: StylePref
+  setStyle: (v: StylePref) => void
+  refract: RefractPref
+  setRefract: (v: RefractPref) => void
 }) {
   const s = useSettings({ refreshMeta })
   const empty = !stats || (stats.notes === 0 && stats.assets === 0)
@@ -23,7 +28,14 @@ export function SettingsPage({ tags, fields, stats, refreshMeta, theme, setTheme
   return (
     <div className="page" style={{ maxWidth: 860 }}>
       {s.msg ? <div className="alert" style={{ marginBottom: 14 }}>{s.msg}</div> : null}
-      <AppearanceCard theme={theme} setTheme={setTheme} />
+      <AppearanceCard
+        theme={theme}
+        setTheme={setTheme}
+        style={style}
+        setStyle={setStyle}
+        refract={refract}
+        setRefract={setRefract}
+      />
       <FieldsCard s={s} fields={fields} />
       <TagsCard s={s} tags={tags} />
       <DataCard s={s} empty={empty} />

@@ -2,11 +2,32 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type FieldDef, type HostSummary, type MonitorSummary, type Stats, type Tag } from '../lib/api'
 import { usePage } from '../lib/router'
 import { useMonitorAlerts } from '../lib/monitors'
+import {
+  REFRACT_KEY,
+  STYLE_KEY,
+  THEME_KEY,
+  applyPref,
+  readStoredRefract,
+  readStoredStyle,
+  readStoredTheme,
+  type RefractPref,
+  type StylePref,
+} from '../lib/theme-prefs'
 import type { MailSummary } from './titles'
 
-export const THEME_KEY = 'pinboard-theme'
+// 三个持久化键的权威定义在 lib/theme-prefs（首帧要用同一套），这里原样转出，别处照旧从 useShell 引
+export { REFRACT_KEY, STYLE_KEY, THEME_KEY }
 
-// 应用外壳的状态：页面、元数据、主题、命令面板、异常通知、跨页跳转。
+// 存偏好：隐私模式下 localStorage 会抛，但切换本身要照常生效
+function storePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // 存不下就只在本次会话内生效
+  }
+}
+
+// 应用外壳的状态：页面、元数据、主题、风格、命令面板、异常通知、跨页跳转。
 // 页面组件只拿自己需要的，别把整包往下传。
 export function useShell() {
   // 页面由 URL 驱动：/notes /assets /monitors /settings，刷新和深链都停在同一页
@@ -24,7 +45,10 @@ export function useShell() {
   // 从异常通知点进来时要定位的观测项（null = 不用定位）
   const [focusMonitorId, setFocusMonitorId] = useState<number | null>(null)
   const { alerts: monitorAlerts, dismiss: dismissAlert } = useMonitorAlerts()
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem(THEME_KEY) || 'system')
+  const [theme, setTheme] = useState<string>(() => readStoredTheme())
+  // 风格与折射是正交于明暗的两个维度：paper/glass、on/off
+  const [style, setStyle] = useState<StylePref>(() => readStoredStyle())
+  const [refract, setRefract] = useState<RefractPref>(() => readStoredRefract())
 
   const refreshMeta = useCallback(async () => {
     try {
@@ -43,16 +67,27 @@ export function useShell() {
   }, [refreshMeta])
 
   useEffect(() => {
-    localStorage.setItem(THEME_KEY, theme)
+    storePref(THEME_KEY, theme)
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
       const dark = theme === 'dark' || (theme === 'system' && mql.matches)
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      applyPref('theme', dark ? 'dark' : 'light')
     }
     apply()
     mql.addEventListener('change', apply)
     return () => mql.removeEventListener('change', apply)
   }, [theme])
+
+  // 风格与折射各自一条 effect：只写自己那一维的 dataset，互不牵连
+  useEffect(() => {
+    storePref(STYLE_KEY, style)
+    applyPref('style', style)
+  }, [style])
+
+  useEffect(() => {
+    storePref(REFRACT_KEY, refract)
+    applyPref('glassRefract', refract)
+  }, [refract])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -86,6 +121,8 @@ export function useShell() {
     focusMonitorId, setFocusMonitorId,
     monitorAlerts, dismissAlert,
     theme, setTheme,
+    style, setStyle,
+    refract, setRefract,
     openAsset, openMonitor,
   }
 }

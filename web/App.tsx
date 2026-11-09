@@ -73,7 +73,18 @@ export function App() {
           ) : s.page === 'services' ? (
             <ServicesPage onOpenMonitor={s.openMonitor} />
           ) : s.page === 'settings' ? (
-            <SettingsPage tags={s.tags} fields={s.fields} stats={s.stats} refreshMeta={s.refreshMeta} theme={s.theme} setTheme={s.setTheme} />
+            <SettingsPage
+              tags={s.tags}
+              fields={s.fields}
+              stats={s.stats}
+              refreshMeta={s.refreshMeta}
+              theme={s.theme}
+              setTheme={s.setTheme}
+              style={s.style}
+              setStyle={s.setStyle}
+              refract={s.refract}
+              setRefract={s.setRefract}
+            />
           ) : (
             <BackupPage />
           )}
