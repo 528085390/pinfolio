@@ -34,7 +34,9 @@ export const SPRING_MOVE = { zeta: 1.0, response: 0.4 }
  * velocity 单位 px/ms，decel 是每毫秒保留的速度比例；Apple 原式，别换成 v²/2a。
  */
 export function project(velocity: number, decel = 0.998): number {
-  return (velocity / 1000) * decel / (1 - decel)
+  // Apple 原式 (v/1000)*decel/(1-decel) 的 /1000 是因为 UIScrollView 的 velocity 单位是 pt/s；
+  // 本项目 v 用 px/ms，故去掉：v=1 px/ms 时投影 ≈ 499px（几何级数 Σ v·dt·decel^n）。
+  return velocity * decel / (1 - decel)
 }
 
 /**

@@ -80,15 +80,19 @@ test('SPRING_DRAWER / SPRING_MOVE：Apple 出货值', () => {
 /* ---------- project ---------- */
 
 test('project：Apple 动量投影原式的具体值', () => {
-  assert.ok(Math.abs(project(1) - 0.499) < 1e-12, 'project(1)=' + project(1))
-  assert.ok(Math.abs(project(0.11) - 0.05489) < 1e-12, 'project(0.11)=' + project(0.11))
+  // 单位依据：Apple 原式 (v/1000)*decel/(1-decel) 的 /1000 来自 UIScrollView 的 velocity 用 pt/s；
+  // 本项目 v 统一用 px/ms（与 FLICK_VELOCITY=0.11 同单位），所以去掉了 /1000。
+  // 于是 project(v) = v * 0.998/0.002 = 499v：v=1 px/ms 投影 ≈ 499px，v=0.11 px/ms ≈ 54.89px（≈54.9），
+  // 与"每毫秒衰减 0.2%"的几何级数 Σ v·dt·decel^n 一致。
+  assert.ok(Math.abs(project(1) - 499) < 1e-6, 'project(1)=' + project(1))
+  assert.ok(Math.abs(project(0.11) - 54.89) < 1e-6, 'project(0.11)=' + project(0.11))
   assert.equal(project(0), 0)
 })
 
 test('project：与速度成正比、可换 decel', () => {
   assert.equal(project(-2), -project(2))
-  // decel=0.99 → v/1000 * 0.99/0.01 = v * 99 / 1000
-  assert.ok(Math.abs(project(1, 0.99) - 0.099) < 1e-12)
+  // decel=0.99 → v * 0.99/0.01 = 99v
+  assert.ok(Math.abs(project(1, 0.99) - 99) < 1e-6)
   assert.ok(project(1) > project(1, 0.9))
 })
 
