@@ -452,3 +452,44 @@ function applyThemeWithTransition(mutate: () => void) {
 2. **折射开关默认值**：默认开（Chromium 才真的看得见）还是默认关（用户自己去开）？**推荐开**。
 3. **⌘K 无动画**（§4.1 第 1 行）：确认按 Apple 频率表执行，删掉现在的 `animation: pop`。
 4. 玻璃下主色从暖橙 `#b4530a` 换成 Apple systemBlue `#0a84ff`：**刻意为之**（暖橙压在冷玻璃上显脏）。如果你希望玻璃也保留橙色强调，我改成暖色玻璃（改一行令牌）。
+
+---
+
+## 10. 实施记录（2026-11-09，落地后的偏差与实测结论）
+
+本节是**唯一权威的实施现状**：上面 §0–§9 是设计时写的，凡与本节点冲突，以本节点为准。
+
+### 10.1 已落地
+
+| 阶段 | 状态 | 提交 |
+|---|---|---|
+| P1 令牌 + 玻璃外壳 | 已完成 | `2192207` / `f476a82`（+ 修 `5ce3f6c` 恢复 hover、压层级预算） |
+| P2 动效 | 已完成 | `db35e0c`（motion.ts）+ `ace7ea5`（投影单位修正）+ `cd12a9d`（偏好同步修正）+ `28908f9`（presence + 跟手拖拽 + transition 化） |
+| P3 真折射 | **代码已落地、默认关闭** | `7e5f194`（见 10.3） |
+
+### 10.2 两处顺带修掉的生产缺陷（都是「设计没错、构建/取值错了」）
+
+1. **lightningcss 吃掉无前缀声明**：Vite 8 的 CSS 压缩器把 `backdrop-filter` 与 `-webkit-backdrop-filter` 认成同一属性，只保留**后出现**的那条。原来「无前缀在前」→ 产物里无前缀声明被删，Chrome 不认 `-webkit-`，玻璃层 computed 是 `none` = 线上等于没模糊。已把 10 处成对声明改成 `-webkit-` 在前、无前缀在后（`glass.css` 文件头有 ⚠️ 说明）。**重建产物后复查：每条规则两行都在。**
+2. **投影单位重复换算**：`project()` 原先把 `pt/s → px/ms` 再除一次 1000，速度被缩小 1000 倍，松手判据形同虚设。改成 `v * decel / (1 - decel)`，`project(1)`（1px/ms）≈ 499px。
+
+### 10.3 折射：实现保留，默认 `off`（唯一实质降级）
+
+真实 Chrome 156 + 真实组件实测（证据见 `tmp/sdd/glass-style-and-motion/reports/t5.md` §4）：
+
+- 同一条滤镜走 `filter: url(#refr)` 时位移是正常透镜斜坡（−2.0 / +6.5 / +11.0 px，随位置变号）；
+- 走 `backdrop-filter: url(#refr)` 时 **feImage 的结果喂不进 feDisplacementMap**（R=B=0），整块背景被恒定平移 ≈12.5px（= scale/2）。换成 `feFlood` 常量场就正常，换 PNG / 任意尺寸贴图都一样 → 是 Chromium 这条链路的问题，不是贴图或夹具问题。
+
+因此 `theme-prefs.ts` 的 `DEFAULT_REFRACT` 定为 `'off'`：开关和 `GlassDefs` 全部保留，等 Chromium 修好或用 Electron 确认后改一行即可启用；关闭时完全回落 P1 的纯 blur，观感正常。设置页开启时用一行小字如实说明现状。
+
+### 10.4 与正文的其他偏差
+
+1. **折射覆盖面取五个功能层**（.sidebar / .topbar / .drawer / .modal-card / .palette），比 §2.3 / §3.6 的三层多两个；理由：Apple 的侧栏本身就是折射材质，且折射开启时 blur 统一降到 18px（滤镜链比 30px 强模糊更短）。要回到三层，删折射块与降级块里 sidebar/topbar 四行选择器即可。
+2. **presence 时长**：抽屉 260ms（= `--dur-overlay`）、弹窗 240ms；关闭期间元素挂 `data-state="closing"` 留在 DOM，`ui.tsx` 冻结最后一次 open 的 title/children/footer，避免关闭瞬间先闪白。
+3. **抽屉退场用 `translateX(100%)`**（与拖拽关到底同终点），入场用 `@starting-style`（从 +24px / opacity .4 起）。只在 `.drawer-head`（及可选 `.drawer-grab`）抓拖拽，正文不抓，按钮/输入框不拦。
+4. **`fade` / `slide` 两条 keyframes 已删**，`pop` 保留（`misc.css` 的 toast 还在用）。
+
+### 10.5 仍然未验证 / 未做
+
+- Electron 桌面端（`dist-desktop`）未跑视觉验证。
+- 滚动 / 开合帧率未录 Performance 面板；层级预算（≤3 层 backdrop-filter）靠静态核对。
+- `web/App.tsx` 的 render 里直接读 `dataset.theme`（历史写法）未整顿。

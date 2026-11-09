@@ -43,7 +43,8 @@ export const shell: Dict = {
   '玻璃': 'Glass',
   '折射': 'Refraction',
   '标准': 'Standard',
-  '折射仅在 Chromium / 桌面端生效': 'Refraction only takes effect in Chromium / the desktop app',
+  '实验特性：Chromium 尚未修好 backdrop-filter 的位移贴图，翻开会有约 12px 整体错位':
+    'Experimental: Chromium does not yet feed displacement maps into backdrop-filter, so enabling this shifts the background by about 12px',
   '主题': 'Theme',
   '语言': 'Language',
   '浅色': 'Light',

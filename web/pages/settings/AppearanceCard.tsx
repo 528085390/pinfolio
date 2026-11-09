@@ -66,9 +66,10 @@ export function AppearanceCard({ theme, setTheme, style, setStyle, refract, setR
             ))}
           </div>
           {/* 折射要靠 backdrop-filter: url(#…) 画位移贴图，只有 Chromium / 桌面端（Electron）认；
-              其它引擎整块跳过、回落成普通毛玻璃，所以开启时明说一句，免得以为关了没反应。 */}
+              而且当前 Chrome 156 的 backdrop-filter 链路上位移贴图读不到（背景会整体错位约 12px），
+              所以默认关闭。开启就如实说清现状，别让人以为是调错了。 */}
           {refract === 'on' ? (
-            <div className="field-hint" style={{ marginBottom: 10, paddingLeft: 40 }}>{t('折射仅在 Chromium / 桌面端生效')}</div>
+            <div className="field-hint" style={{ marginBottom: 10, paddingLeft: 40 }}>{t('实验特性：Chromium 尚未修好 backdrop-filter 的位移贴图，翻开会有约 12px 整体错位')}</div>
           ) : null}
         </>
       ) : null}

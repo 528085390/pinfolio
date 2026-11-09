@@ -83,12 +83,13 @@ function installDom(): Dom {
 
 /* ---------- 三个 reader ---------- */
 
-test('readers：没存过时是 system / glass / on', () => {
+test('readers：没存过时是 system / glass / off', () => {
   assert.equal(readStoredTheme(store()), 'system')
   assert.equal(readStoredStyle(store()), DEFAULT_STYLE)
   assert.equal(readStoredStyle(store()), 'glass')
   assert.equal(readStoredRefract(store()), DEFAULT_REFRACT)
-  assert.equal(readStoredRefract(store()), 'on')
+  // 折射默认关：Chrome 156 的 backdrop-filter 读不到位移贴图（spec §3.6）
+  assert.equal(readStoredRefract(store()), 'off')
 })
 
 test('readers：显式值原样读回', () => {
@@ -103,14 +104,14 @@ test('readers：脏值一律回落缺省', () => {
   const s = store({ [THEME_KEY]: 'neon', [STYLE_KEY]: 'glass2', [REFRACT_KEY]: 'yes' })
   assert.equal(readStoredTheme(s), 'system')
   assert.equal(readStoredStyle(s), 'glass')
-  assert.equal(readStoredRefract(s), 'on')
+  assert.equal(readStoredRefract(s), 'off')
 })
 
 test('readers：localStorage 抛异常时当「没存过」', () => {
   const bad = throwingStore()
   assert.equal(readStoredTheme(bad), 'system')
   assert.equal(readStoredStyle(bad), 'glass')
-  assert.equal(readStoredRefract(bad), 'on')
+  assert.equal(readStoredRefract(bad), 'off')
 })
 
 test('readers：不传参时读全局 localStorage，Node 里没有也不炸', () => {
@@ -121,7 +122,7 @@ test('readers：不传参时读全局 localStorage，Node 里没有也不炸', (
   try {
     assert.equal(readStoredTheme(), 'system')
     assert.equal(readStoredStyle(), 'glass')
-    assert.equal(readStoredRefract(), 'on')
+    assert.equal(readStoredRefract(), 'off')
   } finally {
     if (had) g.localStorage = prev
   }
@@ -156,10 +157,10 @@ test('applyBootPrefs：三个属性都写下去，paper 也显式写', () => {
   assert.deepEqual({ ...ds }, { theme: 'dark', style: 'paper', glassRefract: 'off' })
 })
 
-test('applyBootPrefs：空存储 = light / glass / on，且跟随系统深色', () => {
+test('applyBootPrefs：空存储 = light / glass / off，且跟随系统深色', () => {
   const a = bootWin()
   applyBootPrefs(a.win)
-  assert.deepEqual({ ...a.ds }, { theme: 'light', style: 'glass', glassRefract: 'on' })
+  assert.deepEqual({ ...a.ds }, { theme: 'light', style: 'glass', glassRefract: 'off' })
   const b = bootWin({ dark: true })
   applyBootPrefs(b.win)
   assert.equal(b.ds.theme, 'dark', 'theme=system + 系统深色 → dark')
@@ -169,7 +170,7 @@ test('applyBootPrefs：没有 localStorage / matchMedia 也不炸，走缺省', 
   const { ds, win } = bootWin({ noStorage: true })
   delete win.matchMedia
   applyBootPrefs(win)
-  assert.deepEqual({ ...ds }, { theme: 'light', style: 'glass', glassRefract: 'on' })
+  assert.deepEqual({ ...ds }, { theme: 'light', style: 'glass', glassRefract: 'off' })
 })
 
 /* ---------- applyPref ---------- */

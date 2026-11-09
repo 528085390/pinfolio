@@ -16,7 +16,13 @@ export type StylePref = 'paper' | 'glass'
 export type RefractPref = 'on' | 'off'
 
 export const DEFAULT_STYLE: StylePref = 'glass'
-export const DEFAULT_REFRACT: RefractPref = 'on'
+/**
+ * 默认 'off'：折射（backdrop-filter: url(#pb-glass-refract)）在 Chrome 156 上画不对 ——
+ * 位移贴图的 feImage 结果喂不进 feDisplacementMap（R=B=0），整块背景会被恒定平移 ~12.5px
+ * 而不是做透镜压缩，面板边缘可见接缝。代码与开关都留着，等 Chromium 修好或 Electron 实测
+ * 确认后把这里改回 'on' 即可一键启用（spec §3.6 有完整证据）。
+ */
+export const DEFAULT_REFRACT: RefractPref = 'off'
 
 /**
  * <html> 上三个偏好属性的「attr → 合法取值」表。
