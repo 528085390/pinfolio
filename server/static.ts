@@ -41,6 +41,18 @@ function renderShell(raw: Buffer | string, c: Context): string {
   return raw.toString('utf8').replaceAll('__PINBOARD_ORIGIN__', pageOrigin(c))
 }
 
+/** 判定静态资源路径是否可长缓存（带内容哈希的资源可缓存 1 年，固定命名的壳/图标/元文件不长缓存） */
+export function isCacheablePath(p: string): boolean {
+  return !(
+    p === '/index.html' ||
+    p.endsWith('.webmanifest') ||
+    p.startsWith('/icons/') ||
+    p === '/apple-touch-icon.png' ||
+    p === '/favicon.ico' ||
+    p === '/robots.txt'
+  )
+}
+
 /** 托管 dist/web：命中文件就给文件，没扩展名的路径回 index.html（前端路由接管）。 */
 export function mountStatic(app: Hono) {
   app.get('*', async (c) => {
@@ -58,7 +70,7 @@ export function mountStatic(app: Hono) {
     try {
       const buf = await readFile(file)
       // 带哈希的 assets 可以长缓存；壳、manifest、图标都是固定文件名，改了要能立刻生效。
-      const cacheable = !(p === '/index.html' || p.endsWith('.webmanifest') || p.startsWith('/icons/') || p === '/apple-touch-icon.png')
+      const cacheable = isCacheablePath(p)
       // 首页壳要把预览卡的占位符换成真实域名；其余静态文件原样给。
       return c.body(p === '/index.html' ? renderShell(buf, c) : buf, 200, {
         'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
