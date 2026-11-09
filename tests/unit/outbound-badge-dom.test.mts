@@ -54,7 +54,7 @@ async function withServer<T>(plugins: Plugin[], fn: (load: (f: string) => Promis
     configFile: false, // 不加载仓库的 vite.config（root 会变成 web/，这里也不需要 dev server 配置）
     logLevel: 'error',
     plugins,
-    server: { middlewareMode: true, hmr: false },
+    server: { middlewareMode: true, hmr: false, ws: false },
     appType: 'custom',
   })
   try {
