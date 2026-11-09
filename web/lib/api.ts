@@ -49,6 +49,7 @@ export type { Asset } from './api/assets'
 export type {
   Host, HostDisk, HostTop, HostSeriesPoint, HostsPayload, HostSummary,
   HostInput, HostPatch, HostServiceInput, HostOnboard, UnitMonitor, ProvisionResult,
+  HostProbe, HostProbeBeat,
 } from './api/hosts'
 export type {
   Monitor, MonitorGroup, MonitorSummary, MonitorsPayload, MonitorBeat, QuickLink,

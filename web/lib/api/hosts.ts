@@ -9,6 +9,21 @@ export type HostSeriesPoint = [number, number, number]
 /** 某个 unit 对应的观测项（Kuma 的 id + 全名）；点 chip 就用这个 id 跳过去高亮 */
 export type UnitMonitor = { id: number; name: string }
 
+/** 卡片上的探针摘要（延迟 / 丢包 / 最近 24 拍色条）：服务端从观测台心跳聚合，不额外探测 */
+export type HostProbeBeat = { time: string; status: number; ping: number | null; msg: string }
+export type HostProbe = {
+  monitorId: number
+  name: string
+  type: string
+  /** 最近一次成功探测的往返毫秒 */
+  latencyMs: number | null
+  /** 最近 24 拍里 DOWN 的比例（0–100） */
+  lossPct: number | null
+  /** 时间升序，前端从左往右画色条 */
+  beats: HostProbeBeat[]
+  at: string | null
+}
+
 export type Host = {
   id: string
   label: string
@@ -18,6 +33,8 @@ export type Host = {
   paused?: boolean
   /** unit → 观测项；没配映射或观测项已删时是空对象（chip 就不可点） */
   unitMonitors?: Record<string, UnitMonitor>
+  /** 探针摘要；没有可用的观测项或还没有心跳时是 null */
+  probe?: HostProbe | null
   /** 距最近一次上报的秒数；null = 一次都没收到 */
   staleSec: number | null
   series: HostSeriesPoint[]

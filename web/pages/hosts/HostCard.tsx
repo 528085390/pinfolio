@@ -1,10 +1,15 @@
 import { Pause, Play, Trash2 } from 'lucide-react'
 import { cx, type Host, type HostSeriesPoint } from '../../lib/api'
 import { t } from '../../lib/i18n'
+import { BeatStrip } from '../../components/BeatStrip'
 import { findAssetsForHost } from '../../lib/telemetry-link'
 import { assetHref } from '../../components/monitor-drawer/display'
+import { hostFlag, hostRegion, hostVendor } from './region'
 
-// 一张卡 = 一台机。数据缺字段时全部走兜底文案，不要因为一台机少个字段就整页白屏。
+// 一张卡 = 一台机。版式照着「服务器列表」那种紧凑卡片来：
+// 抬头（灯 + 名字 + 厂商 + 机房旗）→ 一行硬件信息 → 三条带细进度条的占用（CPU / 内存 / 磁盘）→
+// 探针行（延迟 / 丢包 / 24 拍色条）→ 24 小时曲线 → 底栏（运行时间 + 内存前三）。
+// 数据缺字段时全部走兜底文案，不要因为一台机少个字段就整页白屏。
 
 function pct(v: number | undefined): string {
   return v === undefined || Number.isNaN(v) ? '—' : v.toFixed(1) + '%'
@@ -64,16 +69,16 @@ function Spark({ series }: { series: HostSeriesPoint[] }) {
   )
 }
 
-function Bar({ label, pct: v, text }: { label: string; pct: number; text: string }) {
+/** 一行占用：左边标签、中间补充数字、右边百分比，下面一条 4px 细进度条。 */
+function Meter({ label, v, value, note }: { label: string; v: number | undefined; value: string; note?: string }) {
   return (
-    <div className="host-bar" title={label + ' · ' + text}>
-      <div className="host-bar-head">
-        <span className="host-bar-path">{label}</span>
-        <span className="host-bar-text">{text}</span>
-      </div>
-      <div className="host-bar-track">
-        <i className={'host-bar-fill tone-' + tone(v)} style={{ width: Math.min(100, Math.max(1, v)) + '%' }} />
-      </div>
+    <div className="host-meter" title={note ? label + ' · ' + note : label}>
+      <span className="host-meter-label">{label}</span>
+      <span className="host-meter-note">{note || ''}</span>
+      <b className={'host-meter-val tone-' + tone(v)}>{value}</b>
+      <span className="host-meter-track">
+        <i className={'tone-' + tone(v)} style={{ width: Math.min(100, Math.max(1, v ?? 0)) + '%' }} />
+      </span>
     </div>
   )
 }
@@ -93,13 +98,21 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
   const memTotal = h.mem?.total_kb ?? 0
   const memUsed = memTotal - (h.mem?.avail_kb ?? 0)
   const effectiveLinkedAssets = linkedAssets ?? (assets ? findAssetsForHost(h.id, assets) : [])
+  const vendor = hostVendor(h.note)
+  const region = hostRegion(h.note)
+  const flag = hostFlag(h.note)
+  const probe = h.probe ?? null
+  // 色条沿用观测台的渲染（四态色 + 悬停看这一拍的时间 / 响应 / 消息）
+  const cells = (probe?.beats ?? []).map((b) => ({ status: b.status, tone: null }))
+  const details = (probe?.beats ?? []).map((b) => ({ time: b.time || null, msg: b.msg || null, ping: b.ping }))
+  const load1 = h.load?.[0]
 
   return (
     <div className={cx('host-card', h.paused ? 'is-paused' : !h.online && 'is-off')}>
       <div className="host-head">
         <span className={cx('host-dot', h.paused ? 'is-paused' : h.online ? 'is-on' : 'is-off')} />
         <span className="host-name">{h.label}</span>
-        <span className="host-note">{h.note}</span>
+        {vendor ? <span className="host-vendor">{vendor}</span> : null}
         {h.paused ? <span className="host-pause-tag">{t('已暂停')}</span> : null}
         {effectiveLinkedAssets.map((a) => (
           <a
@@ -161,39 +174,50 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
         </div>
       ) : (
         <>
-          <div className="host-figs">
-            <div className="host-fig">
-              <span>CPU</span>
-              <b className={'tone-' + tone(h.cpu_pct)}>{pct(h.cpu_pct)}</b>
-              <i>{t('{n} 核', { n: h.cores ?? '—' })}</i>
-            </div>
-            <div className="host-fig">
-              <span>{t('内存')}</span>
-              <b className={'tone-' + tone(h.mem?.used_pct)}>{pct(h.mem?.used_pct)}</b>
-              <i>{gb(memUsed)} / {gb(memTotal)}</i>
-            </div>
-            <div className="host-fig">
-              <span>{t('负载 1m')}</span>
-              <b>{h.load?.[0]?.toFixed(2) ?? '—'}</b>
-              <i>5m {h.load?.[1]?.toFixed(2) ?? '—'}</i>
-            </div>
-            <div className="host-fig">
-              <span>{t('已运行')}</span>
-              <b className="host-fig-sm">{uptime(h.uptime_s)}</b>
-              <i>{h.host || h.id}</i>
-            </div>
+          <div className="host-meta">
+            {region ? <span className="host-region">{flag ? flag + ' ' : ''}{region}</span> : null}
+            {h.os ? <span>{h.os}</span> : null}
+            {load1 !== undefined ? <span>{t('负载')} {load1.toFixed(2)}</span> : null}
+            {h.failed_units ? <span className="host-meta-bad">{t('{n} 个单元异常', { n: h.failed_units })}</span> : null}
           </div>
 
-          <Spark series={h.series} />
-
-          <div className="host-bars">
+          <div className="host-meters">
+            <Meter label={t('CPU')} v={h.cpu_pct} value={pct(h.cpu_pct)} note={h.cores ? t('{n} 核', { n: h.cores }) : ''} />
+            <Meter
+              label={t('内存')}
+              v={h.mem?.used_pct}
+              value={pct(h.mem?.used_pct)}
+              note={memTotal ? gb(memUsed) + ' / ' + gb(memTotal) : ''}
+            />
             {(h.disk || []).map((d) => (
-              <Bar key={d.path} label={d.path} pct={d.pct} text={bytes(d.used) + ' / ' + bytes(d.total)} />
+              <Meter
+                key={d.path}
+                label={t('磁盘') + ' ' + d.path}
+                v={d.pct}
+                value={pct(d.pct)}
+                note={bytes(d.used) + ' / ' + bytes(d.total)}
+              />
             ))}
           </div>
 
+          {probe ? (
+            <div className="host-probe">
+              <span className="host-probe-item">
+                <em>{t('延迟')}</em>
+                <b>{probe.latencyMs === null ? t('无数据') : Math.round(probe.latencyMs) + ' ms'}</b>
+              </span>
+              <span className="host-probe-item">
+                <em>{t('丢包')}</em>
+                <b>{probe.lossPct === null ? t('无数据') : probe.lossPct.toFixed(1) + '%'}</b>
+              </span>
+              <BeatStrip cells={cells} type={probe.type} title={probe.name} details={details} />
+            </div>
+          ) : null}
+
+          <Spark series={h.series} />
+
           <div className="host-foot">
-            <span className="host-foot-os">{h.os || ''}</span>
+            <span className="host-foot-os">{t('运行')} {uptime(h.uptime_s)}</span>
             <span className="host-foot-top">
               {(h.top || []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')}
             </span>

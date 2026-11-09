@@ -43,6 +43,12 @@ export const hosts: Dict = {
   '接入指引': 'Setup guide',
   '{n} 核': (v) => `${v.n} ${Number(v.n) === 1 ? 'core' : 'cores'}`,
   '内存': 'Memory',
+  '磁盘': 'Disk',
+  '负载': 'Load',
+  '延迟': 'Latency',
+  '丢包': 'Packet loss',
+  '运行': 'Up',
+  '{n} 个单元异常': (v) => `${v.n} failed ${Number(v.n) === 1 ? 'unit' : 'units'}`,
   '负载 1m': 'Load 1m',
   '已运行': 'Uptime',
 

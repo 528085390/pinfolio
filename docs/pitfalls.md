@@ -1,4 +1,4 @@
-# pinboard 已知问题与坑（67 条）
+# pinboard 已知问题与坑（83 条）
 
 > 2026-10-21 从 `AGENTS.md` 搬出来（那份文件逼近 DSH 工作区指令 65536 B 预算，超了会被整份丢弃）。
 > **编号是稳定契约**：`AGENTS.md` 的模块说明、`web/`、`server/` 注释里的「见坑 18」都指这里的第 18 条——**新增只能往后加，不要重排、不要插号**。
@@ -140,6 +140,4 @@
 
 79. **`dialog.showErrorBox` 在 Windows 上是同步模态阻塞**（同一天）：Electron 的 `dialog.showErrorBox(title, content)` 在 Windows 上调用的是 Win32 原生 `MessageBox`，它会直接阻塞 Node.js 事件循环直至用户点击确定关闭弹窗。如果在崩溃捕获或未处理异常中使用它，必须意识到弹窗未关闭前，所有的后台定时器、托盘响应和心跳均会被挂起。
 
-80. **未签名安装包的 Windows SmartScreen 拦截机制与说明**（同一天）：开源桌面端若未购买商业代码签名证书，在 Windows 上下载并双击运行时会被 SmartScreen 拦截并提示「Windows 已保护你的电脑」。这是正常的安全策略，安装包本身完全透明开源。文档与 README 中应明确告知用户点击「更多信息」→「仍要运行」，并发布每颗安装包的 SHA-512 哈希供用户校验。
-
-81. **桌面端必须作为网页端套壳客户端，切忌自起内嵌服务与空库导致数据割裂**（2026-10-28 架构纠偏实测）：如果桌面端自建内嵌 Hono 服务并在 `%APPDATA%/pinfolio/data` 下创建独立 SQLite 库，用户在桌面端看到的是一个全新的空白库，与本机后台跑的 7788 网页端便签完全隔离，导致两边数据不互通、同步困难。正确的架构是将桌面端作为原生套壳客户端（默认直连 `http://127.0.0.1:7788/`，支持环境变量 `PINBOARD_WEB_URL`），核心数据完全由统一的网页端服务管理。若网页端未启动，窗口展示深色离线等待页（`desktop/offline-page.ts`）并自动倒计时轮询重试，网页端启动后瞬间接入。这不仅让桌面端主进程打包体积从 400KB 骤降至 33KB，更确保了桌面端与网页端数据 100% 统一，绝无割裂。
+83. **`node --test` 默认满并发下，vite SSR 型 DOM 测试的子进程会挂住不退，整个 `pnpm test` 永远等不到汇总**（2026-11-09 跑主机卡改版的全量测试时踩的）：`tests/unit/*.test.mts` 里有一批用 `vite createServer({ middlewareMode })` + `ssrLoadModule` 渲染真 JSX 的用例（`outbound-badge-dom` / `outbound-card-dom` / `monitor-drawer-pin-dom`）。单独跑任何一个都是 5 秒内 exit 0，但 81 个文件一起放开并发时，某个 DOM 用例的 vite 实例 / esbuild service 句柄没被回收，子进程停在事件循环里不退出，父 runner 就一直等——现象是日志停在 50~80 KB、没有 `ℹ tests` 汇总、后台留着一两个 `--test` 进程。定位手法：`Get-CimInstance Win32_Process` 看还活着的子进程命令行，末尾就是卡住的文件。修法：`test:unit` 加 `--test-concurrency=2`（760 例 25 秒跑完，exit 0）。**别用 `--test-force-exit` 绕过**——它会在 libuv 收尾时踩 `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\\win\\async.c` 让本来绿的文件凭空变红（`tunnel.test.mts` 就中过招）。

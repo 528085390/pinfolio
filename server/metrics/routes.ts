@@ -12,6 +12,8 @@ import { buildIngestUrl, buildInstallCommand, INSTALL_URL } from './onboard.js'
 import { lastPoll, pollAll } from './poll.js'
 import { loadServiceRules, removeServiceRules, resolveUnitMonitors, saveServiceRules, type MonitorRef } from './services.js'
 import { deleteSamples, latestSamples, sampleCount, seriesSince } from './store.js'
+import { matchGroupMonitors, pickProbeMonitor, summarizeProbe, PROBE_BEATS, type HostProbe } from './hostprobe.js'
+import type { MonitorRow } from '../monitor/types.js'
 
 // 主机指标：GET 出「每台机最新一帧 + 24 小时曲线」，POST /refresh 强制立刻拉一次。
 // 增 / 暂停 / 删走 POST / PATCH / DELETE，写回 data/metrics.json（唯一真相），改完不用重启。
@@ -32,20 +34,51 @@ function monitorRefs(): MonitorRef[] {
   }
 }
 
+/** 观测项原表（挑「代表观测项」要 type / port）。读库失败就回空表：卡片少一段探针，不至于整页报错。 */
+function monitorRowsById(): Map<number, MonitorRow> {
+  const map = new Map<number, MonitorRow>()
+  try {
+    for (const m of monitorStore.getMonitors()) map.set(m.id, m)
+  } catch {
+    // 观测台异常不影响主机指标
+  }
+  return map
+}
+
+/**
+ * 这台机的探针摘要：候选 = 加主机时顺带建的观测项 + 服务 chip 映射到的观测项。
+ * 挑一个代表项，拿它最近 24 拍算延迟 / 丢包 / 色条；没有候选或没心跳就回 null，卡片不显示这一段。
+ */
+function probeFor(ids: number[], byId: Map<number, MonitorRow>, hostId: string): HostProbe | null {
+  const rows = ids.map((id) => byId.get(id)).filter((m): m is MonitorRow => Boolean(m))
+  // 登记过的项优先；没有（老主机没写 monitors、也没配 host-services.json）就按命名约定兜底
+  const pick = pickProbeMonitor(rows) ?? pickProbeMonitor(matchGroupMonitors([...byId.values()], hostId))
+  if (!pick) return null
+  try {
+    return summarizeProbe(pick, monitorStore.getRecentHeartbeats(pick.id, PROBE_BEATS))
+  } catch {
+    return null
+  }
+}
+
 async function buildPayload() {
   const cfg = metricsConfig()
   const rules = loadServiceRules()
   const refs = monitorRefs()
+  const byId = monitorRowsById()
   const latest = latestSamples()
   const now = Math.floor(Date.now() / 1000)
   const hosts = cfg.hosts.map((h) => {
     const paused = h.paused === true
     // unit → 观测项：前端据此决定 chip 能不能点（没有映射 / 观测项已删就只剩文字）
     const unitMonitors = rules.length ? resolveUnitMonitors(rules, h.id, refs) : {}
+    // 探针和「有没有指标」无关：观测台在探这台机就显示延迟，指标拉不到也照样有
+    const probeIds = [...new Set([...(h.monitors ?? []), ...Object.values(unitMonitors).map((m) => m.id)])]
+    const probe = probeFor(probeIds, byId, h.id)
     const row = latest.get(h.id)
     if (!row) {
       return {
-        id: h.id, label: h.label, note: h.note, paused, unitMonitors,
+        id: h.id, label: h.label, note: h.note, paused, unitMonitors, probe,
         online: false, staleSec: null, series: [] as [number, number, number][],
       }
     }
@@ -60,6 +93,7 @@ async function buildPayload() {
       staleSec,
       series: seriesSince(h.id, now - SERIES_SEC),
       unitMonitors,
+      probe,
     }
   })
   const p = lastPoll()

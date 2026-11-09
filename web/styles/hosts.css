@@ -107,39 +107,98 @@
 
 .host-nodata { padding: 22px 0 18px; font-size: 13px; color: var(--muted); text-align: center; }
 
-.host-figs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-.host-fig { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.host-fig > span {
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+/* 抬头下面那一行硬件信息：机房 · 系统 · 负载，用 · 分隔 */
+.host-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  margin-top: 7px;
+  font-size: 11.5px;
   color: var(--muted);
+  min-width: 0;
 }
-.host-fig b {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-.host-fig b.host-fig-sm { font-size: 13px; font-weight: 500; color: var(--ink-2); }
-.host-fig i {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--muted);
+.host-meta > span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
-.host-fig b.tone-ok { color: var(--ok); }
-.host-fig b.tone-warn { color: var(--warn); }
-.host-fig b.tone-bad { color: var(--danger); }
+.host-meta > span + span::before {
+  content: '·';
+  margin: 0 6px;
+  color: var(--line-strong);
+}
+.host-region { color: var(--ink-2); }
+.host-meta-bad { color: var(--danger); }
+
+/* 厂商徽标（ORACLE / AZURE / AWS…），小号大写字 */
+.host-vendor {
+  flex: none;
+  font-size: 9.5px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+/* 三条占用：一行「标签 + 补充数字 + 百分比」，下面一条 4px 细进度条 */
+.host-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 12px;
+}
+.host-meter {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 3px;
+  min-width: 0;
+}
+.host-meter-label {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.host-meter-note {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+.host-meter-val {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.host-meter-val.tone-warn { color: var(--warn); }
+.host-meter-val.tone-bad { color: var(--danger); }
+.host-meter-track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.host-meter-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ok);
+}
+.host-meter-track > i.tone-warn { background: var(--warn); }
+.host-meter-track > i.tone-bad { background: var(--danger); }
 
 .host-spark {
   display: block;
@@ -161,34 +220,26 @@
 .host-spark .sp-cpu { stroke: var(--accent); stroke-width: 1.5; }
 .host-spark .sp-mem { stroke: var(--muted); stroke-width: 1; opacity: 0.6; }
 
-.host-bars { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
-.host-bar { min-width: 0; }
-.host-bar-head {
+/* 探针行：延迟 / 丢包 / 最近 24 拍色条（色条就是观测台那份组件） */
+.host-probe {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line);
+  font-size: 11.5px;
   color: var(--muted);
+  min-width: 0;
 }
-.host-bar-path {
-  font-family: var(--font-mono);
+.host-probe-item { display: inline-flex; align-items: baseline; gap: 4px; flex: none; }
+.host-probe-item em { font-style: normal; color: var(--muted); }
+.host-probe-item b {
   color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
-.host-bar-text { flex: none; font-variant-numeric: tabular-nums; }
-.host-bar-track {
-  height: 5px;
-  margin-top: 3px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-.host-bar-fill { display: block; height: 100%; border-radius: 999px; background: var(--ok); }
-.host-bar-fill.tone-warn { background: var(--warn); }
-.host-bar-fill.tone-bad { background: var(--danger); }
+.host-probe .monitor-beats { flex: 1 1 auto; height: 14px; min-width: 40px; }
 
 .host-foot {
   display: flex;
@@ -315,7 +366,6 @@
 .host-nodata-btn:hover { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-soft); }
 
 @media (max-width: 720px) {
-  .host-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .host-foot { flex-direction: column; align-items: flex-start; gap: 3px; }
   .host-foot-top { text-align: left; }
 }

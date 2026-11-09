@@ -22,7 +22,7 @@ updated: 2026-11-09
 
 | 层 | 文件 | 一句话 |
 |---|---|---|
-| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md` + `SNAPSHOT-MONITORS.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、中英双语（`i18n.md`）、桌面端（`desktop.zh.md`）、坑 81 条、进展记录 |
+| 文档 | `README.md`（英）+ `README.zh.md` / `AGENTS.md` / `SNAPSHOT.md` + `SNAPSHOT-MONITORS.md`（自动生成）/ `docs/*` | 使用说明 / 工程约定 / 数据快照 / 专题：功能细节（`features.md` + `.zh`）、HTTP API（`api.md` + `.zh`）、架构、录入、邮件需求、中英双语（`i18n.md`）、桌面端（`desktop.zh.md`）、坑 83 条、进展记录 |
 | 启停 | `start.cmd` / `stop.cmd` / `run-pinboard.vbs` / `tools/pinboard.ps1` | 双击启停；ps1 必须 UTF-8 **带 BOM**、vbs 必须 CRLF，否则静默不执行 |
 | 数据 | `server/schema/{core,mail,metrics,attachments}.ts` → `db.ts` → `hydrate.ts` | 建表 / 打开库 + `all/get/run` + 标签同步 / 批量拼关联 |
 | 纯函数 | `server/tags.ts`、`dates.ts`、`mail/{proxy,params,rows}.ts`、`monitor/{policy,redact,payload,types,patch,recipe,quick}.ts`、`services/{parse,edit}.ts`、`attachments/core.ts`、`web/lib/paths.ts`、`web/lib/images.ts`、`web/lib/masonry.ts`、`desktop/{nav,window-state,auth-probe,updater-interop}.ts` | 无副作用、可直接单测（`tests/unit/`）；**新纯逻辑往这几处加** |
@@ -80,7 +80,7 @@ pnpm typecheck        # tsc --noEmit
 
 **当前状态（2026-11-09）**：7788 运行中，八页（便签 / 邮件 / 资产 / 观测 / 主机 / 服务 / 备份 / 设置）全部可用，单进程单数据库（`pinboard.db`）闭环自治；**界面中英双语**（默认跟随浏览器语言，设置 → 外观里手动切，服务端错误也跟着 `Accept-Language` 变，数据与日志不翻——见 `docs/i18n.md`）；
 **原生观测台全面内化上线**（2026-11-08 加）：内置 HTTP / TCP / SSH / Push 原生探针引擎，心跳与状态直接落入 `pinboard.db`；支持全局出站代理（直连 / SOCKS5）并在观测项抽屉中提供单项独立钉死开关（跟随全局 / 钉：直连 / 钉：代理）；外部 Uptime Kuma（3001 端口）、旧 `kuma\` 项目及计划任务 `KumaObs` 均已彻底下线删除；快照自动落盘至 `SNAPSHOT-MONITORS.md`；
-**便签能存图片**（2026-10-26 加）：输入框里粘贴 / 拖入 / 点「图片」选文件都行，行内编辑同样支持；正文里存的是 `/api/attachments/<id>` 的 Markdown（与部署前缀无关），图片真身 `data/uploads/` 随备份包走、孤儿 7 天回收；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开），筛选条下面还有一排「快捷入口」卡（`quick-links.json`，整卡外链、**不参与观测**；2026-10-26 起 Immich 挪进服务页，本机这份是空数组）；服务页只登记部署关系（`data/services.json`，每次请求热读、`SERVICES_FILE` 可换路径，页面里能增删改、写盘前自动备份到 `data/services-backups/`），不探测、不建观测项；主机页只展示 6 台服务器指标（每 5 分钟采集，24 小时曲线 + 磁盘条 + top 进程；**2026-10-26 起卡底不再画服务 chip**，部署关系归「服务」页），主机能在页面上加 / 暂停 / 删（`data/metrics.json` 原子写回，不用重启），加的时候还能顺手勾端口 / HTTP 站点 / systemd 服务观测项，保存后弹「接入这台机器」：一条命令装好采集端、立刻上报首帧。工程整理已收口——
+**便签能存图片**（2026-10-26 加）：输入框里粘贴 / 拖入 / 点「图片」选文件都行，行内编辑同样支持；正文里存的是 `/api/attachments/<id>` 的 Markdown（与部署前缀无关），图片真身 `data/uploads/` 随备份包走、孤儿 7 天回收；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开），筛选条下面还有一排「快捷入口」卡（`quick-links.json`，整卡外链、**不参与观测**；2026-10-26 起 Immich 挪进服务页，本机这份是空数组）；服务页只登记部署关系（`data/services.json`，每次请求热读、`SERVICES_FILE` 可换路径，页面里能增删改、写盘前自动备份到 `data/services-backups/`），不探测、不建观测项；主机页只展示服务器指标（每 5 分钟采集）：**2026-11-09 卡面按用户给的 VPS 监控截图重排**成「抬头（id + 厂商徽标 + 关联资产）→ 国旗 + 机房 + OS + 负载 → CPU / 内存 / 磁盘三行细进度条 → 延迟 · 丢包 · 探针色条 → 24 小时曲线 → top 进程」，延迟与丢包来自这台机在观测台里的心跳（只认 port / http 项，见坑 82）；**2026-10-26 起卡底不再画服务 chip**，部署关系归「服务」页，主机能在页面上加 / 暂停 / 删（`data/metrics.json` 原子写回，不用重启），加的时候还能顺手勾端口 / HTTP 站点 / systemd 服务观测项，保存后弹「接入这台机器」：一条命令装好采集端、立刻上报首帧。工程整理已收口——
 服务端按职责拆分（`server/monitor/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
 前端 api 与样式分片，`tests/` 里有 740 条单测 + 17 套 e2e（`pnpm test` / `pnpm test:e2e`）。当前 18 个正式观测项（14 项活跃全部 UP 全绿，4 项 aws 节点停用中）。
 已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
@@ -90,7 +90,7 @@ pnpm typecheck        # tsc --noEmit
 **历史进展（2026-10-19 起，逐条记录）见 [`docs/status-history.md`](docs/status-history.md)**
 —— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
 
-已知问题与坑（都踩过，勿回退）——**完整 81 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
+已知问题与坑（都踩过，勿回退）——**完整 83 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
 1. **默认只监听 127.0.0.1 + 必须登录**：要远程访问就前置反代并开 HTTPS（`TRUST_PROXY=1` 才读 `X-Forwarded-*`），不要直接映射 7788（坑 6）。
 2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。
