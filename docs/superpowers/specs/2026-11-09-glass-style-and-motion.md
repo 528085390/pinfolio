@@ -487,6 +487,8 @@ function applyThemeWithTransition(mutate: () => void) {
 2. **presence 时长**：抽屉 260ms（= `--dur-overlay`）、弹窗 240ms；关闭期间元素挂 `data-state="closing"` 留在 DOM，`ui.tsx` 冻结最后一次 open 的 title/children/footer，避免关闭瞬间先闪白。
 3. **抽屉退场用 `translateX(100%)`**（与拖拽关到底同终点），入场用 `@starting-style`（从 +24px / opacity .4 起）。只在 `.drawer-head`（及可选 `.drawer-grab`）抓拖拽，正文不抓，按钮/输入框不拦。
 4. **`fade` / `slide` 两条 keyframes 已删**，`pop` 保留（`misc.css` 的 toast 还在用）。
+5. **抽屉跟手改成「宽度内 1:1、越界才 rubberband」**（`motion.ts` 新增 `dragFollow`）：原先直接 `rubberband(dx, width)` 全程阻尼，C1 验收实测拖 120px 只位移 59.257px（`1 - 1/(120*0.55/580+1) = 0.1021`），半程阈值 ≈290px 根本够不到，实际只能用甩速关窗。改后 `dragFollow(120, 580) = 120`，松手仍按指针距离 + `project(v)` 判 50%，越界那段才变硬。
+6. **关窗判据用指针距离 `dx` 而不是 `shown`**：阻尼只影响视觉跟手，不该影响阈值，否则越界拖拽会「看起来拖很远却关不掉」。
 
 ### 10.5 仍然未验证 / 未做
 
