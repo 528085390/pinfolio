@@ -281,7 +281,11 @@ export const SPRING_MOVE = { zeta: 1.0, response: 0.4 };   // 移动 / 重定位
 
 // 动量投影（Apple 原式，不是 v²/2a）
 export function project(velocity: number, decel = 0.998) {
-  return (velocity / 1000) * decel / (1 - decel);
+  // Apple 原式写作 (v / 1000) * decel / (1 - decel)，那个 /1000 是因为 UIScrollView 的
+  // velocity 单位是 pt/s。本项目的 v 一律用 px/ms（与 FLICK_VELOCITY=0.11 同单位），
+  // 故去掉 /1000：v=1 px/ms 时投影 ≈ 499px，与"每毫秒衰减 0.2%（decel .998）"的
+  // 几何级数 Σ v·dt·decel^n 一致。（2026-11-09 修正：原稿单位自相矛盾，见 ledger R7）
+  return velocity * decel / (1 - decel);
 }
 
 // rubber-band 软边界
@@ -317,7 +321,7 @@ export function spring(opts: {
 |---|---|
 | `pointerdown`（落点在 `.drawer-head` 或移动端的 `.drawer-grab` 手势条） | `setPointerCapture`；记录 `startX/startY`、`lastMoves`（最近 5 条 `{t,x}`）；`data-dragging="true"`（此属性下关掉 CSS transition） |
 | `pointermove` | `dx = max(0, x - startX)`（只允许向右关）；`translateX(rubberband(dx, width))`；遮罩透明度 `1 - progress*0.9`；**直接写 `el.style.transform`，不用 CSS 变量驱动子元素** |
-| `pointerup` | 取最近 100ms 平均速度 `v`（px/ms）；`projected = dx + project(v)`；`closing = projected > width * 0.5 或 v > 0.11` |
+| `pointerup` | 取最近 100ms 平均速度 `v`（px/ms）；`projected = dx + project(v)`（`project` 已与 v 同单位，1 px/ms ≈ 499px 投影）；`closing = projected > width * 0.5 或 v > 0.11` |
 | `settling` | `spring({from: currentX, to: closing ? width : 0, velocity: v, zeta: .8, response: .3})`；到 `width` 后调用 `onClose()` 并还原 transform |
 | `Escape` / 点遮罩 / 点关闭按钮 | **不经过 spring**，直接走 CSS 260ms `--ease-drawer` 退场（属于「用户决定」，走确定性时序） |
 | 拖动中 | 屏蔽抽屉内部 `text-selection`（`user-select: none`）；`pointercancel` 按 `pointerup` 处理 |
