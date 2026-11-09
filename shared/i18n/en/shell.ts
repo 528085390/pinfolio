@@ -45,6 +45,10 @@ export const shell: Dict = {
   '标准': 'Standard',
   '实验特性：Chromium 尚未修好 backdrop-filter 的位移贴图，翻开会有约 12px 整体错位':
     'Experimental: Chromium does not yet feed displacement maps into backdrop-filter, so enabling this shifts the background by about 12px',
+  '背景': 'Background',
+  '壁纸地址': 'Wallpaper URL',
+  '壁纸只在玻璃风格下生效：图片放在 web/public/wallpapers/，或填完整链接；相对路径按当前地址解析':
+    'Wallpapers only apply to the glass style. Drop the image in web/public/wallpapers/ or paste a full URL; relative paths resolve against the current address',
   '主题': 'Theme',
   '语言': 'Language',
   '浅色': 'Light',

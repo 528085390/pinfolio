@@ -1,4 +1,4 @@
-// 主题 / 风格 / 折射三个偏好的读取与首帧落地。
+// 主题 / 风格 / 折射 / 壁纸四个偏好的读取与首帧落地。
 //
 // 为什么单独成文件：useShell（运行时切换）与 main.tsx（首帧之前）读的是同一批键、
 // 同一套缺省值。键名与缺省值只在这里写一次，免得两处各写一份、改动时漏掉一处。
@@ -7,6 +7,7 @@
 export const THEME_KEY = 'pinboard-theme'
 export const STYLE_KEY = 'pinboard-style'
 export const REFRACT_KEY = 'pinboard-glass-refract'
+export const WALLPAPER_KEY = 'pinboard-wallpaper'
 
 /** 明暗偏好（localStorage 里存的值）：亮 / 暗 / 跟随系统 */
 export type ThemePref = 'light' | 'dark' | 'system'
@@ -14,6 +15,8 @@ export type ThemePref = 'light' | 'dark' | 'system'
 export type StylePref = 'paper' | 'glass'
 /** 折射开关（与 <html data-glass-refract> 同值）：真折射只在 Chromium 上真能画出来 */
 export type RefractPref = 'on' | 'off'
+/** 壁纸开关（与 <html data-wallpaper> 同值）：只在玻璃风格下命中，暖纸下不生效 */
+export type WallpaperPref = 'on' | 'off'
 
 export const DEFAULT_STYLE: StylePref = 'glass'
 /**
@@ -25,6 +28,14 @@ export const DEFAULT_STYLE: StylePref = 'glass'
 export const DEFAULT_REFRACT: RefractPref = 'off'
 
 /**
+ * 缺省壁纸（相对地址，运行时按 document.baseURI 解析，挂子路径也对）。
+ * 仓库不带这张图——用户自备的壁纸有版权，公开仓库收不了；把文件放到
+ * web/public/wallpapers/street.jpg 即可（该目录在 .gitignore 里）。文件缺失时
+ * background-image 拉不到，body 退回 --paper 实底，不出现破图。
+ */
+export const DEFAULT_WALLPAPER = 'wallpapers/street.jpg'
+
+/**
  * <html> 上三个偏好属性的「attr → 合法取值」表。
  * 写成映射类型而不是 (attr: string, value: string)：脏值（'neon' / 'yes' / 'darkish'）
  * 编译期就过不去，不用等到样式静默不生效才发现。
@@ -33,6 +44,7 @@ export interface PrefValues {
   theme: 'light' | 'dark'
   style: StylePref
   glassRefract: RefractPref
+  wallpaper: WallpaperPref
 }
 export type PrefAttr = keyof PrefValues
 
@@ -72,6 +84,42 @@ export function readStoredStyle(storage: PrefStorage | null = defaultStorage()):
 /** 只认显式的 'off'，其余一律按缺省开启 */
 export function readStoredRefract(storage: PrefStorage | null = defaultStorage()): RefractPref {
   return readPref(storage, REFRACT_KEY) === 'off' ? 'off' : DEFAULT_REFRACT
+}
+
+/**
+ * 壁纸地址：**没存过**走缺省壁纸（开箱就有东西可透，玻璃才看得出来）；
+ * 存过空串 = 用户主动关掉，返回 ''。其余原样返回（相对路径 / 绝对路径 / http(s) 链接都行）。
+ */
+export function readStoredWallpaper(storage: PrefStorage | null = defaultStorage()): string {
+  const v = readPref(storage, WALLPAPER_KEY)
+  if (v === null) return DEFAULT_WALLPAPER
+  return v.trim()
+}
+
+/**
+ * 壁纸地址 → CSS background-image 的值（`url("…")`）；空地址返回 ''（= 关掉壁纸）。
+ * 相对地址一律按 base 解析：反代挂 /pinfolio/ 时 baseURI 就是 /pinfolio/x，解析结果自然跟着走。
+ * 已经带协议 / 以 // 或 / 开头的一律原样返回，避免把用户的绝对地址又拼坏一次。
+ */
+export function wallpaperCss(raw: string, base?: string): string {
+  const v = raw.trim()
+  if (!v) return ''
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//') || v.startsWith('/')) return `url("${v}")`
+  if (!base) return `url("${v}")`
+  try {
+    return `url("${new URL(v, base).href}")`
+  } catch {
+    return ''
+  }
+}
+
+/** 把壁纸地址写到 <html> 的 --wallpaper-url（空地址 = 移除变量，CSS 回落到暖纸底）。 */
+export function applyWallpaperVar(doc: BootDocument, raw: string): void {
+  const style = doc.documentElement.style
+  if (!style) return
+  const value = wallpaperCss(raw, doc.baseURI)
+  if (value) style.setProperty('--wallpaper-url', value)
+  else style.removeProperty('--wallpaper-url')
 }
 
 /**
@@ -124,14 +172,27 @@ export function applyPref<K extends PrefAttr>(attr: K, value: PrefValues[K]): vo
  * 对象取。只注入一半（传 doc 却读全局 localStorage / matchMedia）的话，这条首帧路径
  * 在 Node 里根本测不了 —— 与不注入没区别。
  */
+export interface BootDocument {
+  /** 相对壁纸地址的基准；浏览器里就是 document.baseURI */
+  baseURI?: string
+  documentElement: {
+    dataset: DOMStringMap
+    /** 写 --wallpaper-url 用；测试桩可以不给（不给就只写 dataset） */
+    style?: {
+      setProperty(name: string, value: string): void
+      removeProperty(name: string): void
+    }
+  }
+}
+
 export interface BootWindow {
-  document: { documentElement: { dataset: DOMStringMap } }
+  document: BootDocument
   localStorage?: PrefStorage
   matchMedia?: (query: string) => { matches: boolean }
 }
 
 /**
- * 首帧之前把 data-theme / data-style / data-glass-refract 打到 <html>。
+ * 首帧之前把 data-theme / data-style / data-glass-refract / data-wallpaper 打到 <html>。
  * 不这么做的话，刷新会先按纸色画一帧再跳到玻璃/暗色（白闪）。
  * 在 createRoot 之前调用，见 web/main.tsx。
  */
@@ -149,8 +210,13 @@ export function applyBootPrefs(win: BootWindow): void {
   // paper 也显式写上：CSS 靠 [data-style='glass'] 前缀区分，但显式值便于调试和断言
   root.dataset.style = readStoredStyle(storage)
   root.dataset.glassRefract = readStoredRefract(storage)
-  // 首帧写下的也是一次「已应用」：挂载时三条 effect 读到同样的值，不该再白跑一次过渡
+  // 壁纸：data-wallpaper 给 CSS 判断用，图片地址走 CSS 变量（CSS 里 background-image: var(--wallpaper-url)）
+  const wallpaper = readStoredWallpaper(storage)
+  root.dataset.wallpaper = wallpaper ? 'on' : 'off'
+  applyWallpaperVar(win.document, wallpaper)
+  // 首帧写下的也是一次「已应用」：挂载时四条 effect 读到同样的值，不该再白跑一次过渡
   scheduled.theme = root.dataset.theme
   scheduled.style = root.dataset.style
   scheduled.glassRefract = root.dataset.glassRefract
+  scheduled.wallpaper = root.dataset.wallpaper
 }

@@ -14,4 +14,6 @@ test('isCacheablePath: 壳与固定命名的元文件禁止长缓存', () => {
   assert.equal(isCacheablePath('/manifest.webmanifest'), false)
   assert.equal(isCacheablePath('/icons/icon-192.png'), false)
   assert.equal(isCacheablePath('/apple-touch-icon.png'), false)
+  // 壁纸允许用户拿同名文件直接覆盖，长缓存会让换图不生效
+  assert.equal(isCacheablePath('/wallpapers/street.jpg'), false)
 })

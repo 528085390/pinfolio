@@ -3,15 +3,20 @@ import assert from 'node:assert/strict'
 import {
   DEFAULT_REFRACT,
   DEFAULT_STYLE,
+  DEFAULT_WALLPAPER,
   REFRACT_KEY,
   STYLE_KEY,
   THEME_KEY,
+  WALLPAPER_KEY,
   applyBootPrefs,
   applyPref,
+  applyWallpaperVar,
   readStoredRefract,
   readStoredStyle,
   readStoredTheme,
+  readStoredWallpaper,
   resolveTheme,
+  wallpaperCss,
 } from '../../web/lib/theme-prefs.js'
 
 // theme-prefs 的常驻单测：缺省值、脏值回落、localStorage 不可用、首帧三属性、
@@ -151,16 +156,17 @@ function bootWin(opts: { data?: Record<string, string>; dark?: boolean; noStorag
   return { ds, win }
 }
 
-test('applyBootPrefs：三个属性都写下去，paper 也显式写', () => {
+test('applyBootPrefs：四个属性都写下去，paper 也显式写', () => {
   const { ds, win } = bootWin({ data: { [THEME_KEY]: 'dark', [STYLE_KEY]: 'paper', [REFRACT_KEY]: 'off' } })
   applyBootPrefs(win)
-  assert.deepEqual({ ...ds }, { theme: 'dark', style: 'paper', glassRefract: 'off' })
+  // 壁纸没存过 → 走缺省壁纸（on）：开箱就有东西可透，玻璃才看得出来
+  assert.deepEqual({ ...ds }, { theme: 'dark', style: 'paper', glassRefract: 'off', wallpaper: 'on' })
 })
 
-test('applyBootPrefs：空存储 = light / glass / off，且跟随系统深色', () => {
+test('applyBootPrefs：空存储 = light / glass / off / 缺省壁纸，且跟随系统深色', () => {
   const a = bootWin()
   applyBootPrefs(a.win)
-  assert.deepEqual({ ...a.ds }, { theme: 'light', style: 'glass', glassRefract: 'off' })
+  assert.deepEqual({ ...a.ds }, { theme: 'light', style: 'glass', glassRefract: 'off', wallpaper: 'on' })
   const b = bootWin({ dark: true })
   applyBootPrefs(b.win)
   assert.equal(b.ds.theme, 'dark', 'theme=system + 系统深色 → dark')
@@ -170,7 +176,7 @@ test('applyBootPrefs：没有 localStorage / matchMedia 也不炸，走缺省', 
   const { ds, win } = bootWin({ noStorage: true })
   delete win.matchMedia
   applyBootPrefs(win)
-  assert.deepEqual({ ...ds }, { theme: 'light', style: 'glass', glassRefract: 'off' })
+  assert.deepEqual({ ...ds }, { theme: 'light', style: 'glass', glassRefract: 'off', wallpaper: 'on' })
 })
 
 /* ---------- applyPref ---------- */
@@ -298,6 +304,85 @@ test('applyPref：连切三次（on/off/on）最终落在最后一次入参', ()
     assert.equal(queued.length, 3)
     for (const cb of queued) cb()
     assert.equal(d.root.dataset.glassRefract, 'on')
+  } finally {
+    d.restore()
+  }
+})
+
+/* ---------- 壁纸（背景图） ---------- */
+
+test('readStoredWallpaper：没存过走缺省壁纸，存过空串 = 关，其余原样', () => {
+  assert.equal(readStoredWallpaper(store()), DEFAULT_WALLPAPER, '没存过 → 缺省壁纸')
+  assert.equal(readStoredWallpaper(store({ [WALLPAPER_KEY]: '' })), '', '空串是「用户主动关掉」，不能回落到缺省')
+  assert.equal(readStoredWallpaper(store({ [WALLPAPER_KEY]: '   ' })), '', '只有空白也当关掉')
+  assert.equal(readStoredWallpaper(store({ [WALLPAPER_KEY]: '  https://x.test/a.jpg  ' })), 'https://x.test/a.jpg')
+  assert.equal(readStoredWallpaper(throwingStore()), DEFAULT_WALLPAPER, '隐私模式读不到 → 缺省')
+})
+
+test('wallpaperCss：空地址关闭、绝对地址原样、相对地址按 base 解析', () => {
+  assert.equal(wallpaperCss(''), '')
+  assert.equal(wallpaperCss('   '), '')
+  // 带协议的、以 / 开头的一律原样，别又拼一次 base
+  assert.equal(wallpaperCss('https://x.test/a.jpg', 'https://pin.test/pinfolio/notes'), 'url("https://x.test/a.jpg")')
+  assert.equal(wallpaperCss('/a.jpg', 'https://pin.test/pinfolio/'), 'url("/a.jpg")')
+  // 相对地址：反代挂子路径时 baseURI 带前缀，解析结果自然跟着走
+  assert.equal(
+    wallpaperCss('wallpapers/street.jpg', 'https://pin.test/pinfolio/notes'),
+    'url("https://pin.test/pinfolio/wallpapers/street.jpg")',
+  )
+  assert.equal(
+    wallpaperCss('wallpapers/street.jpg', 'https://pin.test/notes'),
+    'url("https://pin.test/wallpapers/street.jpg")',
+  )
+  // 没有 base（测试桩 / 非浏览器场景）就原样留着，不猜
+  assert.equal(wallpaperCss('wallpapers/street.jpg'), 'url("wallpapers/street.jpg")')
+})
+
+/** 带 style 与 baseURI 的首帧桩：壁纸变量写到这张 Map 上 */
+function bootWinWithStyle(data: Record<string, string> = {}, baseURI = 'http://pin.test/') {
+  const ds: Record<string, string> = {}
+  const props = new Map<string, string>([['--wallpaper-url', 'url("旧的")']])
+  const win: any = {
+    document: {
+      baseURI,
+      documentElement: {
+        dataset: ds,
+        style: {
+          setProperty: (k: string, v: string) => void props.set(k, v),
+          removeProperty: (k: string) => void props.delete(k),
+        },
+      },
+    },
+    localStorage: store(data),
+    matchMedia: (q: string) => ({ matches: false, media: q }),
+  }
+  return { ds, props, win }
+}
+
+test('applyBootPrefs：壁纸地址写进 --wallpaper-url，关掉时移除变量', () => {
+  const a = bootWinWithStyle({ [WALLPAPER_KEY]: 'wallpapers/street.jpg' })
+  applyBootPrefs(a.win)
+  assert.equal(a.ds.wallpaper, 'on')
+  assert.equal(a.props.get('--wallpaper-url'), 'url("http://pin.test/wallpapers/street.jpg")', '相对地址按 baseURI 解析')
+
+  const b = bootWinWithStyle({ [WALLPAPER_KEY]: '' })
+  applyBootPrefs(b.win)
+  assert.equal(b.ds.wallpaper, 'off')
+  assert.equal(b.props.has('--wallpaper-url'), false, '关掉壁纸必须移除变量，否则 CSS 还留着上一张')
+})
+
+test('applyWallpaperVar：没有 style 的桩不炸（首帧老桩 / 非 DOM 环境）', () => {
+  assert.doesNotThrow(() => applyWallpaperVar({ documentElement: { dataset: {} as DOMStringMap } }, 'wallpapers/street.jpg'))
+})
+
+test('applyPref：壁纸开关只写自己的 data-wallpaper', () => {
+  const d = installDom()
+  try {
+    d.dropRvT()
+    applyPref('wallpaper', 'off')
+    applyPref('wallpaper', 'on')
+    assert.equal(d.root.dataset.wallpaper, 'on')
+    assert.equal(d.root.dataset.style, undefined, '切壁纸不该顺带改风格')
   } finally {
     d.restore()
   }

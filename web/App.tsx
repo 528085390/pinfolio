@@ -88,6 +88,8 @@ export function App() {
               setStyle={s.setStyle}
               refract={s.refract}
               setRefract={s.setRefract}
+              wallpaper={s.wallpaper}
+              setWallpaper={s.setWallpaper}
             />
           ) : (
             <BackupPage />

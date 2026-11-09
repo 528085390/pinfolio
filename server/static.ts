@@ -49,7 +49,9 @@ export function isCacheablePath(p: string): boolean {
     p.startsWith('/icons/') ||
     p === '/apple-touch-icon.png' ||
     p === '/favicon.ico' ||
-    p === '/robots.txt'
+    p === '/robots.txt' ||
+    // 壁纸是可被用户直接替换的同名文件：长缓存会让换图后浏览器一直用旧的
+    p.startsWith('/wallpapers/')
   )
 }
 

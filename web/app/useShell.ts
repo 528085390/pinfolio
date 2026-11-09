@@ -6,10 +6,13 @@ import {
   REFRACT_KEY,
   STYLE_KEY,
   THEME_KEY,
+  WALLPAPER_KEY,
   applyPref,
+  applyWallpaperVar,
   readStoredRefract,
   readStoredStyle,
   readStoredTheme,
+  readStoredWallpaper,
   resolveTheme,
   type RefractPref,
   type StylePref,
@@ -17,8 +20,8 @@ import {
 } from '../lib/theme-prefs'
 import type { MailSummary } from './titles'
 
-// 三个持久化键的权威定义在 lib/theme-prefs（首帧要用同一套），这里原样转出，别处照旧从 useShell 引
-export { REFRACT_KEY, STYLE_KEY, THEME_KEY }
+// 四个持久化键的权威定义在 lib/theme-prefs（首帧要用同一套），这里原样转出，别处照旧从 useShell 引
+export { REFRACT_KEY, STYLE_KEY, THEME_KEY, WALLPAPER_KEY }
 
 // 存偏好：隐私模式下 localStorage 会抛，但切换本身要照常生效
 function storePref(key: string, value: string) {
@@ -51,6 +54,8 @@ export function useShell() {
   // 风格与折射是正交于明暗的两个维度：paper/glass、on/off
   const [style, setStyle] = useState<StylePref>(() => readStoredStyle())
   const [refract, setRefract] = useState<RefractPref>(() => readStoredRefract())
+  // 壁纸地址（空串 = 关）：只有玻璃风格下 CSS 才命中，暖纸下留着值也不影响视觉
+  const [wallpaper, setWallpaper] = useState<string>(() => readStoredWallpaper())
 
   const refreshMeta = useCallback(async () => {
     try {
@@ -88,6 +93,13 @@ export function useShell() {
     applyPref('glassRefract', refract)
   }, [refract])
 
+  // 壁纸：开关写 dataset（给 CSS 判断），地址写 <html> 的 --wallpaper-url（给 background-image）
+  useEffect(() => {
+    storePref(WALLPAPER_KEY, wallpaper)
+    applyPref('wallpaper', wallpaper ? 'on' : 'off')
+    applyWallpaperVar(document, wallpaper)
+  }, [wallpaper])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -122,6 +134,7 @@ export function useShell() {
     theme, setTheme,
     style, setStyle,
     refract, setRefract,
+    wallpaper, setWallpaper,
     openAsset, openMonitor,
   }
 }
