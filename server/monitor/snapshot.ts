@@ -73,6 +73,17 @@ function canon(v: any): string {
   return JSON.stringify(v)
 }
 
+/** 去掉根级 timeZone，用来认出「加 timeZone 之前」保存下来的预设 JSON。 */
+function withoutTimeZone(v: any): any {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return v
+  const out: Record<string, any> = {}
+  for (const [k, val] of Object.entries(v)) {
+    if (k === 'timeZone') continue
+    out[k] = val
+  }
+  return out
+}
+
 export function formatPolicyLabel(json: string | null | undefined): string {
   const parsed = parsePolicy(json)
   if (parsed.error || !parsed.policy) {
@@ -83,6 +94,11 @@ export function formatPolicyLabel(json: string | null | undefined): string {
   for (const [name, preset] of Object.entries(POLICY_PRESETS)) {
     if (canon(preset) === key) {
       return name
+    }
+    // 老数据：预设加了 timeZone 之后，早先存下的同一份 JSON 少了这个字段，
+    // 它实际是按服务器本地时区解释时间窗的，所以标出来而不是当成自定义策略。
+    if (preset.timeZone && !p.timeZone && canon(withoutTimeZone(preset)) === key) {
+      return name + '（本地时区）'
     }
   }
 

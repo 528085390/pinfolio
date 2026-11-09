@@ -68,7 +68,7 @@
   - `ssh.ts`：基于 `ssh2` 远程执行命令，校验退出码，SSH 密钥 AES-256-GCM 运行时解密。
   - `push.ts`：等待外部打点上报，无调度超时自动标离线。
 - `server/monitor/outbound.ts` & `outbound-view.ts` —— 出站网络路由管理：全局「直连 / 经代理 SOCKS5」开关（保存在 `settings` 表）以及密码防回显保护；在抽屉中支持单观测项独立钉死（`follow` / `direct` / `proxy`）。
-- `server/monitor/policy.ts` —— 观测调度策略纯函数求值器：支持 `business-hours` 等动态频率调节与定时维护窗口。
+- `server/monitor/policy.ts` —— 观测调度策略纯函数求值器：支持 `business-hours` 等动态频率调节与定时维护窗口；时间窗按策略的 `timeZone`（根级，atom 级可覆盖）解释，未配时才用服务器本地时区，`business-hours` 预设钉 `Asia/Shanghai`。
 - `server/monitor/snapshot.ts` —— 观测快照门面与 CLI：纯函数 `renderMonitorSnapshot` 生成全表 Markdown，自动写入 `SNAPSHOT-MONITORS.md`，支持 `pnpm snapshot` 命令行直接重生成。
 - `server/monitor/recipe.ts`、`runner.ts`、`actions.ts` —— 「立即观测」配方解析与执行：支持原生快速单次探测或多步命令（如每日打卡脚本面板交互）。
 - `server/monitor/provision.ts` —— 主机添加时自动规划并落库观测项的纯逻辑（`planMonitors`、`mergeServiceRules`）。

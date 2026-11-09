@@ -1,6 +1,26 @@
-import * as electron from 'electron'
 import type { BrowserWindow, BrowserWindowConstructorOptions } from 'electron'
+import { createRequire } from 'node:module'
 import { getQuickNoteDataUrl } from './quick-note-html.js'
+
+/**
+ * 惰性加载 electron 主进程模块。
+ *
+ * 仓库约定：单测是纯模块、不加载 electron。顶层 `import ... from 'electron'` 会在
+ * electron 二进制没装好（CI 里 504 下载失败）时把整个测试文件连带炸掉，所以改成运行时按需取：
+ * 拿不到就返回 null，由调用方走 deps 注入或降级分支。
+ */
+const requireCjs = createRequire(import.meta.url)
+let cachedElectronMain: any
+
+function loadElectronMain(): any {
+  if (cachedElectronMain !== undefined) return cachedElectronMain
+  try {
+    cachedElectronMain = requireCjs('electron')
+  } catch {
+    cachedElectronMain = null
+  }
+  return cachedElectronMain
+}
 
 /**
  * 随手记浮窗默认窗口配置。
@@ -102,7 +122,7 @@ export function registerQuickNoteShortcut(
     return false
   }
 
-  const gs = deps?.globalShortcut ?? (electron as any).globalShortcut
+  const gs = deps?.globalShortcut ?? loadElectronMain()?.globalShortcut
   if (!gs || typeof gs.register !== 'function') {
     log('[quick-note] 当前运行环境不提供 globalShortcut API')
     return false
@@ -137,7 +157,7 @@ export function createQuickNoteWindow(
   deps?: QuickNoteWindowDeps,
 ): BrowserWindow {
   const log = deps?.log ?? defaultLog
-  const BW = deps?.BrowserWindow ?? (electron as any).BrowserWindow
+  const BW = deps?.BrowserWindow ?? loadElectronMain()?.BrowserWindow
 
   if (!BW) {
     throw new Error('[quick-note] 当前环境缺少 BrowserWindow 构造器')

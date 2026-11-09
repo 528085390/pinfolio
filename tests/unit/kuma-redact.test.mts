@@ -89,6 +89,24 @@ test('summarizePolicy：规则多于 4 条只列 4 条并提示剩余', () => {
   assert.ok(p!.summary.includes('另有 2 条规则'), p!.summary)
 })
 
+test('summarizePolicy：策略钉了时区就写进摘要（营业时段不再随服务器时区漂）', () => {
+  const p = summarizePolicy({
+    v: 1,
+    timeZone: 'Asia/Shanghai',
+    interval: {
+      default: 1200,
+      rules: [{ when: { time: { from: '08:00', to: '23:00' } }, interval: 60 }],
+    },
+  })
+  assert.ok(p?.summary.includes('Asia/Shanghai'), 'policy-level timeZone 应出现在摘要里')
+
+  const atom = summarizePolicy({
+    v: 1,
+    interval: { default: 600, rules: [{ when: { time: { from: '09:00', to: '18:00', timeZone: 'UTC' } }, interval: 60 }] },
+  })
+  assert.ok(atom?.summary.includes('UTC'), 'atom-level timeZone 应出现在摘要里')
+})
+
 test('summarizePolicy：JSON 字符串也能解析', () => {
   assert.equal(summarizePolicy('{"interval":{"default":60}}')?.name, '自定义策略')
 })

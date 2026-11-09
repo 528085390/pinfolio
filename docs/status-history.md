@@ -548,3 +548,9 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 验证：`pnpm typecheck` 0 错误；`pnpm test` 全量单测通过（**760/760 passed**，新增 7 例）；`curl.exe -i -H "Accept-Encoding: gzip"` 验证运行时 7788 响应正确返回 `content-encoding: gzip`；生产服务运行健康。
 
 
+
+**已完成（2026-11-09，CI 红灯根因修复）**：GitHub Actions 的 test job 自 2026-11-07 的 `bb1bc0a` 起连续失败（e2e 与 docker build 一直绿），根因两条：① `server/monitor/policy.ts` 的 `time` 原子用 `ctx.now.getHours()`（进程本地时区）判营业时段，而 `probe-policy` / `probe-snapshot` 的用例按 +08 写死期望值，GitHub 的 UTC runner 上 business-hours 得 1200 而非 60、快照时间戳差 8 小时；② `desktop/quick-note.ts` 顶层静态 `import * as electron`，CI 里 Electron 二进制下载 504 后整个 `quick-note.test.mts` 连坐失败（#9 丢 4 例）。
+① 的修法：策略支持根级 `timeZone`（atom 级可覆盖，`isValidTimeZone` 校验，非法时区整条策略作废、退回 baseInterval）；`business-hours` 预设钉 `Asia/Shanghai`；`clockParts()` 用 `Intl.DateTimeFormat` + `formatToParts` 取时分与星期，未配时区时才回落到本地字段；`ci.yml` 加 workflow 级 `env: TZ: Asia/Shanghai`。
+② 的修法：`quick-note.ts` 改成 `import type` + `createRequire(import.meta.url)('electron')` 惰性加载（`loadElectronMain()` 缓存，取不到返回 `null`），deps 注入优先；`pnpm build:desktop:main` 产物里仍带 `createRequire(import.meta.url)`。
+配套：单测彻底去掉时区依赖（绝对时刻 / 本地字段构造 Date / 快照期望值由 `localStamp()` 推导），`snapshot.ts` 的 `formatPolicyLabel` 用 `withoutTimeZone()` 认出加字段之前存的老预设 JSON 并标「（本地时区）」、`redact.ts` 的摘要把 `timeZone` 显示出来（抽屉里能看到策略钉的是哪个时区）。
+验证：`pnpm typecheck` 0 错误；`pnpm test` 在 **TZ=UTC 与 TZ=Asia/Shanghai 下均 762/762 passed**（新增 2 例），第三时区 `America/New_York` 抽查 11/11 绿；`pnpm build` exit 0（dist/server.js 422.5kb）、`pnpm build:desktop:main` exit 0（46.1kb）。

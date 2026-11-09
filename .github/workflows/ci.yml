@@ -13,6 +13,11 @@ concurrency:
 permissions:
   contents: read
 
+# 快照 / 测试里的墙钟时刻按进程本地时区解释，CI 与生产一致按上海时间跑，
+# 免得日志里出现 UTC 的 05:48 这种和本地对不上的时间。
+env:
+  TZ: Asia/Shanghai
+
 jobs:
   test:
     name: typecheck + unit tests + build

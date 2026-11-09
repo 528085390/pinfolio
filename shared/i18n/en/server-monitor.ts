@@ -79,6 +79,7 @@ export const serverMonitor: Dict = {
   '「': '“',
   '」': '”',
   '时间 ': 'time ',
+  '时区 ': 'time zone ',
   '关联观测项': 'linked monitor',
   ' 为 ': ' is ',
   '状态为 ': 'status is ',

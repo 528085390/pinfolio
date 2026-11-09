@@ -77,7 +77,10 @@ function describeWhen(when: any, names?: Record<string, string>): string {
   if (!when || typeof when !== 'object') return t('条件')
   const bits: string[] = []
   if (when.time && typeof when.time === 'object') {
-    bits.push(t('时间 ') + String(when.time.from || '00:00') + '–' + String(when.time.to || '24:00'))
+    const tz = typeof when.time.timeZone === 'string' ? ' · ' + when.time.timeZone : ''
+    bits.push(
+      t('时间 ') + String(when.time.from || '00:00') + '–' + String(when.time.to || '24:00') + tz
+    )
   }
   if (when.monitorStatus && typeof when.monitorStatus === 'object') {
     const ref = when.monitorStatus.name
@@ -122,6 +125,9 @@ export function summarizePolicy(raw: unknown, names?: Record<string, string>): P
       }
       if (rules.length > 4) parts.push(t('另有 {n} 条规则', { n: rules.length - 4 }))
     }
+  }
+  if (typeof p.timeZone === 'string' && parts.length) {
+    parts.push(t('时区 ') + p.timeZone)
   }
   const name = gate && rules.length ? t('门控 + 条件频率') : gate ? t('门控') : rules.length ? t('条件频率') : t('自定义策略')
   return { name, summary: parts.join(t('；')) || JSON.stringify(p).slice(0, 200) }

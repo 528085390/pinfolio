@@ -42,6 +42,7 @@ test('formatPolicyLabel: recognizes presets and custom formats', () => {
     formatPolicyLabel(
       JSON.stringify({
         v: 1,
+        timeZone: 'Asia/Shanghai',
         interval: {
           default: 1200,
           rules: [{ when: { time: { from: '08:00', to: '23:00' } }, interval: 60 }],
@@ -49,6 +50,20 @@ test('formatPolicyLabel: recognizes presets and custom formats', () => {
       })
     ),
     'business-hours'
+  )
+
+  // 老数据：加 timeZone 之前存下来的预设 JSON 仍认得出，但要标明它跟随服务器本地时区
+  assert.equal(
+    formatPolicyLabel(
+      JSON.stringify({
+        v: 1,
+        interval: {
+          default: 1200,
+          rules: [{ when: { time: { from: '08:00', to: '23:00' } }, interval: 60 }],
+        },
+      })
+    ),
+    'business-hours（本地时区）'
   )
 })
 
@@ -128,12 +143,32 @@ test('renderMonitorSnapshot: generates structured markdown with groups, overview
     ],
   ])
 
+  // 快照里的时刻按进程本地时区格式化，所以期望值也用本地字段推导，
+  // 不写死 +08 结果（否则 UTC runner 上会拿到 05:48，CI 因此红）。
+  const localStamp = (d: Date): string =>
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0') +
+    ' ' +
+    String(d.getHours()).padStart(2, '0') +
+    ':' +
+    String(d.getMinutes()).padStart(2, '0')
+
   const fixedDate = new Date('2026-11-06T13:48:00+08:00')
+  const heartbeatDate = new Date('2026-11-06T13:48:00.000Z')
   const markdown = renderMonitorSnapshot(monitors, latestBeats, fixedDate)
 
   assert.match(markdown, /^# 观测台快照/)
-  assert.match(markdown, /生成时间：2026-11-06 13:48/)
-  assert.match(markdown, /最后心跳：2026-11-06 21:48/)
+  assert.ok(
+    markdown.includes('生成时间：' + localStamp(fixedDate)),
+    '生成时间应等于入参时刻的本地表示'
+  )
+  assert.ok(
+    markdown.includes('最后心跳：' + localStamp(heartbeatDate)),
+    '最后心跳应等于最新心跳时刻的本地表示'
+  )
   assert.match(markdown, /## 概览/)
   assert.match(markdown, /观测项 \*\*2\*\* 个（启用 2 \/ 停用 0）/)
   assert.match(markdown, /## 本机（1 项）/)

@@ -19,14 +19,15 @@ test('evaluatePolicy: returns baseInterval and gate=true for null, empty, or inv
 test('evaluatePolicy: evaluates business-hours preset and time rules', () => {
   const policy = JSON.stringify(POLICY_PRESETS['business-hours'])
 
-  // Daytime: 14:30 CST
-  const dayDate = new Date('2026-11-06T14:30:00+08:00')
+  // business-hours 预设钉死 Asia/Shanghai，所以这里用绝对时刻：14:30 上海 == 06:30 UTC。
+  // 结论不应随 runner 的进程时区变化（此前在 UTC runner 上被判成夜间，CI 因此红）。
+  const dayDate = new Date('2026-11-06T06:30:00.000Z')
   const dayRes = evaluatePolicy(policy, 60, { now: dayDate })
   assert.equal(dayRes.gate, true)
   assert.equal(dayRes.interval, 60)
 
-  // Nighttime: 03:15 CST
-  const nightDate = new Date('2026-11-06T03:15:00+08:00')
+  // 03:15 上海 == 前一天 19:15 UTC
+  const nightDate = new Date('2026-11-05T19:15:00.000Z')
   const nightRes = evaluatePolicy(policy, 60, { now: nightDate })
   assert.equal(nightRes.gate, true)
   assert.equal(nightRes.interval, 1200)
@@ -35,6 +36,57 @@ test('evaluatePolicy: evaluates business-hours preset and time rules', () => {
   const presetRes = evaluatePolicy('business-hours', 60, { now: dayDate })
   assert.equal(presetRes.gate, true)
   assert.equal(presetRes.interval, 60)
+})
+
+test('evaluatePolicy: policy without timeZone reads the time window in the local clock', () => {
+  const localPolicy = JSON.stringify({
+    v: 1,
+    interval: {
+      default: 1200,
+      rules: [{ when: { time: { from: '08:00', to: '23:00' } }, interval: 60 }],
+    },
+  })
+
+  // 用本地字段构造，任何时区下都是“本地 14:30 / 03:15”
+  const dayLocal = new Date(2026, 10, 6, 14, 30)
+  assert.equal(evaluatePolicy(localPolicy, 60, { now: dayLocal }).interval, 60)
+
+  const nightLocal = new Date(2026, 10, 6, 3, 15)
+  assert.equal(evaluatePolicy(localPolicy, 60, { now: nightLocal }).interval, 1200)
+})
+
+test('evaluatePolicy: timeZone decides how the window is read, atom-level wins over policy-level', () => {
+  const instant = new Date('2026-11-06T06:30:00.000Z') // 上海 14:30 / UTC 06:30
+  const rules = [{ when: { time: { from: '08:00', to: '23:00' } }, interval: 60 }]
+
+  const shanghai = JSON.stringify({
+    v: 1,
+    timeZone: 'Asia/Shanghai',
+    interval: { default: 1200, rules },
+  })
+  assert.equal(evaluatePolicy(shanghai, 60, { now: instant }).interval, 60)
+
+  const utc = JSON.stringify({
+    v: 1,
+    timeZone: 'UTC',
+    interval: { default: 1200, rules },
+  })
+  assert.equal(evaluatePolicy(utc, 60, { now: instant }).interval, 1200)
+
+  // atom 级 timeZone 覆盖根级
+  const overridden = JSON.stringify({
+    v: 1,
+    timeZone: 'Asia/Shanghai',
+    interval: {
+      default: 1200,
+      rules: [{ when: { time: { from: '08:00', to: '23:00', timeZone: 'UTC' } }, interval: 60 }],
+    },
+  })
+  assert.equal(evaluatePolicy(overridden, 60, { now: instant }).interval, 1200)
+
+  // 非法 timeZone → 整条策略非法，退回 baseInterval（宁可不生效，也不按错时区观测）
+  const badTz = JSON.stringify({ v: 1, timeZone: 'Mars/Olympus', interval: { default: 600 } })
+  assert.deepEqual(evaluatePolicy(badTz, 60), { gate: true, interval: 60 })
 })
 
 test('evaluatePolicy: evaluates adaptive intervals based on selfStatus', () => {

@@ -42,6 +42,8 @@ export const POLICY_PRESETS: Record<string, any> = {
   },
   'business-hours': {
     v: 1,
+    // 营业时段是人看的墙钟时间，必须钉住时区，否则 UTC 服务器上整体漂 8 小时。
+    timeZone: 'Asia/Shanghai',
     interval: {
       default: 1200,
       rules: [{ when: { time: { from: '08:00', to: '23:00' } }, interval: 60 }],
@@ -154,6 +156,71 @@ function isoWeekday(date: Date): number {
   return ((jsDay + 6) % 7) + 1
 }
 
+/** 校验 IANA 时区名（'Asia/Shanghai' 之类）；不合法时策略整体作废，绝不猜。 */
+export function isValidTimeZone(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || tz.trim() === '') return false
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const ZONE_FORMATTERS = new Map<string, Intl.DateTimeFormat>()
+
+function zoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = ZONE_FORMATTERS.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      hour: '2-digit',
+      minute: '2-digit',
+      weekday: 'short',
+    })
+    ZONE_FORMATTERS.set(timeZone, fmt)
+  }
+  return fmt
+}
+
+/**
+ * 时间窗判定用的墙钟：分钟数（0-1439）与 ISO 星期（1 = 周一 … 7 = 周日）。
+ * timeZone 为空时按进程本地时区（老行为）；时区非法返回 null，调用方按“条件不成立”处理。
+ */
+function clockParts(
+  date: Date,
+  timeZone: string | null
+): { minutes: number; weekday: number } | null {
+  if (!timeZone) {
+    return { minutes: date.getHours() * 60 + date.getMinutes(), weekday: isoWeekday(date) }
+  }
+
+  let parts: Intl.DateTimeFormatPart[]
+  try {
+    parts = zoneFormatter(timeZone).formatToParts(date)
+  } catch {
+    return null
+  }
+
+  let hour = NaN
+  let minute = NaN
+  let weekday = NaN
+  for (const part of parts) {
+    if (part.type === 'hour') hour = parseInt(part.value, 10)
+    else if (part.type === 'minute') minute = parseInt(part.value, 10)
+    else if (part.type === 'weekday') {
+      const idx = WEEKDAYS.indexOf(part.value.slice(0, 3).toLowerCase())
+      if (idx !== -1) weekday = idx + 1
+    }
+  }
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || !Number.isInteger(weekday)) {
+    return null
+  }
+  return { minutes: hour * 60 + minute, weekday }
+}
+
 export function parsePolicy(input: any): { policy: ParsedPolicy | null; error: Error | null } {
   if (input === null || input === undefined) {
     return { policy: null, error: null }
@@ -184,6 +251,10 @@ export function parsePolicy(input: any): { policy: ParsedPolicy | null; error: E
     return { policy: null, error: new Error('unsupported policy version: ' + v) }
   }
 
+  if (input.timeZone !== undefined && input.timeZone !== null && !isValidTimeZone(input.timeZone)) {
+    return { policy: null, error: new Error('unsupported timeZone: ' + input.timeZone) }
+  }
+
   return { policy: { ...input, v: 1 }, error: null }
 }
 
@@ -201,6 +272,8 @@ function resolveDepId(value: any, ctx: InternalContext): number | null {
 
 interface InternalContext {
   now: Date
+  /** 策略根级 timeZone；null = 按进程本地时区解释时间窗。 */
+  timeZone: string | null
   selfStatus: string | null
   selfDownCount: number
   selfPingMs: number | null
@@ -211,6 +284,7 @@ interface InternalContext {
 
 function buildInternalContext(ctx?: PolicyContext): InternalContext {
   const now = ctx?.now instanceof Date ? ctx.now : new Date()
+  const timeZone: string | null = null
   const selfStatus = statusName(ctx?.selfStatus)
   const selfDownCount = typeof ctx?.selfDownCount === 'number' ? ctx.selfDownCount : 0
   const selfPingMs =
@@ -240,6 +314,7 @@ function buildInternalContext(ctx?: PolicyContext): InternalContext {
 
   return {
     now,
+    timeZone,
     selfStatus,
     selfDownCount,
     selfPingMs,
@@ -294,9 +369,15 @@ function evalAtom(key: string, value: any, ctx: InternalContext): boolean {
       const days = normalizeDays(value.days)
       if (value.days !== undefined && value.days !== null && days === null) return false
 
-      if (days !== null && !days.has(isoWeekday(ctx.now))) return false
+      const atomTz = value.timeZone
+      if (atomTz !== undefined && atomTz !== null && !isValidTimeZone(atomTz)) return false
 
-      const minutes = ctx.now.getHours() * 60 + ctx.now.getMinutes()
+      const clock = clockParts(ctx.now, atomTz ?? ctx.timeZone)
+      if (!clock) return false
+
+      if (days !== null && !days.has(clock.weekday)) return false
+
+      const minutes = clock.minutes
       if (from <= to) {
         return minutes >= from && minutes < to
       }
@@ -416,6 +497,9 @@ export function evaluatePolicy(
   }
 
   const internalCtx = buildInternalContext(ctx)
+  if (isValidTimeZone(policy.timeZone)) {
+    internalCtx.timeZone = policy.timeZone
+  }
 
   // Gate evaluation
   if (policy.gate && policy.gate.when !== undefined) {
