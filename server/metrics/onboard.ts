@@ -16,12 +16,15 @@ export const INSTALL_PATH = '/tmp/node-metrics-install.sh'
 export const INSTALL_URL = process.env.METRICS_INSTALL_URL || ''
 
 /**
- * base 是「拉取」用的地址（https://host/metrics/<token>/），
- * 采集端要 PUT 到 /metrics-ingest/<token>（nginx 那边只允许 PUT）。
+ * base 是「拉取」用的地址，两种形态：
+ *   · https://host/metrics/<token>/  → 采集端 PUT 到 /metrics-ingest/<token>（nginx 只允许 PUT）
+ *   · ssh:/var/lib/node-metrics      → 采集端谁都不用连，只往本机目录落盘，这里给 file:// 目录
  */
 export function buildIngestUrl(base: string): string {
   const trimmed = String(base ?? '').trim()
   if (!trimmed) throw new Error(t('metrics base 为空，无法生成上报地址'))
+  // SSH 拉取模式没有 /metrics/<token> 这段，采集端不需要任何公网地址
+  if (trimmed.startsWith('ssh:')) return 'file://' + trimmed.slice(4).replace(/\/+$/, '')
   const marker = '/metrics/'
   const cut = trimmed.indexOf(marker)
   if (cut < 0) throw new Error(t('metrics base 里没有 /metrics/ 段，无法生成上报地址'))

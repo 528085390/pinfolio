@@ -1,11 +1,16 @@
 #!/bin/bash
-# node-metrics.sh —— 采集本机指标，PUT 一份 JSON 给 pinfolio 的收集端（my-server 的 nginx）。
+# node-metrics.sh —— 采集本机指标，交给 pinfolio 的主机页。
+#
+# 两种落地方式（2026-11-09 加第二种，因为原收集端所在机器已退役）：
+#   · METRICS_URL="file:///var/lib/node-metrics"  → 只写本机文件，pinfolio 走 SSH 拉（默认推荐）
+#   · METRICS_URL="https://…/metrics-ingest/<token>" → 老方式：curl PUT 上报给收集端
+#   · METRICS_URL 留空 → 同 file:// 默认目录（/var/lib/node-metrics）
 #
 # 设计约束（2026-10-22 定，别破坏）：
 #   · 零常驻：由 node-metrics.timer 每 5 分钟拉起一次，跑完即退，内存峰值几 MB
-#   · 零依赖：只要 bash + coreutils + curl，不用 jq / python / 任何守护进程
+#   · 零依赖：只要 bash + coreutils（落盘模式连 curl 都不需要）
 #   · 配置在 /etc/node-metrics.conf（METRICS_URL / HOST_ID / WATCH_UNITS / DISK_PATHS）
-#   · 只读：除 /tmp 临时文件外不写任何东西
+#   · 落盘模式只写一处：<METRICS_URL 的目录>/<HOST_ID>.json（先写临时文件再原子 mv）
 #
 # 用法：
 #   node-metrics.sh            # 采集并上报
@@ -94,7 +99,26 @@ if [ "$MODE" = "print" ]; then
   exit 0
 fi
 
-: "${METRICS_URL:?未配置 METRICS_URL（应写在 $CONF 里）}"
+# ── 落地方式：file:// 前缀 = 只写本机文件（pinfolio 走 SSH 拉，不占公网端口）────
+#    file://<dir> / 留空  → 落盘 <dir>/<HOST_ID>.json
+#    http(s)://…          → 老方式：curl PUT 上报
+case "${METRICS_URL:-}" in
+  file://*) LOCAL_DIR="${METRICS_URL#file://}" ;;
+  "")       LOCAL_DIR="${METRICS_DIR:-/var/lib/node-metrics}" ;;
+  *)        LOCAL_DIR="" ;;
+esac
+
+if [ -n "$LOCAL_DIR" ]; then
+  LOCAL_DIR="${LOCAL_DIR%/}"
+  mkdir -p "$LOCAL_DIR" 2>/dev/null || { echo "node-metrics: 建不了目录 $LOCAL_DIR" >&2; exit 1; }
+  # 先写同目录临时文件再 mv：拉取端（SSH cat）永远读不到半个 JSON
+  tmp="$LOCAL_DIR/.$HOST_ID.json.tmp.$$"
+  printf '%s\n' "$json" > "$tmp" || exit 1
+  chmod 0644 "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$LOCAL_DIR/$HOST_ID.json" || { rm -f "$tmp"; echo "node-metrics: 写入失败 $LOCAL_DIR" >&2; exit 1; }
+  exit 0
+fi
+
 tmp=$(mktemp) || exit 1
 trap 'rm -f "$tmp"' EXIT
 printf '%s\n' "$json" > "$tmp"

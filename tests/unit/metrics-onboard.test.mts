@@ -9,6 +9,11 @@ import {
 
 /* ---------------- buildIngestUrl ---------------- */
 
+test('buildIngestUrl：ssh:<目录> → file://<目录>（采集端只落盘，走 SSH 拉取）', () => {
+  assert.equal(buildIngestUrl('ssh:/var/lib/node-metrics'), 'file:///var/lib/node-metrics')
+  assert.equal(buildIngestUrl(' ssh:/var/lib/node-metrics/ '), 'file:///var/lib/node-metrics')
+})
+
 test('buildIngestUrl：/metrics/<token>/ → /metrics-ingest/<token>', () => {
   assert.equal(
     buildIngestUrl('https://metrics.example.com/metrics/0123456789ab/'),

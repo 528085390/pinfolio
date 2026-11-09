@@ -112,7 +112,11 @@ export function extractParts(text) {
 
 function readParts() {
   const files = {}
-  for (const name of PARTS) files[name] = readFileSync(join(HERE, name), 'utf8')
+  for (const name of PARTS) {
+    // Windows 工作区检出的是 CRLF，但服务器上 bash 见到 \r 会直接语法错（line 62: `do\r`）。
+    // 打包时统一成 LF，安装器里内联的正文和落地到 /usr/local/bin 的脚本才是干净的。
+    files[name] = readFileSync(join(HERE, name), 'utf8').replace(/\r\n/g, '\n')
+  }
   return files
 }
 
