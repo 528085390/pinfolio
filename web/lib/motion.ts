@@ -47,6 +47,16 @@ export function rubberband(overshoot: number, dimension: number, coefficient = 0
   return overshoot * dimension * coefficient / (dimension + coefficient * Math.abs(overshoot))
 }
 
+/**
+ * 抽屉跟手位移：width 以内 **1:1 跟手**，越过抽屉宽度才上 rubberband 阻尼。
+ * 全程阻尼（直接 rubberband(dx, width)）会让纯拖拽永远够不到半程阈值——C1 验收实测拖 120px 只动 59px，
+ * 结果是只能靠甩速关窗。越界那一小段仍要变硬，才不至于被拖到屏幕外看不见的地方。
+ */
+export function dragFollow(dx: number, dimension: number, coefficient = 0.55): number {
+  if (dx <= dimension) return dx
+  return dimension + rubberband(dx - dimension, dimension, coefficient)
+}
+
 /** 甩出阈值（px/ms）：Abs(distance)/elapsedMs 超过它就算"甩出去"。 */
 export const FLICK_VELOCITY = 0.11
 

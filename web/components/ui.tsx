@@ -3,7 +3,7 @@ import { t } from '../lib/i18n'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cx } from '../lib/api'
-import { FLICK_VELOCITY, prefersReducedMotion, project, rubberband, spring, SPRING_DRAWER } from '../lib/motion'
+import { dragFollow, FLICK_VELOCITY, prefersReducedMotion, project, spring, SPRING_DRAWER } from '../lib/motion'
 
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'default' | 'primary' | 'ghost' | 'danger'
@@ -152,7 +152,7 @@ type DrawerDrag = {
   startOffset: number        // 起手时已有的位移（打断上一次 spring 时不是 0）
   width: number
   moves: { t: number; x: number }[]   // 最近几条轨迹，松手时算速度
-  shown: number              // 当前实际位移（rubberband 之后的像素）
+  shown: number              // 当前实际位移（dragFollow 之后的像素）
   reduced: boolean           // 起手那一刻的 prefers-reduced-motion
   onMove: (e: PointerEvent) => void
   onUp: (e: PointerEvent) => void
@@ -271,7 +271,7 @@ export function Drawer({ open, onClose, title, children, footer }: {
       if (d.moves.length > 5) d.moves.shift()
       // 减少动效：不跟手（spec §4.7「拖拽位移禁用、松手即关」），只记录轨迹
       if (d.reduced) return
-      applyDragOffset(d, rubberband(dx, d.width))
+      applyDragOffset(d, dragFollow(dx, d.width))
     }
 
     d.onUp = (ev: PointerEvent) => {

@@ -6,6 +6,7 @@ import {
   SPRING_MOVE,
   prefersReducedMotion,
   project,
+  dragFollow,
   rubberband,
   spring,
   springParams,
@@ -94,6 +95,23 @@ test('project：与速度成正比、可换 decel', () => {
   // decel=0.99 → v * 0.99/0.01 = 99v
   assert.ok(Math.abs(project(1, 0.99) - 99) < 1e-6)
   assert.ok(project(1) > project(1, 0.9))
+})
+
+/* ---------- dragFollow（抽屉跟手：宽度内 1:1，越界才阻尼）---------- */
+
+test('dragFollow：width 以内与指针位移 1:1', () => {
+  assert.equal(dragFollow(0, 580), 0)
+  assert.equal(dragFollow(120, 580), 120)   // C1 验收里曾只动 59.257px
+  assert.equal(dragFollow(580, 580), 580)
+})
+
+test('dragFollow：越界后接 rubberband，单调且永远吃不满一个 width 的额外量', () => {
+  assert.ok(dragFollow(600, 580) > 580)
+  assert.ok(dragFollow(600, 580) < 600)
+  assert.ok(dragFollow(1200, 580) > dragFollow(600, 580))
+  assert.ok(dragFollow(1e9, 580) > 580 + 580 * 0.9999)
+  // 边界连续：宽度处左右极限相等
+  assert.ok(Math.abs(dragFollow(580, 580) - dragFollow(580.0001, 580)) < 1e-3)
 })
 
 /* ---------- rubberband ---------- */
