@@ -42,7 +42,9 @@
   --glass-shadow: 0 12px 32px -20px rgba(60, 44, 24, 0.28);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.64);
   --glass-tint: rgba(255, 252, 244, 0.55);     /* 按钮 / chip 这类「轻材料」 */
-  --glass-tint-hover: rgba(240, 230, 212, 0.80); /* hover 稍深一点（同色相、更实） */
+  --glass-tint-hover: rgba(240, 230, 212, 0.80);
+  /* 壁纸态正文磨砂层的底色，壁纸关闭时不参与 */
+  --content-glass: rgba(247, 242, 232, 0.86); /* hover 稍深一点（同色相、更实） */
 }
 
 /* ---------- 令牌：暗色（spec §3.3，逐字照抄） ---------- */
@@ -64,6 +66,7 @@
 
   --glass-bg: rgba(28, 24, 19, 0.62);
   --glass-bg-strong: rgba(28, 24, 19, 0.86);
+  --content-glass: rgba(24, 20, 15, 0.88);
   --glass-blur: 24px;
   --glass-blur-strong: 32px;
   --glass-sat: 160%;
@@ -266,86 +269,70 @@
 
 /* ---------- 壁纸：给玻璃一块「有东西可透」的背景 ----------
    没有壁纸时，玻璃后面的彩光底几乎是一块纯色，24–32px 模糊之后只剩白块 ——
-   观感上就是「换了个配色」（spec §10.6 的实测：侧栏纹理 σ 0.063–0.070，与纯色无差）。
-   打开壁纸后侧栏 σ 0.087–0.109，玻璃才真的成立。
-   分工照 HIG：壁纸只铺在外壳后面（侧栏 / 顶栏 / 浮层磨出来），正文压在「纸」上 ——
-   照片不从卡片缝隙里透出来（否则内容区 σ 0.17 → 0.35，正文可读性掉档）。
+   观感上就是「换了个配色」（实测：侧栏纹理 σ 0.063–0.070，与纯色无差）。
+   壁纸不是铺在面板里，而是铺在**整个窗口最底层**：侧栏、顶栏、正文都是磨砂玻璃板，
+   照片从每一块板的后面透上来。照片本身先被 24px 预模糊（body::before 的 filter），
+   所以透上来的是一片色雾而不是花纹——面板的填充就可以压得很薄，文字还读得清。
    图片地址由设置页写进 <html> 的 --wallpaper-url（web/lib/theme-prefs.ts 的 applyWallpaperVar）。 */
+[data-style='glass'][data-wallpaper='on'] {
+  --wallpaper-scrim: transparent;
+  --content-glass: rgba(247, 242, 232, 0.58);
+}
+[data-style='glass'][data-wallpaper='on'][data-theme='dark'] {
+  --wallpaper-scrim: rgba(20, 14, 8, 0.42);
+  --content-glass: rgba(26, 22, 17, 0.58);
+}
 [data-style='glass'][data-wallpaper='on'] body {
   background-color: var(--paper);
-  background-image: var(--wallpaper-url, none);
+  background-image: none;
+}
+/* 壁纸层：固定在最底层，比视口大一圈避免模糊吃掉边缘；预模糊 + 压一层暗色 scrim */
+[data-style='glass'][data-wallpaper='on'] body::before {
+  content: '';
+  position: fixed;
+  inset: -6%;
+  z-index: 0;
+  background-image: linear-gradient(var(--wallpaper-scrim), var(--wallpaper-scrim)), var(--wallpaper-url, none);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: fixed;
+  filter: blur(24px) saturate(140%);
+  pointer-events: none;
 }
-/* 暗色：先压一层深色再给玻璃吃，亮壁纸不能把暗色主题顶成灰白 */
-[data-style='glass'][data-theme='dark'][data-wallpaper='on'] body {
-  background-image: linear-gradient(rgba(20, 14, 8, 0.60), rgba(20, 14, 8, 0.60)), var(--wallpaper-url, none);
-}
-/* 壳层浮起来：壁纸从侧栏左缘、内容面板外侧与顶栏后面露出来。
-   只动底板这层（侧栏 / 内容 / 顶栏），页面内部结构、滚动、瀑布流测宽都还在原来的容器里。 */
+/* 外壳整层透明，让壁纸层露出来；面板块自己带磨砂填充 */
 [data-style='glass'][data-wallpaper='on'] .app {
+  position: relative;
+  z-index: 1;
   background: transparent;
 }
+/* 侧栏：blur-strong（32px）+ 薄填充，照片的颜色直接透上来 */
 [data-style='glass'][data-wallpaper='on'] .sidebar {
-  margin: 16px 0 16px 16px;
-  border-radius: 20px;
-  border-right: 0;
-  box-shadow: var(--glass-highlight), 0 18px 44px -26px rgba(60, 44, 24, 0.42);
+  background-color: var(--glass-bg-strong);
 }
-/* 正文：一张实底「纸」面板，压在壁纸之上；照片不从卡片缝隙里透出来 */
+/* 正文：磨砂玻璃板（照片在上面已经被预模糊过一遍，这里再补 20px） */
 [data-style='glass'][data-wallpaper='on'] .content {
-  background: var(--paper);
-  margin: 16px 16px 16px 0;
-  border-radius: 20px;
-  border-left: 0;
-  box-shadow: 0 18px 44px -26px rgba(60, 44, 24, 0.42), 0 1px 2px rgba(60, 44, 24, 0.10);
+  background-color: var(--content-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
 }
 [data-style='glass'][data-wallpaper='on'] .topbar {
-  margin-right: 16px;
   border-bottom: 1px solid var(--glass-border);
 }
-/* 暗色的投影要更沉，暖棕在深底上会发亮 */
-[data-style='glass'][data-wallpaper='on'][data-theme='dark'] .sidebar {
-  box-shadow: var(--glass-highlight), 0 18px 44px -26px rgba(0, 0, 0, 0.62);
+/* 卡片也半透：透的是已经磨过的色雾，不是照片原图，所以正文对比度还在 */
+[data-style='glass'][data-wallpaper='on'] .card,
+[data-style='glass'][data-wallpaper='on'] .asset-card,
+[data-style='glass'][data-wallpaper='on'] .svc-card,
+[data-style='glass'][data-wallpaper='on'] .note {
+  background-color: var(--surface);
 }
-[data-style='glass'][data-wallpaper='on'][data-theme='dark'] .content {
-  box-shadow: 0 18px 44px -26px rgba(0, 0, 0, 0.62), 0 1px 2px rgba(0, 0, 0, 0.40);
-}
-/* 窄屏：留边太贵，缩到 10px；手机（≤560）直接满幅，别跟正文抢宽度 */
-@media (max-width: 700px) {
-  [data-style='glass'][data-wallpaper='on'] .sidebar {
-    margin: 10px 0 10px 10px;
-    border-radius: 16px;
-  }
-  [data-style='glass'][data-wallpaper='on'] .content {
-    margin: 10px 10px 10px 0;
-    border-radius: 16px;
-  }
-  [data-style='glass'][data-wallpaper='on'] .topbar {
-    margin-right: 10px;
-  }
-}
-@media (max-width: 560px) {
-  [data-style='glass'][data-wallpaper='on'] .sidebar {
-    margin: 0;
-    border-radius: 0;
-  }
-  [data-style='glass'][data-wallpaper='on'] .content {
-    margin: 0;
-    border-radius: 0;
-  }
-  [data-style='glass'][data-wallpaper='on'] .topbar {
-    margin-right: 0;
-  }
-}
-/* 壁纸很花时侧栏文字要压得住：亮色下把玻璃再垫厚一点（不改模糊，只改不透明度） */
+/* 壁纸态的不透明度：填充越薄越透，模糊与饱和补可读性 */
 [data-style='glass'][data-wallpaper='on'][data-theme='light'] {
-  --glass-bg: rgba(255, 252, 246, 0.70);
-  --glass-bg-strong: rgba(255, 252, 246, 0.86);
+  --glass-bg: rgba(255, 252, 246, 0.42);
+  --glass-bg-strong: rgba(255, 252, 246, 0.56);
+  --surface: rgba(255, 253, 247, 0.80);
 }
 [data-style='glass'][data-wallpaper='on'][data-theme='dark'] {
-  --glass-bg: rgba(28, 24, 19, 0.70);
-  --glass-bg-strong: rgba(28, 24, 19, 0.86);
+  --glass-bg: rgba(28, 24, 19, 0.42);
+  --glass-bg-strong: rgba(28, 24, 19, 0.56);
+  --surface: rgba(38, 34, 27, 0.80);
 }
