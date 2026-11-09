@@ -523,3 +523,22 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 ⑤ **表结构演进规范收敛（v4 迁移）**：抽离 `server/schema/monitor.ts`（导出 `MONITOR_SCHEMA`），将 `monitors` 和 `heartbeats` 表结构与索引正式收纳入 `server/migrations.ts` 的 `v4` 版本演进管线，享受版本化与自动 `pre-migrate` 备份保护；`server/monitor/store.ts` 接入复用。
 ⑥ **前端大页面路由代码分割（React.lazy）**：在 `web/App.tsx` 中对低频/重型页面（`MailPage`、`BackupPage`、`ServicesPage`）应用 `React.lazy` 懒加载，包裹统一 `<Suspense>` 占位；主 JS bundle 从 617 kB 直降至 448 kB（-27%），并生成独立的小 chunk，消除 Vite chunk > 500 kB 提示，大幅优化反代公网访问首屏耗时。
 验证：`pnpm typecheck` 0 错误；`pnpm test:unit` **741/741 passed**；全量构建 `pnpm build`（web 340ms + server 25ms）0 警告；7788 运行时健康探测 200 OK。
+
+## 2026-11-09 主机卡片改版（照用户给的 VPS 监控截图重排卡面）
+
+用户贴了一张 VPS 监控面板截图问「主机观测区能不能做成类似这样」，随后定调「A，背景不用，先做字段这些」：**只改卡面字段与版式**（毛玻璃壁纸背景不做；流量 / 连接数 / IP / 「加入对比」等需要改采集端的 B 档暂不做）。
+
+① **服务端拼「探针」字段**：新增 `server/metrics/hostprobe.ts`（纯函数，8 例单测）——`pickProbeMonitor()` 只收 `port` / `http` 观测项并按 `port 443 < 其它 port < http` 排权重，`matchGroupMonitors()` 在主机没登记 `monitors` 时按组名 / 名字前缀兜底，`summarizeProbe()` 算出 `{monitorId, name, type, latencyMs, lossPct, beats, at}`（最近 24 拍、`lossPct = DOWN/(UP+DOWN)`，`PENDING` / `MAINTENANCE` 不进分母）。`server/metrics/routes.ts` 的 `buildPayload()` 对每台机取「登记项 + 服务 chip 映射项」的并集，算出 `probe` 随 `GET /api/hosts` 下发（无样本分支也带，值可为 `null`）。**踩坑**：第一版拿「最近一条心跳」当延迟，az 显示 4863 ms——那是一条 SSH 观测项的 `ping`（= 连上 + `systemctl` 的耗时），已排除并记进坑 82。
+
+② **前端卡面重排**：`HostCard.tsx` 改成「抬头（灯 + id + 厂商徽标 + 关联资产 + ago + ops）→ `.host-meta`（国旗 + 机房 · OS · 负载 1m · 单元异常）→ `.host-meters` 三条 Meter（CPU / 内存 / 磁盘，4px track）→ `.host-probe`（延迟 · 丢包 · 复用 `BeatStrip` 的 24 拍色条）→ 24 小时曲线 → top 进程」；新增 `web/pages/hosts/region.ts`（`hostVendor` / `hostRegion` / `hostFlag`，3 例单测）；`web/styles/hosts.css` 删掉 `.host-figs` / `.host-bars` 一族、加 `.host-meta*` / `.host-meters*` / `.host-probe*`；`shared/i18n/en/hosts.ts` 补 5 条英文。
+
+③ **验证**：`pnpm typecheck` 0 错误、`pnpm build` 通过、`tools/pinboard.ps1 restart` 后 7788 正常；隔离实例（`tmp/check-hosts.mjs`，vite 私有实例 + Playwright 登录）实测 5 张卡、5 个 `.host-probe`、console / pageerror 0；版式审计：卡 378.66×320、每条 meter 347×23、track 高 4px、beats 高 14px，1440 与 420 视口都无横向溢出（截图 `tmp/hosts-check.png`、`tmp/hosts-check-narrow.png`）。
+
+**已完成（2026-11-09，存储治理、性能加速与安全加固）**：用户要求「好，都优化」，落地第二轮深度优化（存储生命周期、数据库读写参数、网络传输压缩与静态缓存治理）。
+① **SQLite WAL 高性能 PRAGMA 配置**：在 `server/db.ts` 开库时配置 `PRAGMA synchronous = NORMAL`（WAL 模式推荐，在保证 crash 安全的同时消除每次事务强同步等待）、`PRAGMA cache_size = -20000`（约 20MB 页面缓存，极大降低高频查询磁盘命中）、`PRAGMA temp_store = MEMORY`（临时表在内存处理，避免磁盘溢出）。配套新增 `tests/unit/db-pragma.test.mts`（3 例断言）。
+② **观测心跳存储生命周期治理（7 天自动裁剪）**：在 `MonitorStore` 增加 `pruneHeartbeats(retentionDays = 7)`，并在 `ProbeEngine` 中启动时挂载每日生命周期维护定时器（5 秒首跑，后续 24 小时递归调度并 `unref()`），自动清理 7 天以上的过期心跳行，防止自愈记录无限增长挤占数据库文件大小。配套在 `tests/unit/probe-engine.test.mts` 补齐裁剪单测，使用单定时器链避免 interval 漂移，与既有后台任务守卫完全契合。
+③ **全局响应 Gzip 压缩支持**：导出 `server/app.ts` 的 `createApp()` 并挂载 Hono 内置 `compress()` 中间件，自动根据客户端 `Accept-Encoding: gzip` 对 API 和服务端文本响应执行 gzip 压缩，大幅降低网络流量并提升公网/反代加载速度。配套新增 `tests/unit/app-compression.test.mts`（2 例断言）。
+④ **静态资源缓存判定微调**：抽离 `server/static.ts` 中的 `isCacheablePath(p)` 纯函数，精准排除固定文件名的 `/favicon.ico` 和 `/robots.txt`，防止其被判定为 1 年 `immutable` 长缓存导致浏览器缓存旧版图标或爬虫规则。配套新增 `tests/unit/static-cache.test.mts`（2 例断言）。
+验证：`pnpm typecheck` 0 错误；`pnpm test` 全量单测通过（**760/760 passed**，新增 7 例）；`curl.exe -i -H "Accept-Encoding: gzip"` 验证运行时 7788 响应正确返回 `content-encoding: gzip`；生产服务运行健康。
+
+
