@@ -8,6 +8,8 @@ export const THEME_KEY = 'pinboard-theme'
 export const STYLE_KEY = 'pinboard-style'
 export const REFRACT_KEY = 'pinboard-glass-refract'
 
+/** 明暗偏好（localStorage 里存的值）：亮 / 暗 / 跟随系统 */
+export type ThemePref = 'light' | 'dark' | 'system'
 /** 风格维度（与 <html data-style> 同值）：暖纸 / 玻璃 */
 export type StylePref = 'paper' | 'glass'
 /** 折射开关（与 <html data-glass-refract> 同值）：真折射只在 Chromium 上真能画出来 */
@@ -16,32 +18,73 @@ export type RefractPref = 'on' | 'off'
 export const DEFAULT_STYLE: StylePref = 'glass'
 export const DEFAULT_REFRACT: RefractPref = 'on'
 
-/** <html> 上的三个偏好属性（dataset 里的名字） */
-export type PrefAttr = 'theme' | 'style' | 'glassRefract'
+/**
+ * <html> 上三个偏好属性的「attr → 合法取值」表。
+ * 写成映射类型而不是 (attr: string, value: string)：脏值（'neon' / 'yes' / 'darkish'）
+ * 编译期就过不去，不用等到样式静默不生效才发现。
+ */
+export interface PrefValues {
+  theme: 'light' | 'dark'
+  style: StylePref
+  glassRefract: RefractPref
+}
+export type PrefAttr = keyof PrefValues
 
-// localStorage 在隐私模式 / 被策略禁用时会抛，一律当作「没存过」，走缺省值
-function readPref(key: string): string | null {
+/** 只用到 getItem 的最小 Storage 形状：真 localStorage 与测试桩都满足 */
+export interface PrefStorage {
+  getItem(key: string): string | null
+}
+
+// 隐私模式 / 被策略禁用时，连访问 localStorage 本身都会抛，一律当作「没存过」，走缺省值
+function defaultStorage(): PrefStorage | null {
   try {
-    return localStorage.getItem(key)
+    return globalThis.localStorage ?? null
   } catch {
     return null
   }
 }
 
-/** 主题偏好：'light' | 'dark' | 'system'（缺省跟随系统，与改动前一致） */
-export function readStoredTheme(): string {
-  return readPref(THEME_KEY) || 'system'
+function readPref(storage: PrefStorage | null, key: string): string | null {
+  try {
+    return storage?.getItem(key) ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 明暗偏好：只认 light / dark，其余（没存过 / 脏值）一律跟随系统，与改动前一致 */
+export function readStoredTheme(storage: PrefStorage | null = defaultStorage()): ThemePref {
+  const v = readPref(storage, THEME_KEY)
+  return v === 'light' || v === 'dark' ? v : 'system'
 }
 
 /** 只认显式的 'paper'，其余（空 / 脏值 / 清过 localStorage）一律按缺省玻璃 */
-export function readStoredStyle(): StylePref {
-  return readPref(STYLE_KEY) === 'paper' ? 'paper' : DEFAULT_STYLE
+export function readStoredStyle(storage: PrefStorage | null = defaultStorage()): StylePref {
+  return readPref(storage, STYLE_KEY) === 'paper' ? 'paper' : DEFAULT_STYLE
 }
 
 /** 只认显式的 'off'，其余一律按缺省开启 */
-export function readStoredRefract(): RefractPref {
-  return readPref(REFRACT_KEY) === 'off' ? 'off' : DEFAULT_REFRACT
+export function readStoredRefract(storage: PrefStorage | null = defaultStorage()): RefractPref {
+  return readPref(storage, REFRACT_KEY) === 'off' ? 'off' : DEFAULT_REFRACT
 }
+
+/**
+ * 「明暗偏好 + 系统当前是否深色」→ 真正写进 data-theme 的值。
+ * useShell（在 matchMedia 变化时重算）与 applyBootPrefs（首帧）各写过一遍同样的表达式，
+ * 抽到这里只写一次，免得一边改了另一边忘。
+ */
+export function resolveTheme(theme: ThemePref, matchesDark: boolean): 'light' | 'dark' {
+  return theme === 'dark' || (theme === 'system' && matchesDark) ? 'dark' : 'light'
+}
+
+/**
+ * 每个 attr 最近一次「已排期」的值，仅作短路判据用 —— 故意不读 DOM：
+ * startViewTransition 的写入回调要等旧快照捕获（≈下一帧）才跑，那一帧里 DOM 还是旧值。
+ * 若拿 DOM 比较，快速连切（键盘按住 Enter / Space 连发）时第二次会被误判成「值没变」
+ * 直接 return，于是挂起的回调把上一次的值写下去 —— state 与 localStorage 是新值、
+ * <html> 是旧值，得等下次切换才自愈。用排期表就没有这个时间窗。
+ */
+const scheduled: Partial<Record<PrefAttr, string>> = {}
 
 /**
  * 运行时切换：把某一维偏好写到 <html>，并在支持 View Transition 的浏览器上
@@ -49,13 +92,16 @@ export function readStoredRefract(): RefractPref {
  *
  * 两条纪律：
  * 1. 只包 DOM 写入，不包 setState —— 把 setState 塞进回调会把 React 渲染也拖进过渡里；
- * 2. 值没变就直接返回，免得挂载时（首帧已由 applyBootPrefs 写好）白跑一次过渡。
+ * 2. 与排期表里最近一次的值相同就返回，免得挂载时（首帧已由 applyBootPrefs 写好）白跑一次过渡。
  */
-export function applyPref(attr: PrefAttr, value: string): void {
-  const root = document.documentElement
-  if (root.dataset[attr] === value) return
+export function applyPref<K extends PrefAttr>(attr: K, value: PrefValues[K]): void {
+  if (scheduled[attr] === value) return
+  scheduled[attr] = value
+  // 回调写排期表里的最新值（而不是闭包里的 value）：连切两次时，先挂起的那次
+  // 可能晚于第二次切换才跑，绝不能让它把自己的旧值写下去
   const write = () => {
-    root.dataset[attr] = value
+    const latest = scheduled[attr]
+    if (latest !== undefined) document.documentElement.dataset[attr] = latest
   }
   const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
   const reduced =
@@ -68,17 +114,37 @@ export function applyPref(attr: PrefAttr, value: string): void {
 }
 
 /**
+ * applyBootPrefs 需要的全部外部依赖：document / localStorage / matchMedia 都从这一个
+ * 对象取。只注入一半（传 doc 却读全局 localStorage / matchMedia）的话，这条首帧路径
+ * 在 Node 里根本测不了 —— 与不注入没区别。
+ */
+export interface BootWindow {
+  document: { documentElement: { dataset: DOMStringMap } }
+  localStorage?: PrefStorage
+  matchMedia?: (query: string) => { matches: boolean }
+}
+
+/**
  * 首帧之前把 data-theme / data-style / data-glass-refract 打到 <html>。
  * 不这么做的话，刷新会先按纸色画一帧再跳到玻璃/暗色（白闪）。
  * 在 createRoot 之前调用，见 web/main.tsx。
  */
-export function applyBootPrefs(doc: Document): void {
-  const theme = readStoredTheme()
-  const dark =
-    theme === 'dark' ||
-    (theme === 'system' && typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches)
-  doc.documentElement.dataset.theme = dark ? 'dark' : 'light'
+export function applyBootPrefs(win: BootWindow): void {
+  let storage: PrefStorage | null = null
+  try {
+    storage = win.localStorage ?? null
+  } catch {
+    // 隐私模式下连访问都会抛：当作没存过，走缺省值
+    storage = null
+  }
+  const matchesDark = win.matchMedia?.('(prefers-color-scheme: dark)')?.matches === true
+  const root = win.document.documentElement
+  root.dataset.theme = resolveTheme(readStoredTheme(storage), matchesDark)
   // paper 也显式写上：CSS 靠 [data-style='glass'] 前缀区分，但显式值便于调试和断言
-  doc.documentElement.dataset.style = readStoredStyle()
-  doc.documentElement.dataset.glassRefract = readStoredRefract()
+  root.dataset.style = readStoredStyle(storage)
+  root.dataset.glassRefract = readStoredRefract(storage)
+  // 首帧写下的也是一次「已应用」：挂载时三条 effect 读到同样的值，不该再白跑一次过渡
+  scheduled.theme = root.dataset.theme
+  scheduled.style = root.dataset.style
+  scheduled.glassRefract = root.dataset.glassRefract
 }

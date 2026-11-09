@@ -1,9 +1,10 @@
+import type { ReactElement } from 'react'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { getLocale, setLocale, t, type Locale } from '../../lib/i18n'
-import type { RefractPref, StylePref } from '../../lib/theme-prefs'
+import type { RefractPref, StylePref, ThemePref } from '../../lib/theme-prefs'
 
 // label 用 getter：常量里存中文原文，渲染时才过 t()——放模块常量里翻译会被 import 时机冻住。
-const THEMES = [
+const THEMES: { v: ThemePref; get label(): string; icon: ReactElement }[] = [
   { v: 'light', get label() { return t('浅色') }, icon: <Sun size={14} /> },
   { v: 'dark', get label() { return t('深色') }, icon: <Moon size={14} /> },
   { v: 'system', get label() { return t('跟随系统') }, icon: <Monitor size={14} /> },
@@ -32,8 +33,8 @@ function canRefract(): boolean {
 }
 
 export function AppearanceCard({ theme, setTheme, style, setStyle, refract, setRefract }: {
-  theme: string
-  setTheme: (t: string) => void
+  theme: ThemePref
+  setTheme: (t: ThemePref) => void
   style: StylePref
   setStyle: (v: StylePref) => void
   refract: RefractPref

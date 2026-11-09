@@ -10,8 +10,10 @@ import {
   readStoredRefract,
   readStoredStyle,
   readStoredTheme,
+  resolveTheme,
   type RefractPref,
   type StylePref,
+  type ThemePref,
 } from '../lib/theme-prefs'
 import type { MailSummary } from './titles'
 
@@ -45,7 +47,7 @@ export function useShell() {
   // 从异常通知点进来时要定位的观测项（null = 不用定位）
   const [focusMonitorId, setFocusMonitorId] = useState<number | null>(null)
   const { alerts: monitorAlerts, dismiss: dismissAlert } = useMonitorAlerts()
-  const [theme, setTheme] = useState<string>(() => readStoredTheme())
+  const [theme, setTheme] = useState<ThemePref>(() => readStoredTheme())
   // 风格与折射是正交于明暗的两个维度：paper/glass、on/off
   const [style, setStyle] = useState<StylePref>(() => readStoredStyle())
   const [refract, setRefract] = useState<RefractPref>(() => readStoredRefract())
@@ -69,10 +71,7 @@ export function useShell() {
   useEffect(() => {
     storePref(THEME_KEY, theme)
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
-    const apply = () => {
-      const dark = theme === 'dark' || (theme === 'system' && mql.matches)
-      applyPref('theme', dark ? 'dark' : 'light')
-    }
+    const apply = () => applyPref('theme', resolveTheme(theme, mql.matches))
     apply()
     mql.addEventListener('change', apply)
     return () => mql.removeEventListener('change', apply)

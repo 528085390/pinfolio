@@ -1,5 +1,5 @@
 import type { FieldDef, Stats, Tag } from '../lib/api'
-import type { RefractPref, StylePref } from '../lib/theme-prefs'
+import type { RefractPref, StylePref, ThemePref } from '../lib/theme-prefs'
 import { AppearanceCard } from './settings/AppearanceCard'
 import { DataCard } from './settings/DataCard'
 import { OutboundCard } from './settings/OutboundCard'
@@ -15,8 +15,8 @@ export function SettingsPage({ tags, fields, stats, refreshMeta, theme, setTheme
   fields: FieldDef[]
   stats: Stats | null
   refreshMeta: () => void
-  theme: string
-  setTheme: (t: string) => void
+  theme: ThemePref
+  setTheme: (t: ThemePref) => void
   style: StylePref
   setStyle: (v: StylePref) => void
   refract: RefractPref

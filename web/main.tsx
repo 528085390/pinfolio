@@ -11,7 +11,8 @@ applyLocale()
 
 // 首帧之前就把 data-theme / data-style / data-glass-refract 写到 <html>：
 // 否则刷新会先按纸色画一帧，再跳到玻璃/暗色（白闪）
-applyBootPrefs(document)
+// 传 window：document / localStorage / matchMedia 全从这一个对象取（见 lib/theme-prefs）
+applyBootPrefs(window)
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
