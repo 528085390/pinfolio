@@ -120,3 +120,10 @@
 - **页面**：两栏，各自显示份数、上次时间、上次结果（成功或报错原文）、「立即备份」和一张表（本机：下载 / 清单 / 删除；远端：取回 / 删除）。远端栏在没配置时是表单（类型 / 地址 / 端口 / 库名 / 用户名 / 密码 / 表名），配置后变成状态卡 + 「立即上传」「刷新」「改配置」「断开」。
 - **恢复**：见 [`backup-restore.md`](backup-restore.zh.md)——解开包、删掉旧的 `-wal` / `-shm`、再启动。`secret.key` 丢了，邮箱密码 / Kuma 口令 / 指标 token 就永远解不开；包里带着它，所以包本身也要另存一份。
 
+## 演示模式（公开演示站）
+
+- **怎么开**：服务端设 `PINBOARD_DEMO=1`（可选 `PINBOARD_DEMO_PASSWORD` / `PINBOARD_DEMO_RESET` / `PINBOARD_DEMO_REPO`）。不设就是普通实例，下面两条一个都不出现。
+- **登录页自动填口令**：`GET /api/auth/state`（免鉴权）在演示模式下多返回 `demo{password,reset,repo}`，`web/pages/AuthPage.tsx` 拿到就把口令填进输入框，并提示「这是演示站，口令已经填好，直接点『进入』就行」；输入框一旦被用户改过就不再覆盖。
+- **顶部横幅**：主界面 `topbar` 上方多一条「演示站 · 这是 pinfolio 的公开演示，数据都是示例；每天 04:00 (UTC+8) 自动重置，改动不会保留 · 源码」。夹在 `.topbar` 与 `.content` 之间，滚动内容时不动，窄屏折成两行（实测 1440 宽 33px、520 宽 51px）。
+- **为什么挂在 `/auth/state` 上**：这条接口本来就免鉴权，登录前就要用它，口令又本来就是公开的（README 里写着）；普通实例返回 `demo: null`，所以自用部署不会因为升级多吐任何东西。
+- **演示站本体**在 os 上：容器 `pinfolio-demo`，入口 <https://pinfolio.raylx.xyz/>，每天 04:00 清库重灌示例数据。运维细节见 `E:\services\os\README.md`。

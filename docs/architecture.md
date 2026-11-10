@@ -194,3 +194,14 @@
 | 测试 | `tests/`（`unit/` 757 处 `test(` / `it(` + 17 套 e2e + `run.mjs` + `fakeimap/`） | `pnpm test` / `pnpm test:e2e`，用法见 `tests/README.md`；`node tests/run.mjs --only=ci` 是 CI 那一档（core + 引导卡，**不需要 Kuma / 邮箱 / 采集端**） |
 | 工程化 | `LICENSE`（AGPL-3.0-or-later）/ `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `SECURITY.md` / `.github/`（CI、release、dependabot、issue 与 PR 模板）/ `tools/ci-chrome-path.mjs` + `tools/release-notes.mjs` / `docs/{deploy,upgrade,faq,backup-restore}.md`（英）+ 同名 `.zh.md`（中）、`docs/release.md`（维护者发版手册，中） | CI 三个 job（test / e2e `--only=ci` / docker 只构建不推）；推 `v*.*.*` tag 出双架构镜像并建 Release（正文从 CHANGELOG 抽） |
 | 工具 | `tools/i18n-scan.mjs`（找没包 `t()` 的中文，`--check` 可进 CI）、`tools/screenshots/`、`tools/node-metrics/`（另有本地私有的 `seed-assets.mjs`、`streak-panel-trigger.cjs`，不进版本库） | 两个截图脚本（都须在项目根跑）：`shots.mjs` 拍本机真实数据 → `tmp/`；`demo-shots.mjs` 拍灌了示例数据的隔离实例 → `docs/screenshots/`（README 那 7 张就是它出的，`BASE`/`PASSWORD` 环境变量指定目标，只许 127.0.0.1）。另含**服务器的采集端**（`build-install.mjs` 打成单文件安装器，托管在 `<站点根>/nm/`；安装/排错/回滚见该目录 `README.md`） |
+
+## 演示模式（PINBOARD_DEMO）
+
+公开演示站要「不用手打口令、并且一眼看出这是演示」，这两件事都只在 `PINBOARD_DEMO=1` 时出现，普通实例视觉与接口零变化。
+
+- `server/demo.ts` —— 读 `PINBOARD_DEMO` / `PINBOARD_DEMO_PASSWORD` / `PINBOARD_DEMO_RESET` / `PINBOARD_DEMO_REPO`，导出 `demoInfo()`；**关着时返回 `null`**，所以调用方不需要再判环境变量。口令默认跟 `PINBOARD_PASSWORD` 走，别在两处各写一份。
+- `server/auth/routes.ts` 的 `GET /api/auth/state` —— 在原有 `{setupRequired, authed}` 上多一个 `demo` 字段。这条接口是免鉴权的（登录前就要问），所以**只放演示站公开的那点信息**（口令、重置时间、仓库地址），别往里塞别的东西。
+- `web/lib/demo.ts` —— 前端一份模块级 store（`useSyncExternalStore`）：`AuthGate` 拿到 `/auth/state` 就 `setDemoInfo()` 写进去，`AuthPage` 与 `DemoBanner` 各自 `useDemo()` 读。避免为这点数据再加一次请求或一层 context。
+- `web/pages/AuthPage.tsx` —— `demo` 非空时预填口令（`useEffect` 里只在输入框还空着时填）、表单里多一句 `.auth-demo` 提示、页脚换成「数据每天 X 重置」。
+- `web/components/DemoBanner.tsx` —— 挂在 `web/App.tsx` 的 `.main` 里、`<Topbar>` 之前；`.demo-banner` 是 `flex: none` 的一条（`web/styles/shell.css`），所以内容区滚动它不动，`demo` 为 `null` 时整块不渲染、不占高度。样式用的是 `--accent-soft` / `--accent` / `--ink-2`，玻璃与暗色主题自动跟。
+- **别干的事**：不要在普通实例设这个变量（`/api/auth/state` 会公开吐出那个口令）；也不要把它当成「只读模式」——数据照样能改，只是每天会被重置。

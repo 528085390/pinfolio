@@ -49,6 +49,7 @@ updated: 2026-11-10
 - **主机指标**：4 台（oj/os/ox/aws）每 5 分钟经 SSH 拉取 `host_metrics`。
 - **服务页（2026-11-10 重构）**：一张卡一个服务，顶部一排服务器标签当筛选（点一下压暗其他机器，再点回全部）；卡身按（端口，运行方式）合并部署行，卡脚只放已挂的观测 chip + 管理页直链。卡片与网格挂 `.is-compact`，尺寸与观测台、资产页共用 `assets.css` 里同一份刻度。没有心跳条、统计条、常驻增删按钮，编辑一律走抽屉（点服务名 / 点机器名）。台账 `data/services.json` 已按现状重写：23 服务 / 32 部署 / 5 台机；每次写盘前自动备份到 `data/services-backups/`（留 10 份）。
 - **页面骨架（2026-11-10 统一）**：内容宽度上限收成一条 `--page-max: 1700px`（`tokens.css`），便签 / 资产 / 观测 / 主机 / 服务 / 邮件 / 备份全部同宽（备份页挂 `.page-wide`），只有纯表单页保持窄（`.page` 980、设置 860）。宽屏断点 ≥1700px 时紧凑网格 5 列（原 6 列，避免卡被压到 267px）。实测 1500 视口三页网格 x=252 / 宽 1224 / 4 列 299px，1920 视口 5 列 321px。
+- **演示模式（2026-11-10）**：公开演示站 <https://pinfolio.raylx.xyz/>（os 上的 `pinfolio-demo` 容器）设了 `PINBOARD_DEMO=1`，登录页自动填口令、主界面 topbar 上方挂一条「这是演示站 · 数据每天重置」横幅（`web/components/DemoBanner.tsx` + `server/demo.ts`）。`/api/auth/state` 是免鉴权接口，所以**这个变量不给普通实例设**，不设时 `demo` 恒为 `null`、前端一个节点都不渲染。部署细节见 `E:\services\os\README.md` 的 pinfolio 节。
 - **Kuma 已删**：`E:\bqj\kuma` 不存在、3001 无监听、计划任务 `KumaObs` 不存在。
 - **公开仓库**：<https://github.com/528085390/pinfolio>。
 
