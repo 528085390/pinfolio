@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import type { HeartbeatRow, MonitorRow } from './types.ts'
 import { MonitorStore } from './store.ts'
@@ -283,11 +283,15 @@ export function writeMonitorSnapshot(
 
 const entry = process.argv[1] ? pathToFileURL(process.argv[1]).href : ''
 if (entry && import.meta.url === entry) {
-  const { db } = await import('../db.js')
+  const { db, ROOT } = await import('../db.js')
   const store = new MonitorStore(db)
-  const target =
-    process.env.MONITOR_SNAPSHOT ||
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'SNAPSHOT-MONITORS.md')
-  writeMonitorSnapshot(target, store)
-  console.log('已生成 ' + target)
+  // 打包成单文件（dist/server.js）后 import.meta.url 已经在 dist 里，再往上两级会落到根目录 /，
+  // 容器里那个位置不可写；快照只是附属产物，写不进去也不能把服务进程带崩。
+  const target = process.env.MONITOR_SNAPSHOT || path.resolve(ROOT, 'SNAPSHOT-MONITORS.md')
+  try {
+    writeMonitorSnapshot(target, store)
+    console.log('已生成 ' + target)
+  } catch (e) {
+    console.warn('[monitor-snapshot] 写入失败：', e)
+  }
 }
