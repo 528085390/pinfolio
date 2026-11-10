@@ -583,3 +583,15 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。
 4. **观测台内化原生引擎直读 SQLite**：历史 Kuma 全量覆盖已解决，现在基于 `node:sqlite` 的 `MonitorStore` 事务性操作，修改只动必要字段并防抖触发快照（坑 21）。
 5. **观测项状态与心跳原生常驻**：内存引擎与 `pinboard.db` 保持单源一致，已彻底摆脱旧 Kuma 的 5 分钟 apicache 延迟与连接池假死（坑 9、坑 28）。
+
+## 2026-11-10 演示站缺省外观：折射玻璃 + 作者那张壁纸
+
+用户：「演示站用和我本地一样的那张壁纸，默认展示折射玻璃的主题。」三处改动，**自用实例的缺省一行没动**。
+
+**① 壁纸**：`web/public/wallpapers/` 在 `.gitignore` 里（作者自备图，公开仓库不收），所以演示容器构建出来根本没有 `dist/web/wallpapers/`，`/wallpapers/street.jpg` 一直 404 —— 演示站虽然 `data-wallpaper=on`，实际是**纯色底**，玻璃等于看不出来。改法：把图放到 `/opt/pinfolio-demo/wallpapers/street.jpg`，compose 加一条只读 bind mount 到 `/app/dist/web/wallpapers`（挂载点跟静态托管目录一致，重建镜像不丢，也不用往 git 里塞图）。
+
+**② 缺省外观（演示站不等于自用实例）**：`web/lib/theme-prefs.ts` 的 `DEFAULT_REFRACT` 是 `off`（Chrome 156 画不准，spec 3.6），不能为了演示站改常量——同一份构建也服务自用实例。新增 `server/demo.ts` 的 `demoBootPrefs()`（`{style:glass, refract:on, wallpaper:wallpapers/street.jpg}`，只有 `PINBOARD_DEMO=1` 才返回），由 `server/static.ts` 的 `injectDemoPrefs()` 在渲染 index.html 时注入 `window.__PINBOARD_DEMO_PREFS__`；前端 `demoOverride()` 只在 localStorage 没存过时采用，**访客在设置页改过就以他的为准**。走 inline script 而不是接口，是为了赶在首帧之前（走接口会先按暖纸画一帧再跳玻璃）。注入值里的尖括号一律转义，否则壁纸地址里一个 `</script>` 就能把脚本块切断。
+
+**③ 顺手修的既有 bug**：`readStoredRefract()` 原来写的是「只认 `off`，其余回 `DEFAULT_REFRACT`」——缺省是 `off` 时，**存进去的 `on` 会被读回 `off`**，于是设置页刚打开的折射，刷新一下自己灭了（开关从上线起就没真正生效过）。改成「只认 `on` / `off`，其余才回落缺省」。
+
+验证：`pnpm test` 813 条单测全绿（新增 7 条：注入值生效 / 存过的偏好压过注入 / 脏值忽略 / script 转义 / 存 on 读回 on 的回归）。隔离实例（`PINBOARD_DEMO=1` + 独立 `PINBOARD_DATA`，7795 端口）实测：空 localStorage 首帧 `dataset = {style:glass, glassRefract:on, wallpaper:on}`、`/wallpapers/street.jpg` 200（512,959 B）、灌 seed 后便签卡片是「壁纸上的磨砂玻璃」；折射开 / 关对抽屉边缘做过逐像素比对（壁纸下 720x1560 放大裁片，mean 2.1/765，无接缝、无整体错位），观感可用。演示站线上复测见 `E:\services\os\README.md`。

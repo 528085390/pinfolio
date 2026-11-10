@@ -204,4 +204,7 @@
 - `web/lib/demo.ts` —— 前端一份模块级 store（`useSyncExternalStore`）：`AuthGate` 拿到 `/auth/state` 就 `setDemoInfo()` 写进去，`AuthPage` 与 `DemoBanner` 各自 `useDemo()` 读。避免为这点数据再加一次请求或一层 context。
 - `web/pages/AuthPage.tsx` —— `demo` 非空时预填口令（`useEffect` 里只在输入框还空着时填）、表单里多一句 `.auth-demo` 提示、页脚换成「数据每天 X 重置」。
 - `web/components/DemoBanner.tsx` —— 挂在 `web/App.tsx` 的 `.main` 里、`<Topbar>` 之前；`.demo-banner` 是 `flex: none` 的一条（`web/styles/shell.css`），所以内容区滚动它不动，`demo` 为 `null` 时整块不渲染、不占高度。样式用的是 `--accent-soft` / `--accent` / `--ink-2`，玻璃与暗色主题自动跟。
+- `server/demo.ts` 的 `demoBootPrefs()` + `server/static.ts` 的 `injectDemoPrefs()` —— 演示站的**缺省外观**（玻璃 + 折射开 + 那张壁纸）：只有 `PINBOARD_DEMO=1` 时把 `<script>window.__PINBOARD_DEMO_PREFS__ = …</script>` 注进 index.html 的 `</head>` 之前（赶在首帧前，走接口会先按暖纸闪一帧）。普通实例注入 `null`，一个字节都不多。
+- `web/lib/theme-prefs.ts` 的 `demoOverride()` —— 读上面那个注入值，**只在 localStorage 没存过时**当作缺省，存过的偏好永远优先。别为了演示站去改 `DEFAULT_*` 常量：同一份构建也服务自用实例，折射缺省必须保持关（Chrome 156 画不准，见该文件注释）。
+- 演示站那张壁纸不在仓库里（`web/public/wallpapers/` 被 `.gitignore` 排除），线上靠 compose 的只读 bind mount 挂到 `/app/dist/web/wallpapers`。**没有这个挂载，壁纸 404，玻璃看起来就是纯色底**（2026-11-10 修的就是这个）。
 - **别干的事**：不要在普通实例设这个变量（`/api/auth/state` 会公开吐出那个口令）；也不要把它当成「只读模式」——数据照样能改，只是每天会被重置。
