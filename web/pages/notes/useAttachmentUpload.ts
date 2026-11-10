@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { ChangeEvent, ClipboardEvent, DragEvent, RefObject } from 'react'
 import { api } from '../../lib/api'
-import { imageMarkdown, insertSnippet, pickImageFiles } from '../../lib/images'
+import { fileMarkdown, imageMarkdown, insertSnippet, MAX_UPLOAD_BYTES, normalizeImageType, pickFiles } from '../../lib/images'
 import { t } from '../../lib/i18n'
 
 /** 超过这个体积才压：小图再压只会掉画质 */
@@ -11,7 +11,7 @@ const MAX_EDGE = 2000
 
 /**
  * 浏览器端压一遍再传（见 docs/features.md「便签图片」）：
- * 手机原图 5 MB → 200~400 KB 的 WebP，公网经 frp 上传也不卡。
+ * 手机原图 5 MB → 200~400 KB 的 WebP，公网传也不卡。
  * GIF 原样传（压了就丢动画）；解码不了（HEIC 之类）也原样传，让服务端给明确的错。
  */
 async function compress(file: File): Promise<Blob> {
@@ -47,10 +47,11 @@ type Options = {
 }
 
 /**
- * 图片入口：粘贴 / 拖拽 / 选文件 → 压缩 → 上传 → 在光标处插 Markdown。
+ * 附件入口：粘贴 / 拖拽 / 选文件 → 上传 → 在光标处插 Markdown。
+ * 图片走浏览器压缩 + `![](…)`；其它文件原样上传 + `[文件名](…)`（视频/音频/下载卡片由渲染侧决定）。
  * composer 与行内编辑框共用这一个 hook（各自持有一份 pending / dragging 状态）。
  */
-export function useImageUpload({ value, onChange, taRef, onError }: Options) {
+export function useAttachmentUpload({ value, onChange, taRef, onError }: Options) {
   const [pending, setPending] = useState(0)
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -59,23 +60,33 @@ export function useImageUpload({ value, onChange, taRef, onError }: Options) {
   valueRef.current = value
 
   async function addFiles(files: File[]) {
-    const imgs = pickImageFiles(files)
-    if (!imgs.length) {
-      if (files.length) onError(t('只能插入 PNG / JPEG / WebP / GIF 图片'))
+    const list = pickFiles(files)
+    if (!list.length) {
+      if (files.length) onError(t('空文件传不了'))
+      return
+    }
+    const tooBig = list.find((f) => f.size > MAX_UPLOAD_BYTES)
+    if (tooBig) {
+      onError(t('「{name}」超过 100 MB，传不了', { name: tooBig.name }))
       return
     }
     const ta = taRef.current
     const start = ta?.selectionStart ?? valueRef.current.length
     const end = ta?.selectionEnd ?? start
-    setPending((n) => n + imgs.length)
+    setPending((n) => n + list.length)
     const snippets: string[] = []
-    for (const file of imgs) {
+    for (const file of list) {
       try {
-        const blob = await compress(file)
-        const up = await api.attachments.upload(blob, file.name)
-        snippets.push(imageMarkdown(up.id))
+        if (normalizeImageType(file.type)) {
+          const blob = await compress(file)
+          const up = await api.attachments.upload(blob, file.name)
+          snippets.push(imageMarkdown(up.id))
+        } else {
+          const up = await api.attachments.upload(file, file.name)
+          snippets.push(fileMarkdown(up.id, up.name || file.name))
+        }
       } catch (e: any) {
-        onError(e && e.message ? t('图片上传失败：{msg}', { msg: e.message }) : t('图片上传失败'))
+        onError(e && e.message ? t('附件上传失败：{msg}', { msg: e.message }) : t('附件上传失败'))
       } finally {
         setPending((n) => Math.max(0, n - 1))
       }
@@ -120,7 +131,7 @@ export function useImageUpload({ value, onChange, taRef, onError }: Options) {
     setDragging(false)
   }
 
-  function pickFiles() {
+  function pickFilesDialog() {
     fileRef.current?.click()
   }
 
@@ -130,5 +141,16 @@ export function useImageUpload({ value, onChange, taRef, onError }: Options) {
     void addFiles(files)
   }
 
-  return { pending, dragging, fileRef, pickFiles, onFileChange, onPaste, onDrop, onDragOver, onDragLeave, addFiles }
+  return {
+    pending,
+    dragging,
+    fileRef,
+    pickFiles: pickFilesDialog,
+    onFileChange,
+    onPaste,
+    onDrop,
+    onDragOver,
+    onDragLeave,
+    addFiles,
+  }
 }

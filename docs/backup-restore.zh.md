@@ -17,9 +17,15 @@
 | `monitors.json` | 观测项定义（id / 名字 / 分组 / 间隔 / URL），对着 CSV 看是谁 | 每次 |
 | `data/metrics.json`、`data/secret.key` | 主机采集配置 / **主密钥** | 存在才打 |
 | `monitor-links.json`、`monitor-actions.json`、`host-services.json`、`quick-links.json` | 项目根目录的四个配置 | 存在才打 |
+| `data/uploads/<id>.<ext>` | **本地**附件原件（图片 / 视频 / 音频 / 其它文件） | 存在才打 |
 | `manifest.json` | 每个成员的名字 / 大小 / sha256 + 生成时间 + 实例 id | 每次 |
 
 日常一份约 0.5–0.7 MB。页面上的「清单」读的就是 `manifest.json`。
+
+> **走对象存储的附件不在包里。** 设了 `S3_*`（S3 兼容对象存储）时附件存在桶里（`S3_PREFIX` + `<id>.<ext>`），
+> 只把 `pinboard.db` 恢复回来便签还在、图也能显示，但**文件本身要另外从桶里搬**：
+> 桶是私有的，用 OCI CLI / rclone / S3 客户端按前缀同步一份到本地或另一个桶即可（本机自用实例就是 OCI `pinfolio` 桶 + `att/` 前缀）。
+> 换机恢复时先把桶拷到新环境，再把同一组 `S3_*` 填进 `.env`。
 
 ## 自动与手动
 

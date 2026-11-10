@@ -1,12 +1,12 @@
 import { useRef } from 'react'
 import type { MouseEvent } from 'react'
-import { Pin, PinOff, Pencil, Trash2, Check, X, Link2, Circle, CheckCircle2, Archive, RotateCcw, ImagePlus } from 'lucide-react'
+import { Pin, PinOff, Pencil, Trash2, Check, X, Link2, Circle, CheckCircle2, Archive, RotateCcw, Paperclip } from 'lucide-react'
 import { cx, type Note } from '../../lib/api'
 import { relativeTime, fullTime } from '../../lib/format'
 import { Button, TagChip } from '../../components/ui'
 import { Markdown } from '../../components/Markdown'
 import { KindIcon } from '../../components/KindIcon'
-import { useImageUpload } from './useImageUpload'
+import { useAttachmentUpload } from './useAttachmentUpload'
 import { t } from '../../lib/i18n'
 
 export type NoteCardProps = {
@@ -36,7 +36,7 @@ export function NoteCard(p: NoteCardProps) {
   const n = p.note
   const editRef = useRef<HTMLTextAreaElement | null>(null)
   // 行内编辑也能贴图 / 拖图：改的是 p.editText，保存时随正文一起提交
-  const img = useImageUpload({ value: p.editText, onChange: p.onEditText, taRef: editRef, onError: p.onError })
+  const att = useAttachmentUpload({ value: p.editText, onChange: p.onEditText, taRef: editRef, onError: p.onError })
   return (
     <article
       className={cx('note', n.pinned && 'pinned', n.done && 'done')}
@@ -85,14 +85,14 @@ export function NoteCard(p: NoteCardProps) {
       </div>
 
       {p.editing && !p.archivedMode ? (
-        <div onDrop={img.onDrop} onDragOver={img.onDragOver} onDragLeave={img.onDragLeave}>
+        <div onDrop={att.onDrop} onDragOver={att.onDragOver} onDragLeave={att.onDragLeave}>
           <textarea
             ref={editRef}
             className="textarea"
             value={p.editText}
             autoFocus
             onChange={(e) => p.onEditText(e.target.value)}
-            onPaste={img.onPaste}
+            onPaste={att.onPaste}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) p.onSaveEdit()
               if (e.key === 'Escape') p.onCancelEdit()
@@ -105,26 +105,25 @@ export function NoteCard(p: NoteCardProps) {
             <Button
               size="sm"
               variant="ghost"
-              onClick={img.pickFiles}
-              disabled={img.pending > 0}
-              title={t('插入图片（也可以直接粘贴或拖进来）')}
+              onClick={att.pickFiles}
+              disabled={att.pending > 0}
+              title={t('插入文件（也可以直接粘贴或拖进来）')}
             >
-              <ImagePlus size={13} /> {img.pending > 0 ? t('上传中…') : t('图片')}
+              <Paperclip size={13} /> {att.pending > 0 ? t('上传中…') : t('附件')}
             </Button>
             <input
-              ref={img.fileRef}
+              ref={att.fileRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
               multiple
               hidden
-              onChange={img.onFileChange}
+              onChange={att.onFileChange}
             />
             <span className="muted" style={{ fontSize: 11 }}>{t('Ctrl/⌘ + Enter 保存')}</span>
           </div>
         </div>
       ) : (
         <div className="note-body">
-          <Markdown text={n.content} />
+          <Markdown text={n.content} attachments={n.attachments} />
         </div>
       )}
 

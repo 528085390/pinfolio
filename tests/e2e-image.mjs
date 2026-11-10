@@ -19,7 +19,10 @@ const PNG = Buffer.from(
 const marker = 'E2E图片-' + Date.now()
 
 // ---------- 接口层 ----------
-const up = (body, type) => fetch(BASE + '/api/attachments', { method: 'POST', headers: { 'Content-Type': type }, body })
+// 上传必须带 x-pinfolio-upload: 1（服务端放行非 JSON 请求体的唯一凭据，也是 CSRF 防线）
+const UP_HEADERS = { 'x-pinfolio-upload': '1' }
+const up = (body, type, headers = {}) =>
+  fetch(BASE + '/api/attachments', { method: 'POST', headers: { ...UP_HEADERS, 'Content-Type': type, ...headers }, body })
 
 const r1 = await up(PNG, 'image/png')
 const up1 = r1.ok ? await r1.json() : null
@@ -33,13 +36,26 @@ ok('GET 取回原图字节', img.ok && imgBuf.equals(PNG))
 ok('GET 的 Content-Type 是图片', (img.headers.get('content-type') || '').startsWith('image/png'))
 ok('GET 带 immutable 长缓存', (img.headers.get('cache-control') || '').includes('immutable'))
 
-ok('不收 SVG（同源脚本风险，坑 57）', (await up(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'image/svg+xml')).status === 415)
-ok('不收纯文本', (await up(Buffer.from('hello world, definitely not an image'), 'image/png')).status === 415)
+// SVG / 纯文本不再被拒：它们按「普通文件」收下，但**永远不 inline**（Content-Disposition: attachment + nosniff）
+const rSvg = await up(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'), 'image/svg+xml')
+const svgUp = rSvg.ok ? await rSvg.json() : null
+ok('SVG 当普通文件收下（kind=file）', rSvg.status === 201 && !!svgUp && svgUp.kind === 'file')
+const svgGet = await fetch(BASE + '/api/attachments/' + svgUp.id)
+ok('SVG 取回时不是 image/svg+xml', !(svgGet.headers.get('content-type') || '').includes('svg'))
+ok('SVG 取回时强制下载 + nosniff',
+  (svgGet.headers.get('content-disposition') || '').startsWith('attachment') &&
+    (svgGet.headers.get('x-content-type-options') || '') === 'nosniff')
+
+const rText = await up(Buffer.from('hello world, definitely not an image at all'), 'text/plain')
+ok('纯文本当普通文件收下', rText.status === 201)
 ok('空文件 400', (await up(Buffer.alloc(0), 'image/png')).status === 400)
-const big = Buffer.alloc(10 * 1024 * 1024 + 1)
+// 声明体积超限就地 413（100 MB 上限；body 不读完就给答复）
+const big = Buffer.alloc(100 * 1024 * 1024 + 1)
 PNG.copy(big)
-ok('超过 10 MB 给 413', (await up(big, 'image/png')).status === 413)
+ok('超过 100 MB 给 413', (await up(big, 'image/png')).status === 413)
 ok('不存在的 id 给 404', (await fetch(BASE + '/api/attachments/99999999')).status === 404)
+ok('缺标记头的上传给 400',
+  (await fetch(BASE + '/api/attachments', { method: 'POST', headers: { 'Content-Type': 'image/png' }, body: PNG })).status === 400)
 
 // 手写一条带图的便签（模拟「图是别的客户端传的」），后面用来验渲染与回收
 const apiNote = await (await fetch(BASE + '/api/notes', {

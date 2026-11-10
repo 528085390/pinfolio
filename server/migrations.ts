@@ -89,11 +89,23 @@ function v4(db: DatabaseSync) {
   db.exec(MONITOR_SCHEMA)
 }
 
+// v5：便签附件升级成「任意类型 + 对象存储」（2026-11-10）。
+// 只加列，不动已有数据：老行 kind 默认 image、storage 默认 local、object_key 为 NULL。
+// CREATE TABLE IF NOT EXISTS 里的新列对老库不起作用，所以这里必须显式 ALTER。
+function v5(db: DatabaseSync) {
+  const have = new Set(columns(db, 'attachments'))
+  if (!have.has('kind')) db.exec("ALTER TABLE attachments ADD COLUMN kind TEXT NOT NULL DEFAULT 'image'")
+  if (!have.has('storage')) db.exec("ALTER TABLE attachments ADD COLUMN storage TEXT NOT NULL DEFAULT 'local'")
+  if (!have.has('object_key')) db.exec('ALTER TABLE attachments ADD COLUMN object_key TEXT')
+  if (!have.has('sha256')) db.exec('ALTER TABLE attachments ADD COLUMN sha256 TEXT')
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: v1 },
   { version: 2, up: v2 },
   { version: 3, up: v3 },
   { version: 4, up: v4 },
+  { version: 5, up: v5 },
 ]
 
 export type MigrateOptions = {

@@ -1,18 +1,26 @@
 import { API_BASE, UNAUTHORIZED_EVENT } from './http'
 
-export type UploadedImage = { id: number; url: string; mime: string; bytes: number; name: string }
+export type UploadedAttachment = {
+  id: number
+  url: string
+  kind: string
+  mime: string
+  bytes: number
+  name: string
+}
 
 /**
- * 上传一张图：请求体就是图片二进制，Content-Type 用图片类型。
- * **不能走 request()** —— 那个函数会把 Content-Type 强改成 application/json（服务端靠 image/* 放行，见 auth/middleware.ts）。
+ * 上传一个附件：请求体就是文件二进制，Content-Type 用文件自己的类型。
+ * **不能走 request()** —— 那个函数会把 Content-Type 强改成 application/json。
+ * 必须带 `x-pinfolio-upload: 1`：这是服务端放行非 JSON 请求体的唯一凭据（见 auth/middleware.ts）。
  */
-async function upload(file: Blob, name?: string): Promise<UploadedImage> {
+async function upload(file: Blob, name?: string): Promise<UploadedAttachment> {
   const qs = new URLSearchParams()
   if (name) qs.set('name', name)
   const q = qs.toString()
   const res = await fetch(API_BASE + '/attachments' + (q ? '?' + q : ''), {
     method: 'POST',
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-pinfolio-upload': '1' },
     body: file,
   })
   if (!res.ok) {
@@ -24,11 +32,11 @@ async function upload(file: Blob, name?: string): Promise<UploadedImage> {
     } catch {}
     throw new Error(msg)
   }
-  return (await res.json()) as UploadedImage
+  return (await res.json()) as UploadedAttachment
 }
 
 export const attachmentsApi = {
   upload,
-  /** 直接取图的地址（正文里用相对路径 /api/attachments/<id>，渲染时再按部署前缀重写） */
+  /** 直接取附件的地址（正文里用相对路径 /api/attachments/<id>，渲染时再按部署前缀重写） */
   url: (id: number) => API_BASE + '/attachments/' + id,
 }

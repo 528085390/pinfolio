@@ -24,6 +24,17 @@ export function hydrateNotes(rows: NoteRow[]) {
     ? all<any>('SELECT id, name, kind FROM assets WHERE id IN (' + assetIds.map(() => '?').join(',') + ')', ...assetIds)
     : []
   const assetMap = new Map(assetRows.map((a) => [a.id, a]))
+  // 附件元数据：前端靠它把 <img>/<a> 换成视频播放器 / 音频条 / 下载卡片
+  const attRows = all<any>(
+    'SELECT id, note_id, kind, mime, name, bytes FROM attachments WHERE note_id IN (' + ph + ') ORDER BY id',
+    ...ids,
+  )
+  const attByNote = new Map<number, any[]>()
+  for (const a of attRows) {
+    const arr = attByNote.get(a.note_id) || []
+    arr.push({ id: a.id, kind: a.kind, mime: a.mime, name: a.name, bytes: a.bytes })
+    attByNote.set(a.note_id, arr)
+  }
   return rows.map((r) => ({
     id: r.id,
     content: r.content,
@@ -35,6 +46,7 @@ export function hydrateNotes(rows: NoteRow[]) {
     updatedAt: r.updated_at,
     tags: byNote.get(r.id) || [],
     asset: r.asset_id ? assetMap.get(r.asset_id) || null : null,
+    attachments: attByNote.get(r.id) || [],
   }))
 }
 

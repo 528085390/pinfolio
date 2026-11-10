@@ -148,6 +148,11 @@ export const serverCore: Dict = {
 
   // server/routes/{attachments,backup,assets,notes,fields,tags}.ts
   '空文件': 'Empty file',
+  '上传请求缺少标记头': 'The upload request is missing its marker header',
+  '文件太大，单个上限 100 MB': 'File too large; the limit is 100 MB per file',
+  '附件空间已满（上限 15 GB），先清理旧文件': 'Attachment storage is full (15 GB limit); clean up old files first',
+  '附件读取失败': 'Failed to read the attachment',
+  '附件文件已丢失': 'The attachment file is missing',
   '图片太大，单张上限 10 MB': 'Image too large; the limit is 10 MB per image',
   '只支持 PNG / JPEG / WebP / GIF 图片': 'Only PNG / JPEG / WebP / GIF images are supported',
   '图片不存在': 'Image not found',
@@ -176,4 +181,7 @@ export const serverCore: Dict = {
   '迁移前备份失败，已中止升级：': 'Pre-migration backup failed; upgrade aborted: ',
   '[图片]': '[image]',
   '[图片：{alt}]': '[image: {alt}]',
+  '[附件]': '[file]',
+  '[附件：{name}]': '[file: {name}]',
+  '附件': 'Attachment',
 }

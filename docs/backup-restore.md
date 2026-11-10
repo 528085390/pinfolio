@@ -1,3 +1,8 @@
+## Attachments (files in notes)
+
+- Attachments stored **locally** (`data/uploads/<id>.<ext>`, i.e. no `S3_*` in the environment) are packed into every `pinfolio-*.tar.gz` like the database itself.
+- Attachments stored in **object storage** (any S3-compatible bucket, configured through `S3_*`) are **not** in the pack: restore the database and the notes still point at the right ids, but the bytes have to be copied from the bucket separately (the bucket is private — use the OCI CLI, rclone or any S3 client to sync `S3_PREFIX` to the new environment, then put the same `S3_*` values in `.env`).
+- Lost an object without a copy? The note renders the file name with a "file is gone" fallback instead of a broken player; no other note is affected.
 ### D. Restoring only the monitoring data (Kuma)
 
 Only the Sunday pack has `kuma.db`. Before restoring, run `kuma\tools\kuma.ps1 stop` (**stopping pinfolio alone is not enough**),

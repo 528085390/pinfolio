@@ -5,6 +5,24 @@
 
 ## [未发布]
 
+### 便签附件：任意文件 + 对象存储（新）
+
+- **便签不再只能存图片**：输入框里粘贴 / 拖进来 / 点「附件」按钮选文件，图片、视频、音频、PDF、压缩包都能存。单文件上限 **100 MB**，单实例总量上限 **15 GB**（`ATTACHMENTS_QUOTA_BYTES`），两条都在服务端卡（413 / 507）。
+- **类型按文件头判**：`sniffFile()` 认 PNG / JPEG / GIF / WebP、MP4 / MOV / M4A / AVIF / HEIC、WAV / AVI、WebM / MKV、OGG / OGV、FLAC、MP3、MPEG-TS、PDF、zip / 7z / gzip / rar，判不出的按 `application/octet-stream` 收；落盘后缀由判出来的类型定，不信浏览器报的 `Content-Type`，也不看后缀。
+- **取回分 inline 与下载两条路**：白名单媒体类型（图片 / 视频 / 音频 / PDF）inline 返回，其余一律 `Content-Disposition: attachment` + `X-Content-Type-Options: nosniff`——**SVG / HTML 永远 inline 不了**，同源脚本没有执行机会。
+- **`Range` 透传**：`GET /api/attachments/:id` 支持 206 / 416，长视频拖进度条不用整段重下；本地磁盘与对象存储走同一套头。
+- **对象存储（S3 兼容）**：新增 `server/storage/`（`sigv4.ts` 手写 SigV4 + `s3.ts` 最小客户端 + `config.ts` 读 env），`S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` 五条齐了就走对象存储（Oracle OCI / Cloudflare R2 / MinIO 都行），缺一条回落 `data/uploads/`，换驱动不动一行便签。**没引 AWS SDK**（v3 默认塞 `x-amz-checksum-*`，OCI 会拒）。
+- **上传改带自定义头**：`POST /api/attachments` 现在要求 `x-pinfolio-upload: 1`（CSRF 凭据从「`Content-Type: image/*`」换成了这个头），少了就 400；同时挡掉 `urlencoded` / `multipart` / `text/plain` 三类跨站表单能发的类型。
+- **渲染**：正文仍是唯一真相，图片 `![](…)`、其它文件 `[文件名](…)`；视频 / 音频在便签里直接播（`<video controls>` / `<audio controls>`），其余渲染成带文件名与体积的下载卡片。`/api/notes` 现在附带 `attachments: [{id,kind,mime,name,bytes}]` 供前端选渲染方式。
+- **迁移 v5**：`attachments` 表补 `kind` / `storage` / `object_key` / `sha256` 四列，老行默认 `image` / `local`，不动任何一条便签。
+- **备份口径**：本机 `data/uploads/` 里的附件照旧随 tar 走；进对象存储的附件**不进 tar**，桶要单独搬（`docs/backup-restore.zh.md` 写了怎么做）。
+- `SNAPSHOT.md` 里附件收成 `[图片]` / `[附件：名字]`，不再刷一屏 URL。
+
+### 测试
+
+- 新增 `tests/e2e-files.mjs`（MP4 / MP3 / ZIP 上传判 kind、Range 206 / 416、下载卡片与播放器渲染、删便签回收）；`tests/e2e-image.mjs` 改为验证「SVG / 纯文本按普通文件收下但永不 inline」、缺标记头 400、100 MB 413。
+- 新增 `tests/unit/sigv4.test.mts`（8 例，含 AWS 官方示例逐字比对）；`attachments-core` / `attachments-store` 重写到 16 / 21 例（含 s3 分支与配额）。`tests/run.mjs` 支持 `E2E_ONLY=a,b` 只跑指定脚本。
+
 - 在线演示站换到 `https://pinfolio.raylx.xyz`（原 `https://raylxpj.us.ci` 随 az 退役失效）：README 两版、`docs/release.md`、CI 的 `edge` job 注释同步。
 
 ## [0.5.0] - 2026-10-27

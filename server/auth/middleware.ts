@@ -63,11 +63,12 @@ export async function authMiddleware(c: Context, next: Next) {
     const hasBody = Number(c.req.header('content-length') ?? 0) > 0 || Boolean(c.req.header('transfer-encoding'))
     const ct = (c.req.header('content-type') ?? '').toLowerCase()
     const exempt = NO_BODY_OK.some(([m, p]) => m === method && p === path)
-    // 图片上传例外：请求体就是图片二进制，不可能带 application/json。
-    // 仍然安全 —— 跨站表单只能发 urlencoded / multipart / text-plain 三种 content-type，
-    // 想发 image/* 就得走 fetch，而 fetch 带这个 content-type 会先触发 CORS 预检，我们不放行（坑 57）。
-    const imageUpload = method === 'POST' && path === '/api/attachments' && ct.startsWith('image/')
-    if (hasBody && !exempt && !imageUpload && !ct.includes('application/json')) {
+    // 附件上传例外：请求体是文件二进制（图片 / 视频 / 任意文件），不可能带 application/json。
+    // 仍然安全 —— 必须带自定义头 x-pinfolio-upload: 1：跨站表单发不出自定义请求头，
+    // 用 fetch 带就得先过 CORS 预检，我们不放行（坑 57）。
+    const binaryUpload =
+      method === 'POST' && path === '/api/attachments' && (c.req.header('x-pinfolio-upload') ?? '') === '1'
+    if (hasBody && !exempt && !binaryUpload && !ct.includes('application/json')) {
       return c.json({ error: 'unsupported media type' }, 415)
     }
   }

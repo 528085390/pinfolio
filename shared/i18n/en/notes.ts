@@ -40,9 +40,10 @@ export const notes: Dict = {
   '打开关联资产': 'Open linked asset',
 
   // 输入框
-  '记点什么…  用 #标签 自动归类，Ctrl/⌘ + Enter 保存；图片可以直接粘贴或拖进来':
-    'Jot something down…  use #tags to file it, Ctrl/⌘ + Enter to save; images can be pasted or dropped in',
+  '记点什么…  用 #标签 自动归类，Ctrl/⌘ + Enter 保存；图片和文件都可以直接粘贴或拖进来':
+    'Jot something down…  use #tags to file it, Ctrl/⌘ + Enter to save; images and files can be pasted or dropped in',
   '松手就上传图片': 'Drop to upload the image',
+  '松手就上传附件': 'Drop to upload the attachment',
   '置顶这条便签': 'Pin this note',
   '从已有标签里挑一个插进便签': 'Pick an existing tag to insert into the note',
   '标签': 'Tag',
@@ -50,6 +51,7 @@ export const notes: Dict = {
   '还没有标签': 'No tags yet',
   '新建标签…': 'New tag…',
   '插入图片（也可以直接粘贴或拖进来）': 'Insert an image (you can also paste or drag one in)',
+  '插入文件（也可以直接粘贴或拖进来）': 'Insert a file (you can also paste or drag one in)',
   '上传中…': 'Uploading…',
   '图片': 'Image',
   'Ctrl/⌘ + Enter 保存': 'Ctrl/⌘ + Enter to save',
@@ -67,5 +69,9 @@ export const notes: Dict = {
   '永久删除这条便签？不可恢复。': 'Delete this note permanently? This cannot be undone.',
   '只能插入 PNG / JPEG / WebP / GIF 图片': 'Only PNG / JPEG / WebP / GIF images can be inserted',
   '图片上传失败：{msg}': 'Image upload failed: {msg}',
+  '附件上传失败：{msg}': 'Upload failed: {msg}',
+  '附件上传失败': 'Upload failed',
+  '空文件传不了': 'Empty files cannot be uploaded',
+  '「{name}」超过 100 MB，传不了': '“{name}” is over the 100 MB limit and cannot be uploaded',
   '图片上传失败': 'Image upload failed',
 }

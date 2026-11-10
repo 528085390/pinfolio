@@ -21,3 +21,10 @@
 .prose img { max-width: 100%; border-radius: 8px; cursor: zoom-in; }
 .prose input[type='checkbox'] { margin-right: 0.35em; }
 
+/* 便签附件：视频 / 音频 / 下载卡片（标签由 web/lib/images.ts 的 enhanceAttachments 生成） */
+.prose video.attach-video { display: block; width: 100%; max-height: 62vh; margin: 0.2em 0 0.8em; border-radius: 9px; background: #000; }
+.prose audio.attach-audio { display: block; width: 100%; margin: 0.2em 0 0.8em; }
+.prose a.attach-card { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 0.1em 0 0.55em; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); text-decoration: none; vertical-align: top; }
+.prose a.attach-card:hover { border-color: var(--line-strong); background: var(--surface-3); }
+.prose a.attach-card .attach-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prose a.attach-card .attach-size { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }

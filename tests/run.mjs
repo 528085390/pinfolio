@@ -66,6 +66,7 @@ const CORE = [
   ['e2e-router', 'e2e-router.mjs'],
   ['e2e-tagpop', 'e2e-tagpop.mjs'],
   ['e2e-image', 'e2e-image.mjs'],
+  ['e2e-files', 'e2e-files.mjs'],
   ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
   ['e2e-i18n', 'e2e-i18n.mjs'],
   ['e2e-services', 'e2e-services.mjs'],
@@ -103,6 +104,10 @@ const wantOutbound = requested.includes('outbound') || process.env.OUTBOUND_E2E 
 const groups = requested.includes('all') || requested.includes('default')
   ? ['core', 'monitor']
   : requested.filter((g) => g !== 'outbound')
+
+// 本地调试：E2E_ONLY=e2e-image,e2e-files 只跑这几个脚本（CI 不设它 = 全跑）
+const PICK = (process.env.E2E_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean)
+const pickS = (list) => (PICK.length ? list.filter(([name]) => PICK.includes(name)) : list)
 
 const unknown = groups.filter((g) => !SUITES[g])
 if (unknown.length) {
@@ -603,7 +608,7 @@ const startedAll = Date.now()
 
 try {
   for (const group of groups) {
-    for (const [name, file] of SUITES[group]) {
+    for (const [name, file] of pickS(SUITES[group])) {
       process.stdout.write('\n[run] ▶ ' + group + '/' + name + '\n')
       const started = Date.now()
       const code = await new Promise((resolve) => {

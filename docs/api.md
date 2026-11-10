@@ -2,7 +2,7 @@
 
 Every endpoint the frontend uses. For a quick overview see the [README](../README.md).
 
-Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out. **Everything except `/health` and `/auth/*` needs a login** (session cookie, or `Authorization: Bearer <api token>`), and write endpoints with a body only accept `Content-Type: application/json` (a cross-site form can't send that header — that is the CSRF defence). **The one exception is image upload**, whose body is the image bytes.
+Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out. **Everything except `/health` and `/auth/*` needs a login** (session cookie, or `Authorization: Bearer <api token>`), and write endpoints with a body only accept `Content-Type: application/json` (a cross-site form can't send that header — that is the CSRF defence). **The one exception is attachment upload**, whose body is the file bytes and which must carry `x-pinfolio-upload: 1` (a cross-site form can't send that custom header).
 
 | Method | Path | Description |
 |---|---|---|
@@ -15,8 +15,8 @@ Everything lives under `http://127.0.0.1:7788/api`, JSON in and JSON out. **Ever
 | GET | `/notes` | List; supports `q` `tag` `pinned` `done` `archived` `assetId` |
 | GET/POST | `/notes/:id`, `/notes` | Single note / create |
 | PATCH/DELETE | `/notes/:id` | Update (`content` `pinned` `done` `archived` `assetId`) / delete |
-| POST | `/attachments` | Upload one image: **the request body is the image bytes**, `Content-Type: image/*` (the only write endpoint that isn't JSON). `?name=` keeps the original filename, `?noteId=` binds it to a note up front. Sniffed from the bytes: PNG / JPEG / WebP / GIF only (SVG → 415), empty body → 400, over 10 MB → 413. Returns 201 `{ id, url, mime, bytes, name }`; `url` is `/api/attachments/<id>` |
-| GET | `/attachments/:id` | Serve the image. `Content-Type` as stored, `Cache-Control: private, max-age=31536000, immutable` (an id's bytes never change — replacing an image mints a new id), `Content-Disposition: inline`. Missing row, or a file someone deleted under `data/uploads/` → 404 |
+| POST | `/attachments` | Upload any file: **the request body is the file bytes**, `Content-Type` from the file itself, and it must carry **`x-pinfolio-upload: 1`** (the only write endpoint that isn't JSON — that header is its CSRF token). `?name=` keeps the original filename, `?noteId=` binds it to a note up front. The kind (image / video / audio / file) and the extension are sniffed from the bytes; unrecognised types are stored as `application/octet-stream`. Empty body → 400, missing header → 400, over 100 MB → 413, total over `ATTACHMENTS_QUOTA_BYTES` (15 GB by default) → 507. Returns 201 `{ id, url, kind, mime, bytes, name }`; `url` is `/api/attachments/<id>` |
+| GET | `/attachments/:id` | Serve the file: after auth it is **streamed** from disk or object storage, with `Range` passed through → 206 (out of range → 416). `Cache-Control: private, max-age=31536000, immutable` (an id's bytes never change — replacing a file mints a new id); only whitelisted media types (images / video / audio / PDF) get `Content-Disposition: inline`, everything else is `attachment` + `X-Content-Type-Options: nosniff` (**SVG / HTML never inline**). Missing row or lost file → 404, storage read failure → 502 |
 | GET | `/assets` | List; supports `q` `kind` `status` `tag` |
 | GET | `/assets/:id` | Detail, with `linkedNotes` (already tagged) |
 | POST/PATCH/DELETE | `/assets`, `/assets/:id` | Create / update / delete |

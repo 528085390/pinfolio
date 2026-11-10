@@ -91,6 +91,7 @@ node tests/run.mjs --only=core
 node tests/run.mjs --only=ci       # CI 跑的就是这个：core + 没接 Kuma 时的引导卡
 node tests/run.mjs --only=monitor
 node tests/run.mjs --only=mail
+E2E_ONLY=e2e-image,e2e-files node tests/run.mjs --only=core   # 本地只跑某几个脚本（同样起隔离实例）
 ```
 
 ## 前置条件

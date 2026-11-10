@@ -43,6 +43,20 @@ export function insertSnippet(
   return { text: before + inserted + after, caret: before.length + lead.length + snippet.length }
 }
 
+/** 单个附件上限，和 server/attachments/core.ts 保持一致：前端先拦，省得白传 100 MB 才被退回来 */
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+
+/** 从粘贴 / 拖拽 / 选择里挑出所有能传的文件（空文件跳过；类型交给服务端按魔数判） */
+export function pickFiles(files: ArrayLike<File> | null | undefined): File[] {
+  const out: File[] = []
+  if (!files) return out
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]
+    if (f && f.size > 0) out.push(f)
+  }
+  return out
+}
+
 /** 插进正文的那段 Markdown（与 server/attachments/core.ts 的 imageMarkdown 一致） */
 export function imageMarkdown(id: number, alt = ''): string {
   return '![' + String(alt).replace(/[[\]]/g, '') + '](/api/attachments/' + id + ')'
@@ -66,5 +80,75 @@ export function addImageAttrs(html: string): string {
     if (!/\sloading=/.test(attrs)) extra += ' loading="lazy"'
     if (!/\sdecoding=/.test(attrs)) extra += ' decoding="async"'
     return extra ? '<img' + attrs + extra + '>' : all
+  })
+}
+
+/** 普通文件的 Markdown（与 server/attachments/core.ts 的 fileMarkdown 一致） */
+export function fileMarkdown(id: number, name = ''): string {
+  const label = String(name || '').replace(/[[\]\r\n]/g, '').trim() || '附件-' + id
+  return '[' + label + '](/api/attachments/' + id + ')'
+}
+
+/** 人类可读的体积：1.2 MB / 350 KB / 12 B */
+export function humanBytes(bytes: number): string {
+  const n = Number(bytes)
+  if (!Number.isFinite(n) || n < 0) return ''
+  if (n < 1024) return n + ' B'
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let v = n / 1024
+  let i = 0
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++ }
+  return (v >= 10 ? Math.round(v) : Math.round(v * 10) / 10) + ' ' + units[i]
+}
+
+/** 附件元数据：/api/notes 的 attachments 字段，和 server/hydrate.ts 一致 */
+export type AttachmentMeta = { id: number; kind: string; mime: string; name: string; bytes: number }
+
+/** 从 /api/attachments/12 这种地址里取出 id；不是附件地址就 null */
+export function attachmentIdInUrl(url: string): number | null {
+  const m = /\/attachments\/(\d+)(?:[?#]|$)/.exec(String(url || ''))
+  if (!m) return null
+  const id = Number(m[1])
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
+
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * 把正文里的附件链接换成对应的展示：视频播放器 / 音频条 / 图片 / 下载卡片。
+ * **必须在 DOMPurify 之后调用** —— 这里拼出来的标签是我们自己生成的可信标记，
+ * 名字一律转义，地址直接沿用已经清洗过的 href。
+ */
+export function enhanceAttachments(html: string, metas: AttachmentMeta[] | null | undefined): string {
+  const src = String(html)
+  if (!metas || !metas.length) return src
+  const byId = new Map<number, AttachmentMeta>()
+  for (const m of metas) if (m && Number.isSafeInteger(m.id)) byId.set(m.id, m)
+  return src.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/g, (all, attrs: string) => {
+    const m = /href=["']([^"']*)["']/.exec(attrs)
+    if (!m) return all
+    const id = attachmentIdInUrl(m[1])
+    if (id === null) return all
+    const meta = byId.get(id)
+    if (!meta) return all
+    const href = m[1]
+    const label = escapeHtml(meta.name || '附件')
+    if (meta.kind === 'video') return '<video class="attach-video" controls preload="metadata" src="' + href + '"></video>'
+    if (meta.kind === 'audio') return '<audio class="attach-audio" controls preload="metadata" src="' + href + '"></audio>'
+    if (meta.kind === 'image') return '<img src="' + href + '" alt="' + label + '" loading="lazy" decoding="async">'
+    const size = humanBytes(meta.bytes)
+    return (
+      '<a class="attach-card" href="' + href + '" target="_blank" rel="noopener">' +
+      '<span class="attach-name">' + label + '</span>' +
+      (size ? '<span class="attach-size">' + escapeHtml(size) + '</span>' : '') +
+      '</a>'
+    )
   })
 }

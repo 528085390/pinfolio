@@ -44,7 +44,8 @@ export type {
 } from './api/services'
 export type { BackupStatus, BackupState, LocalFile, RemoteRow, RemoteConfigView, RemoteInput, Manifest } from './api/backup'
 export type { Note } from './api/notes'
-export type { UploadedImage } from './api/attachments'
+export type { NoteAttachment } from './api/notes'
+export type { UploadedAttachment } from './api/attachments'
 export type { Asset } from './api/assets'
 export type {
   Host, HostDisk, HostTop, HostSeriesPoint, HostsPayload, HostSummary,

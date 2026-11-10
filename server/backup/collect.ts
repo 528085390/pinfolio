@@ -99,7 +99,9 @@ export async function collectEntries(opts: CollectOptions): Promise<{ entries: T
     push(basename(path), readFileSync(path))
   }
 
-  // 6) 便签图片（data/uploads）：不带它们，恢复出来全是破图
+  // 6) 本地附件（data/uploads）：不带它们，恢复出来全是破图。
+  //    走对象存储的附件（attachments.storage='s3'）不在这台机器上，也不进 tar——
+  //    换机器/灾备时桶要单独搬（见 docs/runbook.md「附件与对象存储」）。
   const uploads = join(DATA_DIR, 'uploads')
   if (existsSync(uploads)) {
     for (const name of readdirSync(uploads).sort()) {

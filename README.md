@@ -48,7 +48,7 @@ Want pictures of your own instance? `node tools/screenshots/shots.mjs` writes `t
 - **Done state**: click the circle on a card, or **double-click the card**, to mark it done; again to undo. The card stays in place instead of jumping away.
 - Filters: All / Open / Done / Pinned / by tag / new tag, plus debounced search; pinned notes have their own section.
 - **Archived** notes are hidden behind a chip with a count (read-only view, restore or delete forever). Ctrl+K search never returns them.
-- **Notes can hold images**: paste with **Ctrl+V** into the composer, drop an image on it, or use the Image button — inline editing works the same way. Big pictures are compressed to 200–400 KB in the browser before upload, and clicking one opens a lightbox. PNG / JPEG / WebP / GIF only (**SVG is refused**).
+- **Notes can hold files**: paste with **Ctrl+V** into the composer, drop files on it, or use the paperclip button — images, video, audio, PDFs, archives; inline editing works the same way. Images are still compressed to 200–400 KB in the browser first, and clicking one opens a lightbox. Type is sniffed from the bytes (SVG/HTML never render inline), **100 MB per file, 15 GB per instance**. Attachments go to any S3-compatible bucket when `S3_*` is set, otherwise to `data/uploads/`.
 
 ### Tags
 - 12 presets out of the box (待办 / 想法 / 阅读 / 工作 / 学习 / 生活 / 灵感 / 重要 / 整理 / 运维 / 账号 / 购物).

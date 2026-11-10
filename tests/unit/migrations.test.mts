@@ -57,14 +57,41 @@ test('迁移中途抛错：回滚该步、版本号停在上一步', () => {
   assert.ok(tables(db).includes('a'))
 })
 
-test('v3 库能够平滑升级至 v4，且具备 monitors 与 heartbeats', () => {
+test('v3 库能够平滑升级到最新版，且具备 monitors 与 heartbeats', () => {
   const db = new DatabaseSync(':memory:')
   migrate(db, MIGRATIONS.slice(0, 3))
   assert.equal(currentVersion(db), 3)
   const to = migrate(db, MIGRATIONS)
-  assert.equal(to, 4)
-  assert.equal(currentVersion(db), 4)
+  assert.equal(to, MIGRATIONS[MIGRATIONS.length - 1].version)
   const t = tables(db)
   assert.ok(t.includes('monitors'))
   assert.ok(t.includes('heartbeats'))
+})
+
+test('v4 库升级到 v5：attachments 补上 kind / storage / object_key / sha256，老行按图片 + 本地磁盘兜底', () => {
+  // 手造一个 v4 时代的 attachments 表（没有新四列），插一行老数据再迁移
+  const db = new DatabaseSync(':memory:')
+  migrate(db, MIGRATIONS.slice(0, 4))
+  db.exec('DROP TABLE attachments')
+  db.exec(`CREATE TABLE attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id INTEGER REFERENCES notes(id) ON DELETE SET NULL,
+    mime TEXT NOT NULL,
+    ext TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  )`)
+  db.exec("INSERT INTO attachments (mime, ext, bytes, name, created_at) VALUES ('image/png', 'png', 12, 'old.png', '2026-10-26T00:00:00.000Z')")
+  db.exec('PRAGMA user_version = 4')
+  assert.ok(!cols(db, 'attachments').includes('kind'))
+
+  assert.equal(migrate(db, MIGRATIONS), 5)
+  const c = cols(db, 'attachments')
+  for (const name of ['kind', 'storage', 'object_key', 'sha256']) assert.ok(c.includes(name), '缺列 ' + name)
+  const row = db.prepare('SELECT kind, storage, object_key, sha256 FROM attachments').get() as any
+  assert.equal(row.kind, 'image')
+  assert.equal(row.storage, 'local')
+  assert.equal(row.object_key, null)
+  assert.equal(row.sha256, null)
 })

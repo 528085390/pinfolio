@@ -80,10 +80,10 @@ notesRoute.patch('/:id', async (c) => {
   return c.json(hydrateNotes([row])[0])
 })
 
-notesRoute.delete('/:id', (c) => {
+notesRoute.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  // 永久删除 = 图片立刻一起删（别让 data/uploads 只涨不落）
-  deleteAttachmentsForNote(id)
+  // 永久删除 = 附件立刻一起删（别让对象存储 / data/uploads 只涨不落）
+  await deleteAttachmentsForNote(id)
   run('DELETE FROM notes WHERE id = ?', id)
   return c.json({ ok: true })
 })

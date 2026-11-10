@@ -1,9 +1,13 @@
 import { request } from './http'
 import type { Tag } from './types'
 
+/** 便签里引用的附件（服务端 hydrate 出来的元数据，渲染时用） */
+export type NoteAttachment = { id: number; kind: string; mime: string; name: string; bytes: number }
+
 export type Note = {
   id: number; content: string; pinned: boolean; archived: boolean; done: boolean; assetId: number | null
   createdAt: string; updatedAt: string; tags: Tag[]; asset: { id: number; name: string; kind: string } | null
+  attachments: NoteAttachment[]
 }
 
 export const notesApi = {
