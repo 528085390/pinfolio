@@ -1,561 +1,170 @@
-/* 服务栏：只登记「哪台服务器上部署了什么」，不做任何探测。
-   两种视角共用一套卡片：服务器视角一行 = 一个部署，服务视角一行 = 一台服务器。 */
+/* 服务页：只登记「哪台服务器上部署了什么」，不做任何探测。
+   形态跟观测台完全一致——同一个筛选条（.filters / .chip）、同一套卡片刻度（.asset-card.is-compact）、
+   卡身同样是 .asset-meta 键值行，只是去掉心跳条和状态药丸（这一页不探活）。
+   一张卡 = 一个服务；卡里按「端口 + 启动方式」把多条部署合并成一行行键值（键 = 机器名，值 = 端口 · 启动方式）。
+   卡片基类沿用 .asset-card + .is-compact（共享刻度在 assets.css），
+   另外必须继续挂 .svc-card：glass.css 的主题覆盖是按 .svc-card 写的。 */
 
-.svc-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.svc-sum {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  row-gap: 2px;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-  min-width: 0;
-}
-.svc-sum > span { white-space: nowrap; }
-.svc-sum-num {
-  font-family: var(--font-display);
-  font-size: 22px;
-  line-height: 1;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-.svc-sum-label { color: var(--ink-2); }
-.svc-sum-sep { color: var(--line-strong); }
-.svc-sum-dim { color: var(--muted); }
-
-.svc-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-/* 视角切换：两段式，跟主机页的自动刷新开关同一档高度 */
-.svc-tabs {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-.svc-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
-  font-size: 12.5px;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.svc-tab:hover { color: var(--ink-2); }
-.svc-tab.is-on {
-  color: var(--ink);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.svc-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  color: var(--muted);
-}
-.svc-search:focus-within { border-color: var(--accent-ring); }
-.svc-search input {
-  width: 150px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 12.5px;
-  color: var(--ink);
-}
-.svc-search input::placeholder { color: var(--muted); }
-
-.svc-hint {
-  margin: 10px 0 0;
+/* ── 头顶筛选条 ─────────────────────────────────────────────────── */
+/* 直接复用全站通用的 .filters / .chip / .chip-count / .input-sm（观测台、资产页用的同一套）
+   —— 这一页只补一个右侧计数。 */
+.svc-filter-count {
   font-size: 12px;
-  line-height: 1.6;
   color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.svc-hint b { font-weight: 600; color: var(--ink-2); }
-
-.svc-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
-
-.svc-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  padding: 13px 15px 12px;
-  min-width: 0;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.svc-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
-/* 从另一个视角点过来时，目标卡片闪一下（1.7 秒后由 ServicesPage 摘掉 .is-flash）。
-   这里用 accent 而不是观测台的 danger 红：它表示「就是这张」，不是告警。 */
-.svc-card.is-flash { animation: svcJump 1.7s ease-out; }
-@keyframes svcJump {
-  0%, 100% { border-color: var(--line); box-shadow: var(--shadow-sm); }
-  12%, 62% { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
-}
-
-.svc-head {
+.svc-loading {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
-}
-.svc-title {
-  font-family: var(--font-display);
-  font-size: 16px;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.svc-title.is-static { cursor: default; }
-.svc-title:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
-.svc-title.is-static:hover { color: var(--ink); text-decoration: none; }
-.svc-meta {
-  font-size: 12.5px;
+  padding: 28px 4px;
   color: var(--muted);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.svc-count { margin-left: auto; font-size: 11.5px; color: var(--muted); flex: none; }
-.svc-sub {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13px;
 }
 
-/* 列宽写死在卡片上、行与表头共用一套：原来最后一列是 auto，每行按自己的内容
-   算宽度，前面几列的起点就跟着漂，看起来「文字都是乱的」。 */
-.svc-card { --svc-cols: 44px minmax(118px, 1fr) minmax(180px, 1.45fr) minmax(150px, 1.15fr) 190px 74px; }
-.svc-card.is-svc { --svc-cols: minmax(118px, 1fr) minmax(180px, 1.45fr) minmax(150px, 1.15fr) 190px 74px; }
-.svc-rows {
-  list-style: none;
+/* ── 卡片墙 ─────────────────────────────────────────────────────── */
+/* 页面宽度与网格列数跟观测台对齐：宽度照 .page-monitors 写，列数 / gap / 断点全交给
+   .asset-grid.is-compact（assets.css，1700→6 列 / 1100→3 / 820→2 / 560→1，gap 10px）。 */
+.page-svc { max-width: var(--page-max); }
+.svc-card { min-height: 0; }
+/* 头顶选了某台机、这个服务不在那台上：压暗但不下架 */
+.svc-card.is-dim { opacity: 0.24; }
+.svc-card.is-dim:hover { opacity: 0.55; }
+
+/* 卡头的名字就是编辑入口（字号 / 行高由 .asset-card.is-compact .asset-name 统一给） */
+.svc-card-name {
+  display: block;
+  max-width: 100%;
   margin: 0;
   padding: 0;
-}
-.svc-rows-head {
-  display: grid;
-  grid-template-columns: var(--svc-cols);
-  gap: 12px;
-  align-items: center;
-  margin: 11px 0 0;
-  padding: 5px 0 6px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  font-size: 11px;
-  color: var(--muted);
-}
-.svc-row {
-  display: grid;
-  grid-template-columns: var(--svc-cols);
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-  min-width: 0;
-}
-.svc-row:last-child { border-bottom: 0; }
-
-.svc-kind {
-  font-size: 11.5px;
-  line-height: 1;
-  padding: 4px 0;
-  border-radius: 6px;
-  text-align: center;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  background: var(--surface-2);
-  white-space: nowrap;
-}
-.svc-kind.kind-project { color: var(--accent-strong); border-color: var(--accent-ring); background: var(--accent-soft); }
-.svc-kind.kind-service { color: var(--ok); border-color: rgba(21, 128, 61, 0.25); background: transparent; }
-.svc-kind.kind-site { color: var(--ink-2); }
-.svc-kind.kind-script { color: var(--ink-2); border-style: dashed; }
-.svc-kind.kind-task { color: var(--muted); border-style: dashed; background: transparent; }
-/* 卡片标题旁的种类标签：行内那个只有 40px 宽，标题旁这个要左右留白 */
-.svc-kind.is-chip { padding: 4px 7px; flex: none; }
-
-.svc-name-cell {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-  max-width: 100%;
-}
-.svc-name {
-  font-size: 14.5px;
-  color: var(--ink);
-  background: transparent;
   border: 0;
-  padding: 0;
-  cursor: pointer;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
   text-align: left;
+  cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
 }
-.svc-autostart-tag {
+.svc-card-name:hover { color: var(--accent-strong); }
+
+/* 卡头的服务器标签（.monitor-chip 是观测台的通用小药丸，这里只加可点的手感） */
+.svc-srv {
   display: inline-flex;
   align-items: center;
-  font-size: 9.5px;
-  line-height: 1;
-  padding: 1px 3.5px;
-  border-radius: 4px;
-  font-weight: 500;
-  color: var(--ok);
-  background: color-mix(in srgb, var(--ok) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ok) 28%, transparent);
-  vertical-align: baseline;
+  justify-content: flex-end;
+  gap: 4px;
   flex: none;
-  letter-spacing: -0.2px;
-  user-select: none;
-  text-decoration: none !important;
+  flex-wrap: wrap;
+  max-width: 55%;
 }
-.svc-autostart-tag.is-chip {
-  font-size: 9px;
-  padding: 0 2.5px;
-  margin-left: 2px;
-  border-radius: 3px;
-}
-.svc-name:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
-.svc-name.is-static { cursor: default; color: var(--muted); }
-.svc-name.is-static:hover { color: var(--muted); text-decoration: none; }
-/* 行尾「换视角」小按钮：名字已经让给观测入口了，换视角挪到这儿 */
-.svc-swap {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 22px; height: 22px; padding: 0; flex: none;
-  border: 1px solid var(--line); border-radius: 6px;
-  background: var(--surface); color: var(--muted); cursor: pointer;
+.svc-srv .monitor-chip {
+  border: 1px solid transparent;
+  cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.svc-swap:hover { border-color: var(--accent-ring); color: var(--accent-strong); background: var(--accent-soft); }
-
-.svc-path {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+.svc-srv .monitor-chip:hover {
+  border-color: var(--accent-ring);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
 }
-.svc-run {
-  font-size: 12.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.svc-run em { font-style: normal; color: var(--ink-2); }
+.svc-srv .monitor-chip:last-child:not(:first-child) { cursor: default; }
 
-.svc-mons { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-start; min-width: 0; }
-.svc-mon {
+/* 摘要：跟观测台「本次观测情况」同一副骨架（.monitor-note：小标签 + 两行截断），
+   只是正文用正文字体——mono 留给机器名、端口、路径。 */
+.svc-note-text {
+  font-family: var(--font-sans);
+  -webkit-line-clamp: 2;
+}
+
+/* ── 卡身：部署行 = .asset-meta 键值行 ──────────────────────────── */
+/* 键 = 机器名（等宽、灰），值 = 端口 · 启动方式（等宽、超长省略，悬停看全文）。
+   跟观测台的「响应 / 检查」两行同构，不再自造带边框的块。 */
+.svc-meta-srv {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: 7px;
-  border: 1px solid var(--line);
+  align-items: baseline;
+  gap: 0;
+  flex-wrap: wrap;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.svc-dep-srv-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--ink-2);
-  background: var(--surface-2);
   cursor: pointer;
   white-space: nowrap;
 }
-.svc-mon:hover { border-color: var(--accent-ring); color: var(--accent-strong); background: var(--accent-soft); }
-.svc-mon svg { flex: none; opacity: 0.7; }
-.svc-mon { max-width: 160px; }
-.svc-mon span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.svc-nomon { font-size: 11px; color: var(--line-strong); }
-/* 管理页入口：没挂观测时这一格就是它。尺寸跟观测标签一致，用强调色表示「能打开」 */
-.svc-manage {
+.svc-dep-srv-btn:hover { color: var(--accent-strong); text-decoration: underline; }
+.svc-dep-srv-btn + .svc-dep-srv-btn::before {
+  content: ' / ';
+  color: var(--muted);
+  text-decoration: none;
+}
+.svc-meta-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.svc-dep-empty {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ── 卡脚：观测 chip + 操作 + 打开 ──────────────────────────────── */
+.svc-card .asset-foot .asset-link { margin-left: 0; }
+.svc-ops {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: 7px;
-  border: 1px solid var(--accent-ring);
+  gap: 2px;
+  margin-left: auto;
+  flex: none;
+}
+.svc-card:hover .svc-op,
+.svc-card:focus-within .svc-op { opacity: 1; }
+.svc-op {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, border-color 0.15s, color 0.15s, background 0.15s;
+}
+.svc-op:hover {
+  border-color: var(--accent-ring);
   color: var(--accent-strong);
   background: var(--accent-soft);
-  text-decoration: none;
-  white-space: nowrap;
 }
-.svc-manage:hover { border-color: var(--accent); }
-.svc-manage svg { flex: none; opacity: 0.75; }
-
-.svc-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--muted);
+.svc-op[title^='删']:hover {
+  border-color: rgba(185, 28, 28, 0.35);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
-.svc-foot-label { flex: none; }
-.svc-doc {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 46%;
+/* 触屏没有悬停，常驻显示 */
+@media (hover: none) {
+  .svc-op { opacity: 1; }
 }
 
-/* 窗口窄到放不下五列（≈1080px 以下，含侧栏）就换成两行：种类+名字+观测 / 路径+启动 */
-@media (max-width: 1080px) {
-  .svc-row {
-    grid-template-columns: 40px minmax(0, 1fr) auto 74px;
-    grid-template-areas:
-      'kind name mons swap'
-      '. path run run';
-    row-gap: 5px;
-  }
-  .svc-row.is-srv {
-    grid-template-columns: minmax(0, 1fr) auto 74px;
-    grid-template-areas:
-      'name mons swap'
-      'path run run';
-  }
-  .svc-rows-head { display: none; }
-  .svc-kind { grid-area: kind; }
-  .svc-name { grid-area: name; }
-  .svc-mons { grid-area: mons; }
-  .svc-path { grid-area: path; }
-  .svc-run { grid-area: run; text-align: right; }
-  .svc-row-ops { grid-area: swap; justify-content: flex-end; }
-  .svc-doc { display: none; }
-}
-/* ── 紧凑视图：一屏看全的「部署板」 ───────────────────────────────
-   每台服务器 / 每个服务一张小卡，卡里一行一条部署（种类点 + 名字 + 端口 + 观测图标），
-   路径 / 启动方式 / 备注走悬停提示。多列自动排（column-width），37 条部署一屏能看全。 */
-.svc-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(276px, 1fr));
-  align-items: start;
-  gap: 8px;
-  margin-top: 12px;
-}
-.svc-mini {
-  min-width: 0;
-  padding: 11px 12px 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.svc-mini:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
-.svc-mini.is-flash { animation: svcJump 1.7s ease-out; }
-
-.svc-mini-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.svc-mini-title {
-  margin: 0; flex: none; max-width: 64%;
-  font-size: 14.5px; font-weight: 600; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.svc-mini-ip {
-  flex: 1 1 auto; min-width: 0;
-  font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.svc-mini-count { flex: none; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
-.svc-mini-empty { margin: 7px 0 2px; font-size: 12px; color: var(--muted); }
-
-.svc-mini-rows { list-style: none; margin: 7px 0 0; padding: 0; }
-.svc-mini-row { display: flex; align-items: center; gap: 5px; min-height: 29px; padding: 0 3px; border-radius: 6px; }
-.svc-mini-row:hover { background: var(--surface-2); }
-/* 挂了观测的行：整行可点，直接去观测台（没挂的没这条 .is-link，点了也不动） */
-.svc-mini-row.is-link { cursor: pointer; }
-.svc-mini-row.is-link:hover .svc-mini-name { color: var(--accent-strong); }
-.svc-mini-row.is-link:hover .svc-mini-name-text { text-decoration: underline; text-underline-offset: 2px; }
-.svc-mini-row.is-link:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
-
-/* 种类用一个小圆点表示：实心 = 项目/服务/站点，空心 = 脚本/任务 */
-.svc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--muted); }
-.svc-dot.kind-project { background: var(--accent); }
-.svc-dot.kind-service { background: var(--ok); }
-.svc-dot.kind-site { background: var(--ink-2); }
-.svc-dot.kind-script { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
-.svc-dot.kind-task { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
-
-.svc-mini-name {
-  flex: 1 1 auto; min-width: 0; font-size: 14.5px; color: var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  display: inline-flex; align-items: baseline; gap: 4px;
-}
-.svc-mini-name-text {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
-}
-/* 没挂观测的名字压暗（--ink-2 跟 --ink 差得太小，用 --muted 才看得出）：这行点了不动 */
-.svc-mini-name.is-static { color: var(--muted); }
-
-.svc-mini-port {
-  flex: none; max-width: 48%;
-  font-family: var(--font-mono); font-size: 10px; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.svc-mini-mon {
-  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  width: 15px; height: 18px; padding: 0; border: 0; border-radius: 4px;
-  background: none; color: var(--accent-strong); cursor: pointer; opacity: 0.8;
-}
-.svc-mini-mon:hover { opacity: 1; background: var(--accent-soft); }
-.svc-mini-foot {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
-  margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line);
-}
-.svc-mini-mon.is-foot {
-  width: auto; max-width: 100%; height: auto;
-  padding: 3px 7px; font-size: 11.5px; color: var(--muted);
-  border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2);
-}
-.svc-mini-mon.is-foot:hover { color: var(--accent-strong); border-color: var(--accent-ring); background: var(--accent-soft); }
-.svc-mini-mon.is-foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ── 服务视角：一行一个服务（名字 + 部署到哪几台机） ──────────────
-   服务有 23 个、每个只落 1～3 台机，用卡片会白搭一整行标题；列表更省地方，
-   字号才能放大到 13.5px 还一屏看得完。 */
-.svc-slist {
-  list-style: none;
-  margin: 14px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 26px;
-}
-.svc-srow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  min-height: 40px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  transition: background 0.15s;
-}
-.svc-srow:hover { background: var(--surface-2); }
-/* 从服务器视角点机名过来时闪一下（跟卡片同一套手感） */
-.svc-srow.is-flash { animation: svcRowFlash 1.7s ease-out; }
-@keyframes svcRowFlash {
-  0%, 100% { background: transparent; }
-  12%, 62% { background: var(--accent-soft); }
-}
-.svc-srow-name {
-  flex: 0 1 auto; min-width: 0; max-width: 46%;
-  padding: 0; border: 0; background: none;
-  font-size: 14.5px; color: var(--ink); text-align: left; cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.svc-srow-name:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; }
-.svc-srow-name.is-static { cursor: default; color: var(--muted); }
-.svc-srow-name.is-static:hover { color: var(--muted); text-decoration: none; }
-.svc-srow-count { flex: none; font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
-.svc-srow-srvs { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 3px; }
-/* 机名走纯文本（带框小标签在 3 台机 + 长 IP 时会换行，把行高撑成两倍） */
-.svc-schip {
-  display: inline-flex; align-items: baseline; gap: 3px;
-  padding: 1px 1px; border: 0; border-radius: 4px;
-  background: none; color: var(--ink-2); font-size: 11.5px;
-  cursor: pointer; white-space: nowrap;
-  transition: color 0.15s, background 0.15s;
-}
-.svc-schip em { font-style: normal; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
-.svc-schip:hover { color: var(--accent-strong); background: var(--accent-soft); }
-.svc-schip:hover em { color: var(--accent-strong); }
-.svc-srow-none {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.svc-srow-sep { color: var(--line-strong); font-size: 11px; }
-/* 太窄就退成一列（1024 还能两列，约 760 以下才单列） */
-@media (max-width: 760px) {
-  .svc-slist { grid-template-columns: 1fr; }
-}
-
-.svc-hint-ico { vertical-align: -2px; color: var(--accent-strong); }
-
-/* 取数中的一行提示（数据在 data/services.json，读不到就整页空态） */
-.svc-loading {
-  display: flex; align-items: center; gap: 8px;
-  padding: 28px 4px; color: var(--muted); font-size: 13px;
-}
-/* ── 增删改：行 / 卡上的小操作按钮 ─────────────────────────────────
-   这一页就是 data/services.json 的编辑器。按钮平时隐着（悬停才显形），
-   免得一屏 38 条部署上挂 100 多个图标；键盘 Tab 到时也会显形。 */
-.svc-op {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; height: 20px; padding: 0; flex: none;
-  border: 1px solid transparent; border-radius: 5px;
-  background: none; color: var(--muted); cursor: pointer;
-  opacity: 0; transition: opacity 0.12s, border-color 0.15s, color 0.15s, background 0.15s;
-}
-.svc-op:hover { border-color: var(--accent-ring); color: var(--accent-strong); background: var(--accent-soft); }
-/* 删除那个按钮 hover 时给红，避免和「改」点错 */
-.svc-op[title^='删']:hover { border-color: rgba(185, 28, 28, 0.35); color: var(--danger); background: var(--danger-soft); }
-
-.svc-mini-ops, .svc-row-ops { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-.svc-mini-head .svc-mini-ops { margin-left: 2px; }
-.svc-mini-head .svc-mini-ip { flex: 1 1 auto; min-width: 0; }
-
-/* 显形：悬停那一行 / 那张卡的头，或者键盘聚焦进去 */
-.svc-mini:hover .svc-mini-head .svc-op,
-.svc-mini-row:hover .svc-op,
-.svc-card:hover .svc-head .svc-op,
-.svc-row:hover .svc-op,
-.svc-srow:hover .svc-op,
-.svc-mini:focus-within .svc-op,
-.svc-mini-row:focus-within .svc-op,
-.svc-card:focus-within .svc-op,
-.svc-row:focus-within .svc-op,
-.svc-srow:focus-within .svc-op { opacity: 1; }
-/* 紧凑行里「改 / 删」挤在端口后面，窄屏就折到下一行 */
-.svc-mini-row .svc-mini-ops { margin-left: auto; }
-
-/* ── 抽屉里的观测项多选 ─────────────────────────────────────────── */
+/* ── 抽屉里的多选（部署指向的观测项） ───────────────────────────── */
 .svc-pick { display: flex; flex-direction: column; gap: 8px; }
-/* 24 个观测项一屏放不下：框住 + 底部淡出，免得最后一行被切一半像渲染坏了 */
 .svc-pick-list {
   display: flex; flex-wrap: wrap; gap: 5px;
   max-height: 150px; overflow-y: auto; padding: 7px;

@@ -1,4 +1,4 @@
-# pinboard 进展记录（2026-10-19 → 2026-10-21）
+# pinboard 进展记录（2026-10-19 → 2026-11-10）
 
 > 2026-10-21 从 `AGENTS.md` 的「## 状态」整段搬出来——那份文件每轮都注入上下文，把历史堆在那里太贵。
 > **新增进展往这里加**；`AGENTS.md` 只留「当前状态 + 截止日期」和最要命的 5 条红线。
@@ -554,3 +554,32 @@ D 全新数据、不设 `KUMA_URL`、本机 3001 有 Kuma → `configured:true, 
 ② 的修法：`quick-note.ts` 改成 `import type` + `createRequire(import.meta.url)('electron')` 惰性加载（`loadElectronMain()` 缓存，取不到返回 `null`），deps 注入优先；`pnpm build:desktop:main` 产物里仍带 `createRequire(import.meta.url)`。
 配套：单测彻底去掉时区依赖（绝对时刻 / 本地字段构造 Date / 快照期望值由 `localStamp()` 推导），`snapshot.ts` 的 `formatPolicyLabel` 用 `withoutTimeZone()` 认出加字段之前存的老预设 JSON 并标「（本地时区）」、`redact.ts` 的摘要把 `timeZone` 显示出来（抽屉里能看到策略钉的是哪个时区）。
 验证：`pnpm typecheck` 0 错误；`pnpm test` 在 **TZ=UTC 与 TZ=Asia/Shanghai 下均 762/762 passed**（新增 2 例），第三时区 `America/New_York` 抽查 11/11 绿；`pnpm build` exit 0（dist/server.js 422.5kb）、`pnpm build:desktop:main` exit 0（46.1kb）。
+
+## 2026-11-10 文档审计：背景与 2026-11-09 状态快照迁入
+
+> 2026-11-10 从 `AGENTS.md` 迁入，目的：入口文件只留路由、当前态与最要命红线。以下保留原文，作为历史记录；旧观测计数已被当日核对推翻，现役口径见 `AGENTS.md` 的「当前状态」。
+
+### 背景/来源（原文）
+
+2026-10-19 由用户提出需求（"类似便签夹的项目，网页端，写东西订起来，加标签，再给个资产列表页"）后新建。项目就在本目录（`server/` + `web/` 单进程单端口），观测引擎已原生内化进本服务，外部 Kuma（3001）与计划任务已全量下线退役并删除；本文件是唯一工程约定。调研过 usememos/memos（时间线便签，无资产）、sysadminsmedia/homebox（资产台账，无随手记）、blinko、flatnotes，结论是没有单项目同时覆盖两边，缝合两套 Go 应用会得到两套账号/两套标签且无法互链，因此按用户选择走**单应用自研**：交互抄 Memos、数据模型抄 HomeBox，代码全部本目录自写，无第三方运行时代码拷贝。2026-10-21 用户又提出「多个邮箱合成一个收件箱」（此前在 azfree 上试过 Cypht，嫌页面太重、跨境太慢，已整体拆除），需求定稿为 `docs/mail-page-requirements.md` v1.1，随后照该文档做出只读的 `/mail` 页。
+
+### 状态（2026-11-09 原文，含已过期计数）
+
+**当前状态（2026-11-09）**：7788 运行中，八页（便签 / 邮件 / 资产 / 观测 / 主机 / 服务 / 备份 / 设置）全部可用，单进程单数据库（`pinboard.db`）闭环自治；**界面中英双语**（默认跟随浏览器语言，设置 → 外观里手动切，服务端错误也跟着 `Accept-Language` 变，数据与日志不翻——见 `docs/i18n.md`）；
+**原生观测台全面内化上线**（2026-11-08 加）：内置 HTTP / TCP / SSH / Push 原生探针引擎，心跳与状态直接落入 `pinboard.db`；支持全局出站代理（直连 / SOCKS5）并在观测项抽屉中提供单项独立钉死开关（跟随全局 / 钉：直连 / 钉：代理）；外部 Uptime Kuma（3001 端口）、旧 `kuma\` 项目及计划任务 `KumaObs` 均已彻底下线删除；快照自动落盘至 `SNAPSHOT-MONITORS.md`；
+**便签能存图片**（2026-10-26 加）：输入框里粘贴 / 拖入 / 点「图片」选文件都行，行内编辑同样支持；正文里存的是 `/api/attachments/<id>` 的 Markdown（与部署前缀无关），图片真身 `data/uploads/` 随备份包走、孤儿 7 天回收；观测台心跳色条可逐拍悬停看时间与消息（悬停那一段会放大、把邻居挤开），筛选条下面还有一排「快捷入口」卡（`quick-links.json`，整卡外链、**不参与观测**；2026-10-26 起 Immich 挪进服务页，本机这份是空数组）；服务页只登记部署关系（`data/services.json`，每次请求热读、`SERVICES_FILE` 可换路径，页面里能增删改、写盘前自动备份到 `data/services-backups/`），不探测、不建观测项；主机页只展示服务器指标（每 5 分钟采集）：**2026-11-09 卡面按用户给的 VPS 监控截图重排**成「抬头（id + 厂商徽标 + 关联资产）→ 国旗 + 机房 + OS + 负载 → CPU / 内存 / 磁盘三行细进度条 → 延迟 · 丢包 · 探针色条 → 24 小时曲线 → top 进程」，延迟与丢包来自这台机在观测台里的心跳（只认 port / http 项，见坑 82）；**2026-10-26 起卡底不再画服务 chip**，部署关系归「服务」页，主机能在页面上加 / 暂停 / 删（`data/metrics.json` 原子写回，不用重启），加的时候还能顺手勾端口 / HTTP 站点 / systemd 服务观测项，保存后弹「接入这台机器」：一条命令装好采集端、立刻上报首帧。工程整理已收口——
+服务端按职责拆分（`server/monitor/*`、`server/mail/*`、`server/routes/meta.ts`、`server/static.ts`），
+前端 api 与样式分片，`tests/` 里有 757 处 `test(`/`it(` + 17 套 e2e（`pnpm test` / `pnpm test:e2e`）。旧文记「18 项（14 项活跃全部 UP 全绿，4 项 aws 节点停用中）」；2026-11-10 核实实际为 14 项 / 5 组 / 10 启用 / 4 aws 停用。
+已知长期红：本机 app-api `/healthz` 返回 503（上游账号问题，不是观测台的问题）。
+未做：Gmail 跨页翻页（`hasMore:true` 的下一页）待信箱多于一页时复测。
+
+
+**历史进展（2026-10-19 起，逐条记录）见 [`docs/status-history.md`](docs/status-history.md)**
+—— 新增进展写那里，别往这里堆；这里只留「当前状态 + 截止日期」。
+
+已知问题与坑（都踩过，勿回退）——**完整 87 条见 `docs/pitfalls.md`**（编号稳定；本文件与代码注释里的「见坑 N」都指那里的第 N 条，新增只往后加）。最要命的 5 条先记在这里：
+1. **默认只监听 127.0.0.1 + 必须登录**：要远程访问就前置反代并开 HTTPS（`TRUST_PROXY=1` 才读 `X-Forwarded-*`），不要直接映射 7788（坑 6）。
+2. **邮件页一行 `STORE` 都不许有**：只读靠 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，「本页已读」只写本地 `mail_local_read`（坑 12）。
+3. **`tools/pinboard.ps1` 必须 UTF-8 带 BOM**（`edit`/`write` 写出来的没有 BOM，改完补 `239,187,191`）、`run-pinboard.vbs` 必须 CRLF，否则脚本静默不执行（坑 10）。
+4. **观测台内化原生引擎直读 SQLite**：历史 Kuma 全量覆盖已解决，现在基于 `node:sqlite` 的 `MonitorStore` 事务性操作，修改只动必要字段并防抖触发快照（坑 21）。
+5. **观测项状态与心跳原生常驻**：内存引擎与 `pinboard.db` 保持单源一致，已彻底摆脱旧 Kuma 的 5 分钟 apicache 延迟与连接池假死（坑 9、坑 28）。

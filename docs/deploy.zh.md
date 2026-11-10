@@ -190,3 +190,11 @@ powershell -File tools\pinboard.ps1 start
 4. 设置页 → 设备列表里能看到当前设备；「退出登录」后要重新登录
 5. 备份页 → 「立即备份」→ 出现一份 `pinfolio-*.tar.gz`，点「清单」能看到成员与 sha256
 6. （可选）手机连同一网络 → 打开反代后的 https 地址 → 八页可用，底部是标签栏
+
+## 迁移与搬迁（2026-11-10 自 AGENTS.md 迁入）
+
+这个目录本身就能当仓库根。搬到别的机器/路径时带走：`server/`、`web/`、`tools/`、`package.json`、`pnpm-workspace.yaml`、`pnpm-lock.yaml`、`tsconfig.json`、`vite.config.ts`、`.gitignore`、`start.cmd`、`stop.cmd`、`run-pinboard.vbs`、本文件；不要带 `data/`（个人数据）、`dist/`、`logs/`、`node_modules/`、`tmp/`。
+需要改的硬编码：端口 7788（`server/index.ts` 与 `vite.config.ts` 代理）。端口/监听地址/数据目录都能用环境变量覆盖（`PORT` / `HOST` / `PINBOARD_DATA`）。登录鉴权已内置（首启 `/setup` 设密码，或 `PINBOARD_PASSWORD` 初始化）；HTTPS 交给前面的反代。
+邮件功能另外依赖 `imapflow` + `mailparser`（纯 JS，已在 `package.json` 里，不需要额外服务）；`tests/fakeimap/` 的假 IMAP 服务器只是测试用，搬家不用带。
+主机页的数据来自 `data/metrics.json`（指标源 + 主机清单，**`base` 是密文、没进版本库**）和 4 台机上的 `tools/node-metrics/`（`/etc/node-metrics.conf` 的 `METRICS_URL` 必须与它一致）。2026-11-09 起指标源是 `ssh:/var/lib/node-metrics`（密文），每台 host 的 `address` = ssh 别名（也是拉取时连的目标），采集端写 `file:///var/lib/node-metrics`；老形态 `https://…/metrics/<token>/` + `…/metrics-ingest/<token>` 的 push 模式代码里仍保留，换回去只需改这两个值；搬到别的机器时两边都要改，否则主机页只会显示「拉取失败」。`host-services.json`（服务 chip → 观测项的映射）要跟着走，缺了只是 chip 不能点，不会报错。
+「接入这台机器」的命令由 `GET /api/hosts/:id/onboard` 生成（**token 只在这一个接口出现**，`/hosts` 列表与 `SNAPSHOT.md` 里都没有）；安装器托管地址优先读 `METRICS_INSTALL_URL`，其次 `PUBLIC_URL`，都没有就按请求来源推 `<origin>/nm/node-metrics-install.sh`；换托管机改环境变量即可。加主机时顺带建的观测项直接调用 `monitor/provision.ts` 与 `MonitorStore` 落库（已内化，无需外部 CLI），两边在同一个 `pinboard.db` 库中事务一致。

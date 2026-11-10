@@ -14,6 +14,9 @@ export async function login(page, base = E2E_BASE, opts = {}) {
     })
   }
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
+  // 首屏要等 React 挂载：慢机器上 domcontentloaded 之后可能既没有 .nav-item 也没有密码框，
+  // 直接判 count() 会掉进「等 .nav-item 到 20s 超时」的坑（多开 context 时尤其明显）。
+  await page.waitForSelector('.nav-item, input[type=password]', { timeout: 20000 }).catch(() => {})
   if (await page.locator('.nav-item').count()) return
   if (!(await page.locator('input[type=password]').count())) {
     await page.waitForSelector('.nav-item', { timeout: 20000 })

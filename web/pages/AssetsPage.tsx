@@ -50,7 +50,7 @@ export function AssetsPage({ tags, fields, stats, refreshMeta, openAssetId, setO
           action={<Button variant="primary" size="sm" onClick={() => setOpenAssetId('new')}><Plus size={14} /> {t('登记第一件')}</Button>}
         />
       ) : A.view === 'grid' ? (
-        <div className="asset-grid" style={{ marginTop: 14 }}>
+        <div className="asset-grid is-compact" style={{ marginTop: 14 }}>
           {A.assets.map((a) => <AssetCard key={a.id} asset={a} fields={fields} onClick={() => setOpenAssetId(a.id)} />)}
         </div>
       ) : (

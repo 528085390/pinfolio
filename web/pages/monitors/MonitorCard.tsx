@@ -22,7 +22,7 @@ export function MonitorCard({ m, onOpen }: { m: Monitor; onOpen: () => void }) {
   return (
     <div
       id={'monitor-' + m.id}
-      className={cx('asset-card monitor-card', isDown(m) && 'down', !m.active && 'paused')}
+      className={cx('asset-card monitor-card is-compact', isDown(m) && 'down', !m.active && 'paused')}
       onClick={onOpen}
       role="button"
       tabIndex={0}

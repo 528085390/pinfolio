@@ -83,7 +83,7 @@ export function MonitorsPage({
           action={<Button size="sm" onClick={M.clearFilters}>{t('清空筛选')}</Button>}
         />
       ) : M.view === 'grid' ? (
-        <div className="asset-grid monitor-grid" style={{ marginTop: 14 }}>
+        <div className="asset-grid monitor-grid is-compact" style={{ marginTop: 14 }}>
           {M.shown.map((m) => <MonitorCard key={m.id} m={m} onOpen={() => M.setOpenId(m.id)} />)}
         </div>
       ) : (

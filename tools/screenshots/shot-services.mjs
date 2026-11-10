@@ -1,4 +1,6 @@
-// 服务栏截图：紧凑（默认）/ 详细 / 两种视角 / 深色 / 窄屏，外加「一屏能不能看全」的高度统计。
+// 服务页截图 + 实测：默认 / 暗色 / 窄屏，外加服务器标签筛选的压暗效果与卡片刻度统计。
+//   卡片刻度自 2026-11-10 起与观测台、资产页共用 assets.css 的 .asset-card.is-compact，
+//   本脚本顺手把那份刻度量出来，方便三页对比。
 //   SHOT_BASE=http://127.0.0.1:7791 PINBOARD_PASSWORD=e2e-password node tools/screenshots/shot-services.mjs
 import { CHROME as exe } from '../chrome-path.mjs'
 import { chromium } from 'playwright-core'
@@ -13,7 +15,7 @@ const errors = []
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 
-async function open(density, view) {
+async function open(theme) {
   await page.goto(BASE + '/services', { waitUntil: 'domcontentloaded' })
   if (!(await page.locator('.nav-item').count())) {
     if (!PW) throw new Error('实例要登录：设 PINBOARD_PASSWORD')
@@ -21,126 +23,84 @@ async function open(density, view) {
     await page.click('button[type=submit]')
     await page.waitForSelector('.nav-item', { timeout: 30000 })
   }
-  await page.evaluate((d) => localStorage.setItem('pinboard-svc-density', d), density)
+  if (theme) await page.evaluate((t) => localStorage.setItem('pinboard-theme', t), theme)
   await page.goto(BASE + '/services', { waitUntil: 'networkidle' })
-  await page.waitForSelector('.svc-mini, .svc-card, .svc-srow', { timeout: 20000 })
-  if (view === 'service') {
-    await page.locator('.svc-tab', { hasText: '服务视角' }).click()
-    await page.waitForTimeout(300)
-  }
+  await page.waitForSelector('.svc-card', { timeout: 20000 })
   await page.waitForTimeout(300)
 }
 
 // 滚动的是 .content（shell.css:49 overflow-y:auto），量它才准
 const metrics = async () => page.evaluate(() => {
-  const el = document.querySelector('.content')
-  const h = el ? el.scrollHeight : 0
+  const content = document.querySelector('.content')
+  const grid = document.querySelector('.svc-grid')
+  const card = document.querySelector('.svc-card')
+  const icon = card?.querySelector('.asset-icon')
+  const name = card?.querySelector('.asset-name')
+  const sub = card?.querySelector('.asset-sub')
+  const head = card?.querySelector('.asset-card-head')
+  const cs = (el) => (el ? getComputedStyle(el) : null)
+  const g = cs(grid)
+  const c = cs(card)
   return {
-    contentHeight: h,
-    visibleHeight: el ? el.clientHeight : 0,
-    fitsOneScreen: h <= (el ? el.clientHeight + 1 : 0),
-    // 部署区底边到内容区顶边的距离 → 一屏还剩多少余量
-    usedHeight: (() => {
-      const b = document.querySelector('.svc-board, .svc-slist')
-      return b ? Math.round(b.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0
-    })(),
-    boardHeight: (() => {
-      const b = document.querySelector('.svc-board, .svc-slist')
-      return b ? Math.round(b.getBoundingClientRect().height) : 0
-    })(),
-    cards: document.querySelectorAll('.svc-mini').length,
-    rows: document.querySelectorAll('.svc-mini-row').length,
-    listRows: document.querySelectorAll('.svc-srow').length,
-    cardHeights: [...document.querySelectorAll('.svc-mini, .svc-srow')]
-      .slice(0, 8)
-      .map(c => Math.round(c.getBoundingClientRect().height)),
-    alignItems: (() => {
-      const b = document.querySelector('.svc-board')
-      return b ? getComputedStyle(b).alignItems : null
-    })(),
+    contentHeight: content ? content.scrollHeight : 0,
+    visibleHeight: content ? content.clientHeight : 0,
+    gridClass: grid ? grid.className : null,
+    cardClass: card ? card.className : null,
+    columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0,
+    columnWidth: grid ? Math.round(parseFloat(getComputedStyle(grid).gridTemplateColumns.split(' ')[0])) : 0,
+    gap: g ? g.gap : null,
+    cards: document.querySelectorAll('.svc-card').length,
+    cardPadding: c ? c.padding : null,
+    cardGap: c ? c.gap : null,
+    cardRadius: c ? c.borderRadius : null,
+    cardHeight: card ? Math.round(card.getBoundingClientRect().height) : 0,
+    iconSize: icon ? Math.round(icon.getBoundingClientRect().width) : 0,
+    nameSize: name ? cs(name).fontSize : null,
+    subSize: sub ? cs(sub).fontSize : null,
+    headMinHeight: head ? cs(head).minHeight : null,
+    chips: document.querySelectorAll('.svc-filterbar .chip, .filters .chip').length,
+    dimmed: document.querySelectorAll('.svc-card.is-dim').length,
+    cardHeights: [...document.querySelectorAll('.svc-card')].slice(0, 8)
+      .map((el) => Math.round(el.getBoundingClientRect().height)),
   }
 })
 
-await open('compact', 'server')
-const mServer = await metrics()
-await page.screenshot({ path: 'tmp/shot-services-server.png' })
+await open(null)
+const light = await metrics()
+await page.screenshot({ path: 'tmp/shot-services-light.png' })
 
-await open('compact', 'service')
-const mService = await metrics()
-await page.screenshot({ path: 'tmp/shot-services-service.png' })
+// 点第一颗服务器标签 → 其余卡片压暗，再点回全部
+const chip = page.locator('.filters .chip').nth(1)
+const chipLabel = (await chip.innerText()).trim()
+await chip.click()
+await page.waitForTimeout(400)
+const dimmedAfterChip = (await metrics()).dimmed
+await page.screenshot({ path: 'tmp/shot-services-filtered.png' })
+await page.locator('.filters .chip').first().click()
+await page.waitForTimeout(400)
+const dimmedAfterAll = (await metrics()).dimmed
 
-// 点了有观测的行 → 直接跳观测台
-await open('compact', 'server')
-const linked = page.locator('.svc-mini-row.is-link').first()
-const linkedName = (await linked.locator('.svc-mini-name').innerText()).trim()
-await linked.click()
-await page.waitForTimeout(600)
-const urlAfterLinked = page.url()
-
-// 没有观测的行 → 点了不跳
-await open('compact', 'server')
-const plain = page.locator('.svc-mini-row:not(.is-link)').first()
-const plainName = (await plain.locator('.svc-mini-name').innerText()).trim()
-await plain.click()
+// 点服务名 → 开服务抽屉
+await page.locator('.svc-card-name').first().click()
 await page.waitForTimeout(500)
-const urlAfterPlain = page.url()
+const drawerOpen = await page.locator('.svc-drawer, .drawer, [role=dialog]').count()
 
-// 服务视角（列表）：点服务名 → 观测台
-await open('compact', 'service')
-const svcLinked = page.locator('.svc-srow .svc-srow-name:not(.is-static)').first()
-const svcLinkedName = (await svcLinked.innerText()).trim()
-await svcLinked.click()
-await page.waitForTimeout(600)
-const urlAfterSvcName = page.url()
-
-// 服务视角（列表）：点机名小标签 → 换到服务器视角并闪那台机
-await open('compact', 'service')
-await page.locator('.svc-srow .svc-schip').first().click()
-await page.waitForTimeout(600)
-const viewAfterChip = (await page.locator('.svc-tab.is-on').first().innerText()).trim()
-const flashCard = await page.locator('.svc-mini.is-flash').count()
-
-// 详细视图：行尾 ⇄ 换视角
-await open('detail', 'server')
-await page.locator('.svc-swap').first().click()
-await page.waitForTimeout(600)
-const viewAfterSwap = (await page.locator('.svc-tab.is-on').first().innerText()).trim()
-
-// 详细视图：点名字（有观测的）→ 观测台
-await open('detail', 'server')
-await page.locator('.svc-row .svc-name:not(.is-static)').first().click()
-await page.waitForTimeout(600)
-const urlAfterDetailName = page.url()
-
-await open('detail', 'server')
-const mDetail = await metrics()
-await page.screenshot({ path: 'tmp/shot-services-detail.png', fullPage: true })
-
-await open('compact', 'server')
-await page.evaluate(() => localStorage.setItem('pinboard-theme', 'dark'))
-await page.reload({ waitUntil: 'networkidle' })
-await page.waitForSelector('.svc-mini', { timeout: 20000 })
-await page.waitForTimeout(300)
-await page.screenshot({ path: 'tmp/shot-services-dark.png' })
-await page.evaluate(() => localStorage.setItem('pinboard-theme', 'system'))
+await open('dark')
+await page.screenshot({ path: 'tmp/shot-services-dark.png', fullPage: true })
+await open('system')
 
 await page.setViewportSize({ width: 1024, height: 800 })
 await page.waitForTimeout(400)
-const mNarrow = await metrics()
+const narrow = await metrics()
 await page.screenshot({ path: 'tmp/shot-services-narrow.png' })
 
 console.log(JSON.stringify({
-  linkedRow: linkedName,
-  urlAfterLinked,
-  plainRow: plainName,
-  urlAfterPlain,
-  viewAfterSwap,
-  urlAfterDetailName,
-  svcRowName: svcLinkedName,
-  urlAfterSvcName,
-  viewAfterChip,
-  flashCardAfterChip: flashCard,
-  heights: { compactServer: mServer, compactService: mService, detailServer: mDetail, narrow: mNarrow },
+  chipLabel,
+  dimmedAfterChip,
+  dimmedAfterAll,
+  drawerNodes: drawerOpen,
+  light,
+  narrow,
   errors,
 }, null, 1))
 await browser.close()

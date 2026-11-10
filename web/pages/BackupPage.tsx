@@ -70,7 +70,7 @@ export function BackupPage() {
   const remote = st?.remote
 
   return (
-    <div className="page">
+    <div className="page page-wide">
       <div className="card sec-card">
         <div className="section-title" style={{ marginTop: 0 }}><Archive size={14} /> {t('本机文件')}</div>
         <p className="sec-hint">

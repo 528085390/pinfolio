@@ -12,7 +12,7 @@ export function AssetCard({ asset, fields, onClick }: { asset: Asset; fields: Fi
   const meta = cardMeta(asset, fields)
 
   return (
-    <div className="asset-card" onClick={onClick}>
+    <div className="asset-card is-compact" onClick={onClick}>
       <div className="asset-card-head">
         <div className="asset-icon"><KindIcon kind={asset.kind} /></div>
         <div className="grow">

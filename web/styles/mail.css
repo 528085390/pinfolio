@@ -2,9 +2,9 @@
 /* ===== 邮件页（/mail） ===== */
 .mail-page {
   height: 100%;
-  max-width: 1700px;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 16px 22px 16px;
+  padding: 16px 24px 16px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

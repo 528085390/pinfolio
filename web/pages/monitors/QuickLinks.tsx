@@ -28,7 +28,7 @@ export function QuickLinks({ links }: { links: QuickLink[] }) {
         {t('快捷入口')}
         <span>{t('不参与观测')}</span>
       </div>
-      <div className="asset-grid monitor-grid quick-grid">
+      <div className="asset-grid monitor-grid quick-grid is-compact">
         {links.map((l) => (
           <a
             key={l.url}
