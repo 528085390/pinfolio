@@ -8,7 +8,7 @@
 
 **English** · [中文](README.zh.md)
 
-**[Live demo →](https://raylxpj.us.ci)** — password `pinfolio-demo`, built-in sample data, reset every day at 04:00 (UTC+8).
+**[Live demo →](https://pinfolio.raylx.xyz)** — password `pinfolio-demo`, built-in sample data, reset every day at 04:00 (UTC+8).
 
 Notes, an asset inventory, an uptime dashboard and a read-only inbox in one self-hosted app — one Node process, one SQLite file, one password.
 

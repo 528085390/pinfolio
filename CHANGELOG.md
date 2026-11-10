@@ -5,6 +5,8 @@
 
 ## [未发布]
 
+- 在线演示站换到 `https://pinfolio.raylx.xyz`（原 `https://raylxpj.us.ci` 随 az 退役失效）：README 两版、`docs/release.md`、CI 的 `edge` job 注释同步。
+
 ## [0.5.0] - 2026-10-27
 
 ### 架构升级：Web / Windows 桌面端双形态（新）

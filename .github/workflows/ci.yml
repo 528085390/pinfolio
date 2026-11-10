@@ -63,7 +63,7 @@ jobs:
 
   edge:
     name: edge image (ghcr, dev only)
-    # The demo at https://raylxpj.us.ci runs this tag, so it only publishes
+    # The demo at https://pinfolio.raylx.xyz runs this tag, so it only publishes
     # after every other job is green -- never ship a red build to the demo.
     needs: [test, e2e, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'

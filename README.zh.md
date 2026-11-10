@@ -8,7 +8,7 @@
 
 **中文** · [English](README.md)
 
-**[在线演示 →](https://raylxpj.us.ci)** —— 口令 `pinfolio-demo`，内置示例数据，每天 04:00（UTC+8）重置。
+**[在线演示 →](https://pinfolio.raylx.xyz)** —— 口令 `pinfolio-demo`，内置示例数据，每天 04:00（UTC+8）重置。
 
 一个自托管的小工具：**便签**、**资产台账**、**观测台**、**只读邮件收件箱** —— 四件事，一个进程、一个 SQLite 文件、一个密码。
 

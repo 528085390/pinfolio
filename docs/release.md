@@ -56,7 +56,7 @@
 - `ghcr.io/528085390/pinfolio:edge` —— 跟着 dev 走的最新代码；
 - `ghcr.io/528085390/pinfolio:sha-<完整 commit>` —— 某个提交的固定镜像，方便回滚。
 
-只构建 `linux/amd64`（演示机是 x86；双架构留给正式发版）。**在线演示站 `https://raylxpj.us.ci`
+只构建 `linux/amd64`（演示机是 x86；双架构留给正式发版）。**在线演示站 `https://pinfolio.raylx.xyz`
 跑的就是 `:edge`**，所以 `:edge` 一旦是坏的，演示站就是坏的——这也是它必须等三个 job 全绿的原因。
 
 ## 发版后检查
