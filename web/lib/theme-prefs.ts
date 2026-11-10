@@ -35,6 +35,38 @@ export const DEFAULT_REFRACT: RefractPref = 'off'
  */
 export const DEFAULT_WALLPAPER = 'wallpapers/street.jpg'
 
+/** 演示站可覆盖的三个维度（漏掉的那项就走上面的 DEFAULT_*） */
+export interface DemoBootPrefs {
+  style?: StylePref
+  refract?: RefractPref
+  wallpaper?: string
+}
+
+/**
+ * 演示站（`PINBOARD_DEMO=1`）的缺省外观：`server/static.ts` 渲染 index.html 时把
+ * `window.__PINBOARD_DEMO_PREFS__` 注入进去（值来自 `server/demo.ts` 的 `demoBootPrefs()`）。
+ *
+ * 为什么不构建期写死：同一份构建既服务自用实例也服务公开演示站，而两者缺省外观故意不同——
+ * 自用实例折射默认关（Chrome 156 画不准，见上），演示站要开箱就是折射玻璃。普通实例注入
+ * `null`，这里读不到就完全按常量走，行为与改动前一致。**存过的偏好永远优先**：访客在
+ * 设置页改过，就以他的为准。
+ */
+export function demoOverride(): DemoBootPrefs {
+  let injected: unknown
+  try {
+    injected = (globalThis as { __PINBOARD_DEMO_PREFS__?: unknown }).__PINBOARD_DEMO_PREFS__
+  } catch {
+    return {}
+  }
+  if (!injected || typeof injected !== 'object') return {}
+  const o = injected as Record<string, unknown>
+  const out: DemoBootPrefs = {}
+  if (o.style === 'paper' || o.style === 'glass') out.style = o.style
+  if (o.refract === 'on' || o.refract === 'off') out.refract = o.refract
+  if (typeof o.wallpaper === 'string') out.wallpaper = o.wallpaper
+  return out
+}
+
 /**
  * <html> 上三个偏好属性的「attr → 合法取值」表。
  * 写成映射类型而不是 (attr: string, value: string)：脏值（'neon' / 'yes' / 'darkish'）
@@ -76,14 +108,22 @@ export function readStoredTheme(storage: PrefStorage | null = defaultStorage()):
   return v === 'light' || v === 'dark' ? v : 'system'
 }
 
-/** 只认显式的 'paper'，其余（空 / 脏值 / 清过 localStorage）一律按缺省玻璃 */
+/** 风格：只认 'paper' / 'glass'，其余（没存过 / 脏值 / 清过 localStorage）走缺省值 */
 export function readStoredStyle(storage: PrefStorage | null = defaultStorage()): StylePref {
-  return readPref(storage, STYLE_KEY) === 'paper' ? 'paper' : DEFAULT_STYLE
+  const v = readPref(storage, STYLE_KEY)
+  if (v === 'paper' || v === 'glass') return v
+  return demoOverride().style ?? DEFAULT_STYLE
 }
 
-/** 只认显式的 'off'，其余一律按缺省开启 */
+/**
+ * 折射：只认 'on' / 'off'，其余走缺省值。
+ * **这里曾经写反**（只认 'off'、其余一律回 DEFAULT_REFRACT）：缺省是 'off' 时，存进去的
+ * 'on' 会被读回 'off' —— 设置页刚打开的折射，刷新一下自己灭了。别改回那个形状。
+ */
 export function readStoredRefract(storage: PrefStorage | null = defaultStorage()): RefractPref {
-  return readPref(storage, REFRACT_KEY) === 'off' ? 'off' : DEFAULT_REFRACT
+  const v = readPref(storage, REFRACT_KEY)
+  if (v === 'on' || v === 'off') return v
+  return demoOverride().refract ?? DEFAULT_REFRACT
 }
 
 /**
@@ -92,7 +132,7 @@ export function readStoredRefract(storage: PrefStorage | null = defaultStorage()
  */
 export function readStoredWallpaper(storage: PrefStorage | null = defaultStorage()): string {
   const v = readPref(storage, WALLPAPER_KEY)
-  if (v === null) return DEFAULT_WALLPAPER
+  if (v === null) return demoOverride().wallpaper ?? DEFAULT_WALLPAPER
   return v.trim()
 }
 

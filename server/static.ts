@@ -2,6 +2,8 @@ import type { Context, Hono } from 'hono'
 import { readFile } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { ROOT } from './db.js'
+import { demoBootPrefs } from './demo.js'
+import type { DemoBootPrefs } from './demo.js'
 import { t } from './i18n.js'
 
 const WEB_DIR = join(ROOT, 'dist', 'web')
@@ -37,8 +39,25 @@ function pageOrigin(c: Context): string {
   return url.origin
 }
 
+/**
+ * 把演示站的缺省外观塞进壳的 <head>（`prefs` 为 null 时原样返回）。
+ *
+ * 为什么不能走接口：外观要在首帧之前就写到 <html> 上，否则会先按暖纸画一帧再跳到玻璃
+ * （白闪，见 `web/lib/theme-prefs.ts` 的 applyBootPrefs）。inline script 在 module 之前执行，
+ * 正好赶在首帧前面。
+ * 为什么必须转义 '<'：`</script>` 会直接把脚本块切段，用户给的壁纸地址里带个尖括号就完蛋。
+ */
+export function injectDemoPrefs(html: string, prefs: DemoBootPrefs | null): string {
+  if (!prefs) return html
+  const json = JSON.stringify(prefs).replace(/</g, '\\u003c')
+  const tag = `<script>window.__PINBOARD_DEMO_PREFS__ = ${json}</script>`
+  // 壳里没有 </head> 就说明拿到的不是我们那份 index.html，宁可什么都不注入
+  return html.includes('</head>') ? html.replace('</head>', `${tag}\n  </head>`) : html
+}
+
 function renderShell(raw: Buffer | string, c: Context): string {
-  return raw.toString('utf8').replaceAll('__PINBOARD_ORIGIN__', pageOrigin(c))
+  const html = raw.toString('utf8').replaceAll('__PINBOARD_ORIGIN__', pageOrigin(c))
+  return injectDemoPrefs(html, demoBootPrefs())
 }
 
 /** 判定静态资源路径是否可长缓存（带内容哈希的资源可缓存 1 年，固定命名的壳/图标/元文件不长缓存） */

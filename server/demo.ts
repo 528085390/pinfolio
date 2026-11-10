@@ -14,6 +14,35 @@ const DEMO_REPO = (process.env.PINBOARD_DEMO_REPO || 'https://github.com/5280853
 
 export type DemoInfo = { password: string; reset: string; repo: string }
 
+/**
+ * 演示站的缺省外观：开箱就是「折射玻璃 + 那张壁纸」，跟作者自用实例的观感一致。
+ *
+ * 为什么不改 `web/lib/theme-prefs.ts` 里的 DEFAULT_*：同一份构建也服务自用实例，
+ * 而折射在 Chrome 156 上还画不准（背景整体平移 ~12px，见那份文件的注释），
+ * 自用实例的缺省必须保持关闭。所以走「渲染 index.html 时注入」这条路：
+ * `server/static.ts` 把下面这个对象写成 `window.__PINBOARD_DEMO_PREFS__`，
+ * 前端只在 localStorage 没存过时采用，没注入（普通实例）就完全按常量走。
+ *
+ * 壁纸是作者自备的图，仓库里不带（`.gitignore` 排除 `web/public/wallpapers/`）：
+ * 演示容器用 compose 的只读 bind mount 把图挂到 `dist/web/wallpapers/`，所以这里写相对地址。
+ */
+export interface DemoBootPrefs {
+  style: 'paper' | 'glass'
+  refract: 'on' | 'off'
+  wallpaper: string
+}
+
+const DEMO_BOOT_PREFS: DemoBootPrefs = {
+  style: 'glass',
+  refract: 'on',
+  wallpaper: 'wallpapers/street.jpg',
+}
+
+/** 免鉴权的 `/api/auth/state` 不该带这个：它是给首帧用的，只经 index.html 注入。 */
+export function demoBootPrefs(): DemoBootPrefs | null {
+  return DEMO_ON ? DEMO_BOOT_PREFS : null
+}
+
 /** 免鉴权的 /api/auth/state 会带上这个：登录页据此预填口令，登录后横幅据此显示。 */
 export function demoInfo(): DemoInfo | null {
   if (!DEMO_ON) return null

@@ -387,3 +387,59 @@ test('applyPref：壁纸开关只写自己的 data-wallpaper', () => {
     d.restore()
   }
 })
+
+/* ---------- 演示站注入的缺省外观 ---------- */
+
+// 演示站（PINBOARD_DEMO=1）由 server/static.ts 往 index.html 里注入 window.__PINBOARD_DEMO_PREFS__。
+// 这里验两件事：注入值只在「没存过」时生效；存过的偏好永远压过它。
+function withInjected<T>(prefs: unknown, fn: () => T): T {
+  const g = globalThis as any
+  const had = '__PINBOARD_DEMO_PREFS__' in g
+  const prev = g.__PINBOARD_DEMO_PREFS__
+  g.__PINBOARD_DEMO_PREFS__ = prefs
+  try {
+    return fn()
+  } finally {
+    if (had) g.__PINBOARD_DEMO_PREFS__ = prev
+    else delete g.__PINBOARD_DEMO_PREFS__
+  }
+}
+
+test('readStoredRefract：存了 on 就必须读回 on（曾经读回 off 的回归）', () => {
+  assert.equal(readStoredRefract(store({ [REFRACT_KEY]: 'on' })), 'on', '设置页打开的折射不能被默认值吃掉')
+  assert.equal(readStoredRefract(store({ [REFRACT_KEY]: 'off' })), 'off')
+  // 没存过 / 脏值仍然按缺省关
+  assert.equal(readStoredRefract(store()), 'off')
+  assert.equal(readStoredRefract(store({ [REFRACT_KEY]: 'true' })), 'off')
+})
+
+test('demoOverride：注入值只在没存过时生效，脏值忽略', () => {
+  const prefs = { style: 'glass', refract: 'on', wallpaper: 'wallpapers/street.jpg' }
+  withInjected(prefs, () => {
+    assert.equal(readStoredStyle(store()), 'glass')
+    assert.equal(readStoredRefract(store()), 'on', '演示站开了折射')
+    assert.equal(readStoredWallpaper(store()), 'wallpapers/street.jpg')
+    // 存过的偏好压过注入值（访客在设置页改过就以他的为准）
+    assert.equal(readStoredRefract(store({ [REFRACT_KEY]: 'off' })), 'off')
+    assert.equal(readStoredStyle(store({ [STYLE_KEY]: 'paper' })), 'paper')
+    assert.equal(readStoredWallpaper(store({ [WALLPAPER_KEY]: '' })), '', '空串是访客主动关掉')
+  })
+  withInjected({ style: 'neon', refract: 'yes', wallpaper: 42 }, () => {
+    assert.equal(readStoredStyle(store()), DEFAULT_STYLE)
+    assert.equal(readStoredRefract(store()), DEFAULT_REFRACT)
+    assert.equal(readStoredWallpaper(store()), DEFAULT_WALLPAPER)
+  })
+  // 没注入（普通实例）/ 注入 null：完全按常量走
+  assert.equal(readStoredRefract(store()), 'off')
+  withInjected(null, () => assert.equal(readStoredRefract(store()), DEFAULT_REFRACT))
+})
+
+test('applyBootPrefs：演示站注入值写进首帧属性', () => {
+  withInjected({ style: 'glass', refract: 'on', wallpaper: 'wallpapers/street.jpg' }, () => {
+    const { ds, win } = bootWin()
+    applyBootPrefs(win)
+    assert.equal(ds.style, 'glass')
+    assert.equal(ds.glassRefract, 'on')
+    assert.equal(ds.wallpaper, 'on')
+  })
+})
