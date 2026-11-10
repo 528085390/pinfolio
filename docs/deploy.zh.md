@@ -168,6 +168,8 @@ powershell -File tools\pinboard.ps1 start
 | `PINBOARD_METRICS_BASE` / `PINBOARD_MAIL_PROXY` | 读 `data/metrics.json` / 空 | 指标拉取基址、邮箱代理的兜底值（正常在页面里配） |
 | `MONITOR_ACTIONS` / `MONITOR_LINKS` / `MONITOR_QUICK` / `HOST_SERVICES` | 见代码 | 观测项配方 / 跳转 / 快捷入口 / 服务映射 |
 | `SERVICES_FILE` | `<数据目录>/services.json` | 服务页的部署关系（`servers` / `services` / `deploys` / `monitors`），每次请求热读；没有这个文件就是空页面 |
+| `PINBOARD_DEMO` | 关 | `1` 开演示模式：登录页预填口令、主界面顶部显示「这是演示站」横幅。`/api/auth/state` 会带上口令与重置时间，**只在公开演示站上开**（自用实例别设） |
+| `PINBOARD_DEMO_PASSWORD` / `PINBOARD_DEMO_RESET` / `PINBOARD_DEMO_REPO` | 取 `PINBOARD_PASSWORD` / `04:00 (UTC+8)` / 本仓库 | 演示模式那三处文案与链接：预填的口令、横幅里的重置时间、右侧「源码」指向 |
 
 ---
 

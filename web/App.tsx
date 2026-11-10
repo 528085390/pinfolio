@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/SettingsPage'
 import { CommandPalette } from './components/CommandPalette'
 import { AlertStack } from './components/AlertStack'
 import { GlassDefs } from './components/GlassDefs'
+import { DemoBanner } from './components/DemoBanner'
 import { Sidebar } from './app/Sidebar'
 import { Topbar } from './app/Topbar'
 import { useShell } from './app/useShell'
@@ -42,6 +43,8 @@ export function App() {
       />
 
       <div className="main">
+        {/* 演示站横幅：普通实例 useDemo() 是 null，不渲染也不占高度 */}
+        <DemoBanner />
         <Topbar
           page={s.page}
           stats={s.stats}

@@ -65,6 +65,11 @@ export const shell: Dict = {
   // 顶栏搜索按钮
   '快速搜索 / 命令': 'Quick search / commands',
 
+  // 演示站横幅
+  '演示站': 'Live demo',
+  '这是 pinfolio 的公开演示，数据都是示例；每天{reset}自动重置，改动不会保留。':
+    'This is the public pinfolio demo — everything here is sample data, reset daily at {reset}. Your changes will not be kept.',
+  '源码': 'Source',
   // 接口错误横幅（服务端返回的文案自己已经是目标语言）
   '接口出错：{msg}': 'API error: {msg}',
 

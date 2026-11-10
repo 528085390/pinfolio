@@ -46,6 +46,24 @@
 .topbar-title { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 .topbar-sub { font-size: 12px; color: var(--muted); }
 .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* 演示站横幅（web/components/DemoBanner.tsx）：夹在 topbar 与 .content 之间的一条，
+   内容区滚动时它不动；普通实例根本不渲染这个节点，所以不影响正常布局。 */
+.demo-banner {
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 9px;
+  padding: 7px 24px; font-size: 12px; line-height: 1.5;
+  background: color-mix(in srgb, var(--accent-soft) 76%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+}
+.demo-banner-tag {
+  flex: none; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
+  padding: 1px 7px; border-radius: 999px; background: var(--accent); color: var(--paper);
+}
+.demo-banner-text { flex: 1 1 240px; min-width: 0; color: var(--ink-2); }
+.demo-banner-link {
+  margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px;
+  color: var(--accent-strong); font-weight: 600; text-decoration: none;
+}
+.demo-banner-link:hover { text-decoration: underline; }
 .content { flex: 1; overflow-y: auto; overflow-x: hidden; }
 .page { max-width: 980px; margin: 0 auto; padding: 24px 24px 90px; }
 .page-wide { max-width: var(--page-max); }

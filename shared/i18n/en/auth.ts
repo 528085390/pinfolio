@@ -20,4 +20,9 @@ export const auth: Dict = {
     'The password is stored only in this machine’s database; if you forget it, reset with --reset-password.',
   '会话保留 30 天，设置页可以踢掉其他设备。':
     'Sessions last 30 days; the settings page can sign out your other devices.',
+  // 演示站
+  '这是演示站，口令已经填好，直接点「进入」就行。':
+    'This is the live demo — the password is already filled in, just press Continue.',
+  '示例数据每天{reset}自动重置，改动不会保留。':
+    'Sample data resets every day at {reset}; your changes will not be kept.',
 }

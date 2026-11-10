@@ -10,6 +10,7 @@ import { hashPassword, verifyPassword } from './password.js'
 import { LoginLimiter } from './limiter.js'
 import { COOKIE_NAME, clientIp, isHttps, parseCookies } from './middleware.js'
 import { t } from '../i18n.js'
+import { demoInfo } from '../demo.js'
 
 const limiter = new LoginLimiter()
 const MAX_AGE = 30 * 24 * 60 * 60
@@ -35,7 +36,8 @@ export const authRoute = new Hono()
 
 authRoute.get('/state', (c) => {
   const hasPassword = Boolean(getSetting(db, 'password_hash'))
-  return c.json({ setupRequired: !hasPassword, authed: Boolean(currentSession(c)) })
+  // demo 只有显式开了 PINBOARD_DEMO 才有值：登录页拿它预填口令，App 拿它显示横幅
+  return c.json({ setupRequired: !hasPassword, authed: Boolean(currentSession(c)), demo: demoInfo() })
 })
 
 authRoute.post('/setup', async (c) => {
