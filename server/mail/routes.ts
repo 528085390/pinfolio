@@ -32,11 +32,14 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T | null> {
   })
 }
 
-/** fresh=1 时当场同步一次；同步比预算还慢就先返回库里的，剩下的在后台继续 */
-async function pullFresh(target: MailAccountRow[], folder: string): Promise<void> {
-  const budget = Math.max(1000, Number(process.env.MAIL_SYNC_REQUEST_MS || 8000))
+/**
+ * 当场同步一次；同步比预算还慢就先返回库里的，剩下的在后台继续。
+ * 已经在同步的账号直接跳过：后台首轮全量可能跑好几分钟，页面没理由在这儿干等它。
+ */
+async function pullFresh(target: MailAccountRow[], folder: string, budgetMs?: number): Promise<void> {
+  const budget = Math.max(200, budgetMs ?? Math.max(1000, Number(process.env.MAIL_SYNC_REQUEST_MS || 8000)))
   const maxNew = Math.max(1, Number(process.env.MAIL_SYNC_INTERACTIVE_MAX_NEW || 500))
-  await Promise.all(target.map(async (a) => {
+  await Promise.all(target.filter((a) => !isSyncing(a.id, folder)).map(async (a) => {
     try {
       await withDeadline(syncFolder(a, folder, { maxNew }), budget)
     } catch {
@@ -149,10 +152,12 @@ mailRoute.get('/messages', async (c) => {
   const target = pickTargets(accounts, which)
   if (!target.length) return c.json({ error: t('账号不存在或已停用') }, 404)
 
-  // 从没同步过的文件夹（比如刚切到「已发送」）当场补一次，否则只会返回空列表；
+  // 从没同步过的文件夹（比如刚切到「已发送」）：起同步，但只等一小会儿（默认 1.5 秒）就先返回；
+  // 小文件夹一轮就够，大邮箱首轮继续在后台跑，前端边翻边看（响应带 syncing/progress）。
   // 同步过之后就是纯读库，切来切去都不再打 IMAP。
-  const needSync = target.some((a) => !repo.getState(a.id, folder))
-  if (fresh || needSync) await pullFresh(target, folder)
+  const needSync = target.filter((a) => !repo.getState(a.id, folder))
+  if (fresh) await pullFresh(target, folder)
+  else if (needSync.length) await pullFresh(needSync, folder, Number(process.env.MAIL_SYNC_FIRST_GRACE_MS || 1500))
 
   const ids = target.map((a) => a.id)
   const { items, total } = repo.pageRows(ids, folder, offset, limit)

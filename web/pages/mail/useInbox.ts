@@ -144,6 +144,23 @@ export function useInbox() {
     }
   }, [accountsLoaded, accounts.length, fetchList, fetchAccounts])
 
+  // 同步中（尤其首次绑大邮箱）时提高刷新频率：后台每落一批，列表与计数就往前挪一格，
+  // 不用等 60 秒那一轮。同步结束（syncing=false）就自然退回常规轮询。
+  useEffect(() => {
+    if (!syncing) return
+    let busy = false
+    const timer = window.setInterval(async () => {
+      if (busy || document.visibilityState !== 'visible') return
+      busy = true
+      try {
+        await Promise.all([fetchList(offsetRef.current, false, true), fetchAccounts(false)])
+      } finally {
+        busy = false
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [syncing, fetchList, fetchAccounts])
+
   // 文件夹下拉：按当前账号取（"全部"时用第一个账号的文件夹当代表）
   const firstAccountId = accounts[0]?.id
   useEffect(() => {

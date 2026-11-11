@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeProxy } from '../../server/mail/proxy.js'
+import { friendlyError } from '../../server/mail/errors.js'
 
 test('空值 = 直连', () => {
   assert.deepEqual(normalizeProxy(''), { value: '' })
@@ -44,4 +45,15 @@ test('端口越界报错', () => {
 test('缺主机名报错', () => {
   const r = normalizeProxy('socks5://')
   assert.ok('error' in r)
+})
+
+test('friendlyError：有代理时的「Connection not available」提示代理这条链路', () => {
+  const msg = friendlyError({ message: 'Connection not available' }, 'socks5://127.0.0.1:1')
+  assert.match(msg, /代理/)
+  assert.match(msg, /127\.0\.0\.1:1/)
+})
+
+test('friendlyError：没代理时同一句不作代理归因', () => {
+  const msg = friendlyError({ message: 'Connection not available' })
+  assert.doesNotMatch(msg, /代理/)
 })

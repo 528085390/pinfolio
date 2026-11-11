@@ -42,5 +42,10 @@ export function friendlyError(err: unknown, proxy = ''): string {
   if (/certificate|self signed|CERT_/i.test(msg)) return t('TLS 证书校验失败：') + msg
   if (/STARTTLS/i.test(msg)) return t('服务器不支持 STARTTLS，请改用 SSL/TLS（993 端口）')
   if (/UNAVAILABLE|temporarily/i.test(msg)) return t('服务器暂时不可用，请稍后重试')
+  // 连接池 / socks 层拿不到具体 errno 时只抛一句 "Connection not available"：有代理就按
+  // 「代理这条链路不通」提示，别把英文原样甩到界面上（Gmail 在国内直连本来就常被墙）。
+  if (proxy && /connection not available/i.test(lower)) {
+    return t('连接失败') + via + t('：请确认代理程序在运行、地址与端口对得上（Gmail 直连常被墙，需要代理）')
+  }
   return msg || t('未知错误')
 }
