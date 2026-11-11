@@ -57,3 +57,9 @@ test('friendlyError：没代理时同一句不作代理归因', () => {
   const msg = friendlyError({ message: 'Connection not available' })
   assert.doesNotMatch(msg, /代理/)
 })
+
+test('friendlyError：文件夹不存在别说成密码不对（Gmail 的已发送是 [Gmail]/已发邮件）', () => {
+  const msg = friendlyError({ responseText: 'Unknown Mailbox: Sent (Failure)', code: 'EAUTH' })
+  assert.match(msg, /文件夹/)
+  assert.doesNotMatch(msg, /密码/)
+})

@@ -36,6 +36,10 @@ export function friendlyError(err: unknown, proxy = ''): string {
       : t('端口拒绝连接：请确认端口号与加密方式（SSL/TLS 一般为 993，STARTTLS 一般为 143）')
   }
   if (code === 'ECONNRESET' || code === 'EPIPE') return t('连接被服务器中断，请稍后重试')
+  // 文件夹名在服务器上不存在（Gmail 的已发送叫 [Gmail]/已发邮件 这种）：别说成「密码不对」
+  if (/unknown mailbox|mailbox does not exist|nonexistent|invalid mailbox/i.test(lower)) {
+    return t('服务器上没有这个文件夹，请用文件夹列表里的名字：') + msg
+  }
   if (code === 'EAUTH' || AUTH_RE.test(msg) && !/certificate/i.test(msg)) {
     return t('登录被拒绝：用户名或密码不对。Gmail 需用「应用专用密码」，QQ/163 需用「授权码」而不是登录密码')
   }
