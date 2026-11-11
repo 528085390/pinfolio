@@ -1,25 +1,23 @@
-// 邮件后端：多账号合并列表、正文按需下载、文件夹与未读数。
+// 邮件后端（2026-11-12 v2）：本文件只做 IMAP 操作。
+// 分工：repo.ts 本地库 / sync.ts 增量同步与调度 / rows.ts、parse.ts 纯解析 / errors.ts 错误翻译。
 // **只读**：取信一律 getMailboxLock(folder, { readOnly: true })（EXAMINE），一行 STORE 都不许有。
-// 分工：types.ts 类型 / parse.ts 纯解析 / rows.ts 行拼装与排序（纯）/ cache.ts 四层缓存 /
-//       errors.ts 错误翻译 / pool.ts 连接池 / 本文件 IMAP 操作。
 import { simpleParser } from 'mailparser'
+import type { ImapFlow } from 'imapflow'
 import type { MailAccountRow } from './store.js'
-import type { FolderInfo, ListResult, MailMessage, MailRow } from './types.js'
+import type { FolderInfo, MailMessage, MailRow } from './types.js'
 import { addrList, addrOne, toIso } from './parse.js'
 import { friendlyError, proxyOf } from './errors.js'
 import { getClient, isEncrypted, makeClient, OP_TIMEOUT, withMailbox, withTimeout } from './pool.js'
-import {
-  BODY_TTL, FOLDER_TTL, LIST_TTL,
-  bodyCache, chunkCache, folderCache, pruneBodyCache, snapCache, snapKey,
-  type BodyEntry, type Snapshot,
-} from './cache.js'
-import { compareRows, filterSelectable, sortFolders, toRow } from './rows.js'
+import { BODY_TTL, bodyCache, bodyKey, FOLDER_TTL, folderCache, pruneBodyCache, type BodyEntry } from './cache.js'
+import { filterSelectable, sortFolders, toRow } from './rows.js'
+import * as repo from './repo.js'
 import { t } from '../i18n.js'
 
 const MAX_MESSAGE_BYTES = 25 * 1024 * 1024
-const CHUNK = 50
+/** 一次 fetch 抓多少封的列表元数据（QQ 2600 封按 100 一批，既快又不会把单条命令拖过 socketTimeout） */
+export const FETCH_CHUNK = 100
 
-// ---------- IMAP 操作 ----------
+// ---------- 连接自检 ----------
 
 export async function testConnection(input: {
   host: string; port: number; username: string; password: string; security: string; proxy?: string
@@ -50,125 +48,47 @@ export async function listFolders(a: MailAccountRow, fresh = false): Promise<Fol
   return folders
 }
 
-async function getSnapshot(a: MailAccountRow, folder: string, fresh: boolean): Promise<Snapshot> {
-  const key = snapKey(a.id, folder)
-  const hit = snapCache.get(key)
-  if (!fresh && hit && Date.now() - hit.at < LIST_TTL) return hit
-  const data = await withMailbox(a, folder, async (client) => {
-    const allUids = (await client.search({ all: true }, { uid: true })) || []
-    const unseenUids = (await client.search({ seen: false }, { uid: true })) || []
-    const uids = (Array.isArray(allUids) ? allUids : []).slice().sort((x: number, y: number) => y - x)
-    return { uids, unseen: Array.isArray(unseenUids) ? unseenUids.length : 0 }
-  })
-  const snap: Snapshot = { at: Date.now(), uids: data.uids, unseen: data.unseen }
-  snapCache.set(key, snap)
-  return snap
+// ---------- 同步要用的三个原语 ----------
+
+/** 打开文件夹后服务器给的快照：uidValidity / uidNext / 总封数 */
+export function folderSnapshot(client: ImapFlow): { uidValidity: string; uidNext: number; exists: number } {
+  const mb: any = (client as any).mailbox || {}
+  return {
+    uidValidity: mb.uidValidity === undefined || mb.uidValidity === null ? '' : String(mb.uidValidity),
+    uidNext: Number(mb.uidNext || 0),
+    exists: Number(mb.exists || 0),
+  }
 }
 
-async function getChunk(a: MailAccountRow, folder: string, from: number, uids: number[], fresh: boolean): Promise<MailRow[]> {
-  const key = a.id + ':' + folder + ':' + from + ':' + uids.length
-  const hit = chunkCache.get(key)
-  if (!fresh && hit && Date.now() - hit.at < LIST_TTL) return hit.rows
+/** 两组 UID（全部 / 未读）。SEARCH 很便宜：2600 封实测 ~85 ms，所以每次同步都全量重算，
+ *  靠它做「新增 / 已删 / 未读变化」三路增量比对，不必为了标志位再逐个 FETCH。 */
+export async function searchUids(client: ImapFlow): Promise<{ all: number[]; unseen: number[] }> {
+  const all = (await client.search({ all: true }, { uid: true })) || []
+  const unseen = (await client.search({ seen: false }, { uid: true })) || []
+  return {
+    all: Array.isArray(all) ? all.map(Number) : [],
+    unseen: Array.isArray(unseen) ? unseen.map(Number) : [],
+  }
+}
+
+/** 批量抓列表元数据（envelope + flags + 正文前 800 字节做摘要）。调用方负责开只读锁。 */
+export async function fetchEnvelopes(client: ImapFlow, accountId: number, folder: string, uids: number[]): Promise<MailRow[]> {
   if (!uids.length) return []
-  const rows = await withMailbox(a, folder, async (client) => {
-    const out: MailRow[] = []
-    for await (const m of client.fetch(uids, {
-      uid: true, envelope: true, flags: true, internalDate: true, size: true,
-      bodyParts: [{ key: 'TEXT', maxLength: 800 }],
-    } as any, { uid: true })) {
-      out.push(toRow(a.id, folder, m))
-    }
-    return out
-  })
-  rows.sort(compareRows)
-  chunkCache.set(key, { at: Date.now(), rows })
-  return rows
+  const out: MailRow[] = []
+  for await (const m of client.fetch(uids, {
+    uid: true, envelope: true, flags: true, internalDate: true, size: true,
+    bodyParts: [{ key: 'TEXT', maxLength: 800 }],
+  } as any, { uid: true })) {
+    out.push(toRow(accountId, folder, m))
+  }
+  return out
 }
 
-async function* accountRows(a: MailAccountRow, folder: string, snap: Snapshot, fresh: boolean): AsyncGenerator<MailRow> {
-  for (let i = 0; i < snap.uids.length; i += CHUNK) {
-    const slice = snap.uids.slice(i, i + CHUNK)
-    const rows = await getChunk(a, folder, i, slice, fresh)
-    for (const r of rows) yield r
-  }
-}
+// ---------- 正文 ----------
 
-export async function listMessages(opts: {
-  accounts: MailAccountRow[]
-  folder: string
-  offset: number
-  limit: number
-  fresh: boolean
-}): Promise<ListResult> {
-  const { accounts, folder, offset, limit, fresh } = opts
-  const errors: ListResult['errors'] = []
-  const sources: { a: MailAccountRow; snap: Snapshot }[] = []
-  let total = 0
-  let unseen = 0
-
-  for (const a of accounts) {
-    try {
-      const snap = await getSnapshot(a, folder, fresh)
-      sources.push({ a, snap })
-      total += snap.uids.length
-      unseen += snap.unseen
-    } catch (err) {
-      errors.push({ accountId: a.id, label: a.label || a.email || a.username, error: friendlyError(err, proxyOf(a)) })
-    }
-  }
-
-  const iters = sources.map((s) => accountRows(s.a, folder, s.snap, fresh))
-  const heads = await Promise.all(iters.map((it) => it.next().catch((err) => {
-    errors.push({ accountId: 0, label: '', error: friendlyError(err) })
-    return { done: true as const, value: undefined as any }
-  })))
-
-  const items: MailRow[] = []
-  let skipped = 0
-  while (items.length < limit) {
-    const live: { i: number; row: MailRow }[] = []
-    heads.forEach((h, i) => { if (!h.done && h.value) live.push({ i, row: h.value }) })
-    if (!live.length) break
-    live.sort((p, q) => compareRows(p.row, q.row))
-    const pick = live[0]
-    if (skipped < offset) skipped++
-    else items.push(pick.row)
-    heads[pick.i] = await iters[pick.i].next()
-  }
-
-  let hasMore = false
-  for (const h of heads) if (!h.done && h.value) hasMore = true
-
-  const fetchedAt = sources.length ? Math.min(...sources.map((s) => s.snap.at)) : 0
-  return { items, total, unseen, hasMore, errors: errors.filter((e) => e.accountId !== 0), partial: errors.length > 0, fetchedAt }
-}
-
-export async function unseenCounts(accounts: MailAccountRow[], folder: string, fresh = false): Promise<{
-  counts: Record<number, { unseen: number; total: number }>
-  errors: { accountId: number; label: string; error: string }[]
-}> {
-  const counts: Record<number, { unseen: number; total: number }> = {}
-  const errors: { accountId: number; label: string; error: string }[] = []
-  await Promise.all(accounts.map(async (a) => {
-    try {
-      const snap = await getSnapshot(a, folder, fresh)
-      counts[a.id] = { unseen: snap.unseen, total: snap.uids.length }
-    } catch (err) {
-      errors.push({ accountId: a.id, label: a.label || a.email || a.username, error: friendlyError(err, proxyOf(a)) })
-    }
-  }))
-  return { counts, errors }
-}
-
-export async function getMessage(a: MailAccountRow, folder: string, uid: number): Promise<BodyEntry> {
-  const key = a.id + ':' + folder + ':' + uid
-  const hit = bodyCache.get(key)
-  if (hit && Date.now() - hit.at < BODY_TTL) {
-    bodyCache.delete(key)
-    bodyCache.set(key, hit)
-    return hit
-  }
-  const entry = await withMailbox(a, folder, async (client) => {
+/** 从 IMAP 拉整封并解析（附件字节也一起给）。不改服务器上的任何状态。 */
+export async function fetchBodyFromImap(a: MailAccountRow, folder: string, uid: number): Promise<BodyEntry> {
+  return withMailbox(a, folder, async (client) => {
     const m: any = await client.fetchOne(String(uid), { uid: true, source: true } as any, { uid: true })
     if (!m || !m.source) throw new Error(t('邮件不存在，可能已被删除或移动'))
     if (m.source.length > MAX_MESSAGE_BYTES) throw new Error(t('邮件超过 25 MB，本页面不下载这么大的邮件'))
@@ -196,6 +116,43 @@ export async function getMessage(a: MailAccountRow, folder: string, uid: number)
     }
     return { at: Date.now(), message, attachments }
   })
+}
+
+/**
+ * 单封正文：内存 → 本地库 → IMAP 逐级回源，拉到就写库。
+ * needAttachments 为真（点附件下载）时不吃库里那份——库里没有附件字节，必须回源。
+ * fresh 为真（强制重取）时跳过两级缓存。
+ */
+export async function getMessage(
+  a: MailAccountRow,
+  folder: string,
+  uid: number,
+  opts: { fresh?: boolean; needAttachments?: boolean } = {},
+): Promise<BodyEntry> {
+  const key = bodyKey(a.id, folder, uid)
+  const hit = bodyCache.get(key)
+  const hasAllBytes = !!hit && hit.attachments.length >= hit.message.attachments.length
+  if (hit && !opts.fresh && Date.now() - hit.at < BODY_TTL && (!opts.needAttachments || hasAllBytes)) {
+    bodyCache.delete(key)
+    bodyCache.set(key, hit)
+    return hit
+  }
+  if (!opts.fresh && !opts.needAttachments) {
+    const stored = repo.getBody(a.id, folder, uid)
+    if (stored) {
+      const entry: BodyEntry = { at: Date.now(), message: stored, attachments: [] }
+      bodyCache.set(key, entry)
+      pruneBodyCache()
+      return entry
+    }
+  }
+  const entry = await fetchBodyFromImap(a, folder, uid)
+  try {
+    repo.putBody(entry.message)
+  } catch (err) {
+    // 落库失败不该让用户看不到正文；下次打开再试
+    console.warn('[mail] 正文落库失败 account=' + a.id + ' uid=' + uid + ' ' + String(err))
+  }
   bodyCache.set(key, entry)
   pruneBodyCache()
   return entry
@@ -203,7 +160,7 @@ export async function getMessage(a: MailAccountRow, folder: string, uid: number)
 
 // ---- 再导出：让 routes.ts / 测试继续从 client.js 取，调用点不用改 ----
 export { clearAccountCaches } from './cache.js'
-export { dropAllConnections, dropConnection } from './pool.js'
+export { dropAllConnections, dropConnection, withMailbox, getClient, OP_TIMEOUT, withTimeout } from './pool.js'
 export { friendlyError, proxyOf } from './errors.js'
 export { snippetFromText } from './parse.js'
-export type { Addr, FolderInfo, ListResult, MailAttachment, MailMessage, MailRow } from './types.js'
+export type { Addr, FolderInfo, MailAttachment, MailMessage, MailRow } from './types.js'

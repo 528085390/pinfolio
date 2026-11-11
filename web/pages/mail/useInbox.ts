@@ -35,6 +35,9 @@ export function useInbox() {
   const [listError, setListError] = useState('')
   /** 这批列表数据真正从服务器取回的时刻（服务端 fetchedAt），用来显示「数据截至」 */
   const [fetchedAt, setFetchedAt] = useState(0)
+  /** 后台增量同步是否在跑（服务端状态；首次绑新账号时会持续几秒到几分钟） */
+  const [syncing, setSyncing] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
   const [q, setQ] = useState('')
   const [unreadOnly, setUnreadOnly] = useState(false)
@@ -73,6 +76,8 @@ export function useInbox() {
       setHasMore(res.hasMore)
       setUnseen(res.unseen)
       setFetchedAt(res.fetchedAt || Date.now())
+      setSyncing(!!res.syncing)
+      setProgress(res.progress ?? null)
       setOffset(off)
       setListError(
         res.errors && res.errors.length
@@ -96,6 +101,19 @@ export function useInbox() {
   useEffect(() => {
     fetchAccounts(false)
   }, [fetchAccounts])
+
+  // 账号 chip 的未读数取自库里存的计数：刚绑的账号在后台同步把行写进库之前是 0/null，
+  // 列表有数据但账号计数还是 0 时补拉一次账号（只读库、不打 IMAP），
+  // 否则 chips 要等下一个 60 秒轮询才显示未读数。用签名防重复触发。
+  const countsFixRef = useRef('')
+  const countsStale = accounts.some((a) => a.unseen === null || (Number(a.total) || 0) === 0)
+  useEffect(() => {
+    if (!accounts.length || !countsStale || !items.length) return
+    const sig = accounts.map((a) => a.id + ':' + a.unseen + ':' + a.total).join(',') + '|' + items.length
+    if (countsFixRef.current === sig) return
+    countsFixRef.current = sig
+    fetchAccounts(false)
+  }, [accounts, countsStale, items.length, fetchAccounts])
 
   useEffect(() => {
     offsetRef.current = offset
@@ -203,7 +221,7 @@ export function useInbox() {
 
   return {
     accounts, accountsLoaded, accountFilter, setAccountFilter, folder, setFolder, folders,
-    items, total, unseen, hasMore, offset, loading, refreshing, listError, fetchedAt,
+    items, total, unseen, hasMore, offset, loading, refreshing, listError, fetchedAt, syncing, progress,
     q, setQ, unreadOnly, setUnreadOnly, sel, open, close, visible,
     drawer, setDrawer, refresh, fetchList, fetchAccounts,
     listRef, folderName, unseenTotal,

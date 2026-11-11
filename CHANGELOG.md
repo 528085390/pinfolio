@@ -5,6 +5,14 @@
 
 ## [未发布]
 
+### 邮件页：落库 + 增量同步 + 后台自动拉（新）
+
+- **不再每次进页面都全量拉**：列表元数据落进新表 `mail_messages`，正文与附件清单落 `mail_bodies`（**不存附件字节**），每个「账号-文件夹」的增量游标落 `mail_sync_state`（迁移 **v6**）。进页面、翻页、切账号、切文件夹一律读库，零 IMAP 往返；旧实现是每次 search 全量 UID + fetch 前 50 封 envelope + 只有 60 秒内存缓存，QQ 那种 2600 封的账号点一次要等十几秒。
+- **增量更新**：同步时只 `SEARCH` 一次 UID 全集与库里 diff，**只 FETCH 新增的 UID**（每批 100 条落库并上报进度），服务器上已消失的 UID 删行，只有 `uid_validity` 变了才整段重建。三路差异是纯函数（`server/mail/diff.ts`，有单测）。
+- **后台自动拉**：`startMailSync()` 在服务起来几秒后先同步一轮，之后每 `MAIL_SYNC_MINUTES`（默认 5 分钟）把所有启用账号的收件箱增量同步一遍，页面不开也在跑；`MAIL_SYNC=0` 关，`MAIL_SYNC_START_DELAY_MS` 调首轮延迟。同一进程二次 `startServer()` 不会挂出第二份定时器。
+- **`fresh=1` 才有交互式回源**：手动刷新 / 60 秒轮询 / 「这个文件夹从没同步过」时才当场同步一次，且带预算（`MAIL_SYNC_REQUEST_MS` 默认 8 秒、`MAIL_SYNC_INTERACTIVE_MAX_NEW` 默认 500 封），超时就把后台没拉完的留给下一轮、先返回库里已有的数据（响应带 `partial` / `syncing` / `progress`）。工具栏据此显示「同步中 {done}/{total}」「数据截至 {时间}」。
+- **修「有个邮箱连不上」**：线上 Gmail 账号还挂着已经失效的账号级代理 `socks5://127.0.0.1:10808`（容器里没有这个端口 → `ProxyError | Failed to setup proxy connection`）。东京直连 `imap.gmail.com:993` 实测可用，已把该账号的 `proxy` 清空。**只读红线不变**：仍是 `getMailboxLock(readOnly:true)` + `BODY.PEEK`，**永不发 `STORE`**，本地已读只写 `mail_local_read`。
+
 ### 便签附件：任意文件 + 对象存储（新）
 
 - **便签不再只能存图片**：输入框里粘贴 / 拖进来 / 点「附件」按钮选文件，图片、视频、音频、PDF、压缩包都能存。单文件上限 **100 MB**，单实例总量上限 **15 GB**（`ATTACHMENTS_QUOTA_BYTES`），两条都在服务端卡（413 / 507）。

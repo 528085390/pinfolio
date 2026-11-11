@@ -29,6 +29,10 @@ export type MailListResult = {
   fetchedAt?: number
   /** 一个账号都没配时后端会给 true，前端据此显示引导 */
   noAccounts?: boolean
+  /** 后台增量同步是否还在跑（新账号首次同步时列表会一段段变长） */
+  syncing?: boolean
+  /** 首次全量同步的进度：已落库 / 服务器上一共多少封 */
+  progress?: { done: number; total: number } | null
 }
 export type MailAttachment = { index: number; filename: string; size: number; contentType: string; cid: string | null }
 export type MailMessage = {

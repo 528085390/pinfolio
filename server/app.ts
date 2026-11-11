@@ -22,6 +22,7 @@ import { metaRoute } from './routes/meta.js'
 // monitorsRoute migrated to native server/monitor/routes.ts
 import { outboundRoute } from './routes/outbound.js'
 import { mailRoute, shutdownMail } from './mail/routes.js'
+import { startMailSync } from './mail/sync.js'
 import { hostsRoute } from './metrics/routes.js'
 import { servicesRoute } from './services/routes.js'
 import { tunnelRoute } from './routes/tunnel.js'
@@ -252,6 +253,8 @@ export async function startServer(opts: StartServerOptions = {}): Promise<Server
       startBackupScheduler(db),
       // 每天扫一次没人引用的图片（见 server/attachments/store.ts）
       startAttachmentSweep(),
+      // 邮件：启动几秒后先把各账号收件箱增量同步一遍，之后每 MAIL_SYNC_MINUTES 分钟一次（见 server/mail/sync.ts）
+      startMailSync(),
       () => monitorEngine.stop(),
     )
   })

@@ -2,7 +2,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { snapshotBeforeMigrate } from './backup/premigrate.js'
 import { ATTACHMENTS_SCHEMA } from './schema/attachments.js'
 import { CORE_SCHEMA } from './schema/core.js'
-import { MAIL_SCHEMA } from './schema/mail.js'
+import { MAIL_CACHE_SCHEMA, MAIL_SCHEMA } from './schema/mail.js'
 import { METRICS_SCHEMA } from './schema/metrics.js'
 import { MONITOR_SCHEMA } from './schema/monitor.js'
 import { PRESET_TAGS } from './tags.js'
@@ -100,12 +100,19 @@ function v5(db: DatabaseSync) {
   if (!have.has('sha256')) db.exec('ALTER TABLE attachments ADD COLUMN sha256 TEXT')
 }
 
+// v6：邮件增量同步落库（2026-11-12）。新建 mail_messages / mail_bodies / mail_sync_state，
+// 让「点进邮件页就重新全量拉一遍」变成「后台增量同步 + 页面读库」。不动老表。
+function v6(db: DatabaseSync) {
+  db.exec(MAIL_CACHE_SCHEMA)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: v1 },
   { version: 2, up: v2 },
   { version: 3, up: v3 },
   { version: 4, up: v4 },
   { version: 5, up: v5 },
+  { version: 6, up: v6 },
 ]
 
 export type MigrateOptions = {

@@ -86,7 +86,7 @@ test('v4 库升级到 v5：attachments 补上 kind / storage / object_key / sha2
   db.exec('PRAGMA user_version = 4')
   assert.ok(!cols(db, 'attachments').includes('kind'))
 
-  assert.equal(migrate(db, MIGRATIONS), 5)
+  assert.equal(migrate(db, MIGRATIONS), MIGRATIONS[MIGRATIONS.length - 1].version)
   const c = cols(db, 'attachments')
   for (const name of ['kind', 'storage', 'object_key', 'sha256']) assert.ok(c.includes(name), '缺列 ' + name)
   const row = db.prepare('SELECT kind, storage, object_key, sha256 FROM attachments').get() as any

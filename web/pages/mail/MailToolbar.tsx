@@ -4,7 +4,7 @@ import { POLL_MS } from './useInbox'
 import { localeTag, t } from '../../lib/i18n'
 
 /** 顶部两行：账号 chips + 文件夹/刷新/邮箱管理，然后是在已加载邮件里筛选。 */
-export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTotal, folders, folder, onFolder, fetchedAt, refreshing, onRefresh, onOpenAccounts, loadedCount, q, onQ, unreadOnly, onUnreadOnly }: {
+export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTotal, folders, folder, onFolder, fetchedAt, syncing, progress, refreshing, onRefresh, onOpenAccounts, loadedCount, q, onQ, unreadOnly, onUnreadOnly }: {
   accounts: MailAccount[]
   accountFilter: 'all' | number
   onAccountFilter: (v: 'all' | number) => void
@@ -13,6 +13,9 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
   folder: string
   onFolder: (v: string) => void
   fetchedAt: number
+  /** 后台增量同步是否在跑 */
+  syncing: boolean
+  progress: { done: number; total: number } | null
   refreshing: boolean
   onRefresh: () => void
   onOpenAccounts: () => void
@@ -61,10 +64,18 @@ export function MailToolbar({ accounts, accountFilter, onAccountFilter, unseenTo
               ))}
             </select>
           </div>
-          {fetchedAt ? (
+          {syncing ? (
+            <span
+              className="mail-updated mail-syncing"
+              title={t('后台正在把这个账号的新邮件同步到本机库；同步完成后列表会自动更新。')}
+            >
+              <RefreshCw size={12} className="spin" />
+              {progress && progress.total ? t('同步中 {done}/{total}', { done: progress.done, total: progress.total }) : t('同步中…')}
+            </span>
+          ) : fetchedAt ? (
             <span
               className="mail-updated"
-              title={t('每 {n} 秒自动刷新；页面切到后台时暂停。这个时间是数据从邮箱服务器取回的时刻（可能命中 60 秒缓存）。', { n: Math.round(POLL_MS / 1000) })}
+              title={t('服务端后台每 {n} 秒同步一次邮箱；页面切到后台时暂停。这个时间是最近一次同步完成的时刻。', { n: Math.round(POLL_MS / 1000) })}
             >
               {t('数据截至 {time}', { time: new Date(fetchedAt).toLocaleTimeString(localeTag(), { hour12: false }) })}
             </span>

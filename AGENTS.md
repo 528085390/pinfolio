@@ -43,15 +43,16 @@ updated: 2026-11-10
 
 ## 当前状态（2026-11-10）
 
-- **7788 运行中**：PID 29676，`node --env-file-if-exists=.env --import tsx server/index.ts`，仅监听 `127.0.0.1:7788`；`GET /` 200，`GET /api/monitors` 未登录 401。
-- **版本**：`package.json` 0.5.0；`engines.node >=24`（本机 v24.16.0）；`packageManager pnpm@12.3.4`。
+- **本机不跑实例**：真数据实例在 os 容器 `pinfolio`（`/mnt/data/pinfolio`，公网 <https://pinfolio.raylx.top/>）；本机 7788 已停，只留代码与冻结的回滚数据。
+- **版本**：`package.json` 0.5.1；`engines.node >=24`（本机 v24.16.0）；`packageManager pnpm@12.3.4`。
 - **观测**：DB `monitors` 表 **14 项 / 5 组 / 10 启用 / 4 aws 停用**；10 个启用项最后心跳均 UP。`SNAPSHOT-MONITORS.md` 已于 2026-11-10 08:52 重新生成，14 项 / 5 组与 DB 一致；日常以 7788 观测页为准，文件只是快照。
 - **主机指标**：4 台（oj/os/ox/aws）每 5 分钟经 SSH 拉取 `host_metrics`。
 - **服务页（2026-11-10 重构）**：一张卡一个服务，顶部一排服务器标签当筛选（点一下压暗其他机器，再点回全部）；卡身按（端口，运行方式）合并部署行，卡脚只放已挂的观测 chip + 管理页直链。卡片与网格挂 `.is-compact`，尺寸与观测台、资产页共用 `assets.css` 里同一份刻度。没有心跳条、统计条、常驻增删按钮，编辑一律走抽屉（点服务名 / 点机器名）。台账 `data/services.json` 已按现状重写：23 服务 / 32 部署 / 5 台机；每次写盘前自动备份到 `data/services-backups/`（留 10 份）。
 - **页面骨架（2026-11-10 统一）**：内容宽度上限收成一条 `--page-max: 1700px`（`tokens.css`），便签 / 资产 / 观测 / 主机 / 服务 / 邮件 / 备份全部同宽（备份页挂 `.page-wide`），只有纯表单页保持窄（`.page` 980、设置 860）。宽屏断点 ≥1700px 时紧凑网格 5 列（原 6 列，避免卡被压到 267px）。实测 1500 视口三页网格 x=252 / 宽 1224 / 4 列 299px，1920 视口 5 列 321px。
 - **演示模式（2026-11-10）**：公开演示站 <https://pinfolio.raylx.xyz/>（os 上的 `pinfolio-demo` 容器）设了 `PINBOARD_DEMO=1`，登录页自动填口令、主界面 topbar 上方挂一条「这是演示站 · 数据每天重置」横幅（`web/components/DemoBanner.tsx` + `server/demo.ts`）。`/api/auth/state` 是免鉴权接口，所以**这个变量不给普通实例设**，不设时 `demo` 恒为 `null`、前端一个节点都不渲染。**同一份构建的缺省外观按实例分**：这个变量还会让 `server/static.ts` 往 index.html 注入 `window.__PINBOARD_DEMO_PREFS__`（玻璃 + 折射开 + `wallpapers/street.jpg`，见 `server/demo.ts` 的 `demoBootPrefs()`），所以演示站开箱就是「折射玻璃 + 那张壁纸」，自用实例仍是暖纸优先、折射默认关。壁纸不进仓库（`web/public/wallpapers/` 被 `.gitignore` 排除），线上靠 compose 只读 bind mount 挂到 `dist/web/wallpapers`。部署细节见 `E:\services\os\README.md` 的 pinfolio 节。
 - **Kuma 已删**：`E:\bqj\kuma` 不存在、3001 无监听、计划任务 `KumaObs` 不存在。
-- **便签附件（2026-11-10）**：便签能存**任意文件**（图片 / 视频 / 音频 / PDF / 压缩包…），单文件 100 MB、单实例总量 15 GB（`ATTACHMENTS_QUOTA_BYTES`）。`server/storage/` 是驱动层：`S3_ENDPOINT`/`S3_REGION`/`S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` 五条齐了就走任意 S3 兼容对象存储（自用实例走 OCI `pinfolio` 桶，键 `att/<id>.<ext>`），缺一条回落 `data/uploads/`。上传必须带 `x-pinfolio-upload: 1`（CSRF 凭据），取回按 `kind` inline 或强制下载，**SVG / HTML 永不 inline**；对象存储里的附件不进备份 tar，桶要单独搬（见 `docs/backup-restore.zh.md`）。
+- **便签附件（2026-11-10）**：便签能存**任意文件**（图片 / 视频 / 音频 / PDF / 压缩包…），单文件 100 MB、单实例总量 15 GB（`ATTACHMENTS_QUOTA_BYTES`）。`server/storage/` 是驱动层：`S3_ENDPOINT`/`S3_REGION`/`S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` 五条齐了就走任意 S3 兼容对象存储（自用实例走 OCI `pinfolio` 桶，键 `att/<id>.<ext>`），缺一条回落 `data/uploads/`。上传必须带 `x-pinfolio-upload: 1`（CSRF 凭据），取回按 `kind` inline 或强制下载，**SVG / HTML 永不 inline**；对象存储里的附件不进备份 tar，桶要单独搬（见 `docs/backup-restore.zh.md`）。
+- **邮件页（2026-11-12 落库 + 增量同步）**：列表/正文不再每次进页面全量拉 IMAP —— `mail_messages`（列表元数据）/ `mail_bodies`（正文 + 附件清单，不含字节）/ `mail_sync_state`（每账号-文件夹游标）三张表（迁移 v6），进页面读库；同步按 UID 集合 diff，只 FETCH 新增（每批 100），后台定时器每 5 分钟把各账号收件箱增量同步一轮（`startMailSync()`，`MAIL_SYNC=0` 关，`MAIL_SYNC_MINUTES` 调周期）。**只读红线不变**：`getMailboxLock(readOnly:true)` + `BODY.PEEK`，永不发 `STORE`，本地已读只写 `mail_local_read`。需求与决策见 `docs/mail-page-requirements.md` FR-25..27 / FR-30..31 / D7。
 - **公开仓库**：<https://github.com/528085390/pinfolio>。
 
 ## 怎么用

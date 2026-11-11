@@ -127,7 +127,8 @@ test("startServer 起两个实例：不挂双份定时器，close 之后全停",
   try {
     const a = await startServer({ port: 0, hostname: "127.0.0.1" })
     const afterFirst = ids()
-    assert.equal(intervals().length, 3)
+    // 3 个原有后台任务（指标轮询 / 公网探活 / 备份调度 …）+ 邮件增量同步的定时器
+    assert.equal(intervals().length, 4)
 
     const b = await startServer({ port: 0, hostname: "127.0.0.1" })
     assert.notEqual(a.port, b.port, "两个实例各自拿到独立端口")

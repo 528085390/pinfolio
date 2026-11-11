@@ -55,6 +55,8 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
         folder={M.folder}
         onFolder={M.setFolder}
         fetchedAt={M.fetchedAt}
+        syncing={M.syncing}
+        progress={M.progress}
         refreshing={M.refreshing}
         onRefresh={M.refresh}
         onOpenAccounts={() => M.setDrawer(true)}
@@ -72,7 +74,7 @@ export function MailPage({ onSummary }: { onSummary?: (s: { unseen: number; tota
           listRef={M.listRef}
           visible={M.visible}
           loadedCount={M.items.length}
-          loading={M.loading}
+          loading={M.loading || (M.syncing && !M.items.length)}
           folderName={M.folderName}
           sel={M.sel}
           onOpen={M.open}

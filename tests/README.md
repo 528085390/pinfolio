@@ -10,7 +10,7 @@ cd <项目目录>
 pnpm test          # typecheck + 单测 + 摘要清洗单测（不需要服务）
 pnpm test:unit     # 只跑单测（node:test，秒级）
 pnpm test:e2e      # core + monitor 全套（需要服务已在跑）
-pnpm test:mail     # 邮件套件（必须先按下面起隔离实例）
+pnpm test:mail     # 邮件套件（必须先按下面起隔离实例；两个脚本都得各自一个干净库）
 ```
 
 e2e 用 `playwright-core` 驱动本机 Chrome/Chromium，路径由 `tools/chrome-path.mjs` 决定：
@@ -130,13 +130,24 @@ $env:PINBOARD_DATA="$PWD\tests\e2e-data"
 $env:PORT='7799'
 pnpm start
 
-# 2. 另一个窗口跑测试
-cd <项目目录>
-$env:MAIL_E2E_BASE='http://127.0.0.1:7799'
-pnpm test:mail
+# 2. 铸一个 API token 塞进隔离库（fetch 型脚本要 Bearer；auth-shim 负责加头）
+node -e "const {DatabaseSync}=require('node:sqlite');const {randomBytes,createHash}=require('node:crypto');const db=new DatabaseSync(process.env.PINBOARD_DATA+'/pinboard.db');const t='pb_'+randomBytes(24).toString('base64url');db.prepare('INSERT INTO api_tokens (id,name,token_hash,created_at) VALUES (?,?,?,?)').run(randomBytes(8).toString('hex'),'e2e',createHash('sha256').update(t).digest('hex'),new Date().toISOString());console.log(t)"
 
-# 3. 跑完停掉隔离实例，删掉 tests\e2e-data
+# 3. 另一个窗口跑测试
+cd <项目目录>
+$env:E2E_BASE='http://127.0.0.1:7799'
+$env:MAIL_E2E_BASE='http://127.0.0.1:7799'
+$env:PINBOARD_TOKEN='<上一步打印的 token>'
+$env:PINBOARD_PASSWORD='<隔离实例密码>'   # e2e-mail 走浏览器登录；全新库先 POST /api/auth/setup 设一个
+node --import ./tests/auth-shim.mjs tests/fakeimap/mail-api-smoke.mjs
+node --import ./tests/auth-shim.mjs tests/e2e-mail.mjs
+
+# 4. 跑完停掉隔离实例，删掉 tests\e2e-data
 ```
+
+两个邮件脚本都会自己建账号再删账号，**各自要一份干净库**：先跑 smoke 再跑 e2e 的话，中间清掉
+`tests/e2e-data`（或者干脆起两个隔离实例、两个端口）。`tests/run.mjs --only=mail` 会自己再起一个
+实例，`MAIL_E2E_BASE` 指到别处时那份 token 对不上会 401，所以邮件套件按上面手工跑。
 
 `tests/fakeimap/` 有自己的一份 `package.json`（hoodiecrow-imap + imapflow + mailparser），不是项目依赖。清过 `tmp/` 或换机器后先：
 

@@ -29,7 +29,8 @@ tmp/*.bak-*
 # 临时跑测试用的 pwsh 脚本（跑完即删，别进版本库）
 tmp/*.ps1
 # 邮件 e2e 的隔离实例数据目录（tests/README.md 里的 PINBOARD_DATA）
-tests/e2e-data/
+tests/e2e-data*/
+
 # 用户自备壁纸（个人图片，公开仓库不收）：放到 web/public/wallpapers/ 即生效
 web/public/wallpapers/
 # 本机的观测项跳转映射（含自家面板地址），仓库里只带 monitor-links.example.json

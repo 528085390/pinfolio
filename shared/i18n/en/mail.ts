@@ -124,4 +124,14 @@ export const mail: Dict = {
   // 列表接口的错误汇总（useInbox）
   '账号': 'Account',
   '{label}：{error}': '{label}: {error}',
+
+  // 后台增量同步（2026-11-12）
+  '同步中…': 'Syncing…',
+  '同步中 {done}/{total}': 'Syncing {done}/{total}',
+  '后台正在把这个账号的新邮件同步到本机库；同步完成后列表会自动更新。':
+    'New mail for this account is being synced into the local database in the background; the list updates as soon as it finishes.',
+  '服务端后台每 {n} 秒同步一次邮箱；页面切到后台时暂停。这个时间是最近一次同步完成的时刻。':
+    'The server syncs the mailbox every {n} seconds and pauses while the page is in the background. This is when the last sync finished.',
+  '抓取邮件列表': 'Fetching the message list',
+  '同步中': 'Syncing',
 }
