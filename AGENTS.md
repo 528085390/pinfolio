@@ -3,7 +3,7 @@ id: bqj.pinboard
 parent: bqj
 summary: pinfolio 八页应用（便签/资产/观测/邮件/主机/服务/备份/设置），7788 单进程
 when: 加便签/资产、改观测项、动 7788 代码或库、查运行状态
-updated: 2026-11-10
+updated: 2026-11-12
 ---
 
 # pinfolio
@@ -41,11 +41,11 @@ updated: 2026-11-10
 5. **测试数据绝不进真实库**：测试/手工验证都不许写 `data/pinboard.db`；`pnpm test:e2e` 自带隔离实例。
 6. **卡片刻度与页面宽度都只有一份**：紧凑卡片尺寸写在 `web/styles/assets.css` 的 `.asset-grid.is-compact` / `.asset-card.is-compact`，观测台、资产页、服务页共用；内容宽度上限写在 `web/styles/tokens.css` 的 `--page-max`（1700px），`.page-wide` / `.page-notes` / `page-monitors` / `page-svc` / `mail-page` 都取它，备份页也挂 `.page-wide`，只有纯表单页（`.page` 980 / 设置页 860）故意窄。**别往各页自己的 css 里再复制一套数字**（曾因此三页三种尺寸、切页就变宽窄，2026-11-10 统一）。
 
-## 当前状态（2026-11-10）
+## 当前状态（2026-11-12 更新）
 
 - **本机不跑实例**：真数据实例在 os 容器 `pinfolio`（`/mnt/data/pinfolio`，公网 <https://pinfolio.raylx.top/>）；本机 7788 已停，只留代码与冻结的回滚数据。
 - **版本**：`package.json` 0.5.1；`engines.node >=24`（本机 v24.16.0）；`packageManager pnpm@12.3.4`。
-- **观测**：DB `monitors` 表 **14 项 / 5 组 / 10 启用 / 4 aws 停用**；10 个启用项最后心跳均 UP。`SNAPSHOT-MONITORS.md` 已于 2026-11-10 08:52 重新生成，14 项 / 5 组与 DB 一致；日常以 7788 观测页为准，文件只是快照。
+- **观测**：os 线上库 `monitors` 表 **14 项 / 5 组 / 8 启用 / 6 停用**（2026-11-12 复查；停用 = WorkBuddy 7863 / 7864 两项按用户要求暂停 + aws 19/20/22/26 四项）。`SNAPSHOT-MONITORS.md` 是 2026-11-10 08:52 的本机旧快照、不再是真源；日常以 <https://pinfolio.raylx.top/> 观测页或线上库为准。
 - **主机指标**：4 台（oj/os/ox/aws）每 5 分钟经 SSH 拉取 `host_metrics`。
 - **服务页（2026-11-10 重构）**：一张卡一个服务，顶部一排服务器标签当筛选（点一下压暗其他机器，再点回全部）；卡身按（端口，运行方式）合并部署行，卡脚只放已挂的观测 chip + 管理页直链。卡片与网格挂 `.is-compact`，尺寸与观测台、资产页共用 `assets.css` 里同一份刻度。没有心跳条、统计条、常驻增删按钮，编辑一律走抽屉（点服务名 / 点机器名）。台账 `data/services.json` 已按现状重写：23 服务 / 32 部署 / 5 台机；每次写盘前自动备份到 `data/services-backups/`（留 10 份）。
 - **页面骨架（2026-11-10 统一）**：内容宽度上限收成一条 `--page-max: 1700px`（`tokens.css`），便签 / 资产 / 观测 / 主机 / 服务 / 邮件 / 备份全部同宽（备份页挂 `.page-wide`），只有纯表单页保持窄（`.page` 980、设置 860）。宽屏断点 ≥1700px 时紧凑网格 5 列（原 6 列，避免卡被压到 267px）。实测 1500 视口三页网格 x=252 / 宽 1224 / 4 列 299px，1920 视口 5 列 321px。
