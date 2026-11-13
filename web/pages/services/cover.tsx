@@ -63,12 +63,27 @@ const IMG: Record<string, string> = {
   restic: 'covers/restic.webp',
   hy2cert: 'covers/hy2cert.webp',
   doctree: 'covers/doctree.webp',
+  'english-practice-machine': 'covers/epm.webp',
 }
 
+
+/** 真 UI 截图：放大并往 logo 那边偏，让小字截图也有「一张图」的存在感 */
+const ZOOM: Record<string, [number, string]> = {
+  wbapi: [178, '0% 6%'],
+  manager: [178, '0% 6%'],
+  pinboard: [156, '10% 8%'],
+  yb: [170, '0% 4%'],
+  douyin: [172, '0% 0%'],
+  'english-practice-machine': [176, '0% 2%'],
+  pricing: [172, '0% 6%'],
+  bank: [168, '50% 34%'],
+  si: [172, '50% 28%'],
+  sub2api: [170, '0% 4%'],
+}
 /** 宽横幅（3:1 那种）用「模糊铺底 + 居中完整显示」，截图（4:3）用 cover 铺满 */
 const WIDE = new Set(['apicdemo'])
 /** 封面是 public/ 下的定名文件，换图后靠这个版本号让浏览器重新拉 */
-const COVER_V = '20261114d'
+const COVER_V = '20261114f'
 const asset = (p: string) => `${import.meta.env.BASE_URL || '/'}${p}?v=${COVER_V}`
 
 const KIND_HUE: Record<string, number> = { project: 18, service: 198, site: 268, script: 152, task: 10 }
@@ -473,12 +488,13 @@ function rails(h: number, seed: number) {
 export function ServiceCover({ svc }: { svc: ServiceRec }) {
   const c = coverSpecOf(svc)
   const seed = svc.id.length * 7 + svc.id.charCodeAt(0)
-  const style = { '--svc-hue': String(c.hue), '--svc-hue2': String(c.hue2) } as CSSProperties
+    const z = ZOOM[svc.id]
+  const style = { '--svc-hue': String(c.hue), '--svc-hue2': String(c.hue2), ...(z ? { '--zoom': z[0] + '%', '--pos': z[1] } : {}) } as CSSProperties
 
   if (c.img) {
     const url = `url(${asset(c.img)})`
     return (
-      <div className={`svc-cover is-img ${WIDE.has(svc.id) ? 'is-wide' : 'is-shot'}`} style={style} aria-hidden="true">
+      <div className={`svc-cover is-img ${WIDE.has(svc.id) ? 'is-wide' : 'is-shot'}${ZOOM[svc.id] ? ' is-zoom' : ''}`} style={style} aria-hidden="true">
         <span className="svc-cover-fill" style={{ backgroundImage: url }} />
         <span className="svc-cover-sharp" style={{ backgroundImage: url }} />
         <span className="svc-wash" />

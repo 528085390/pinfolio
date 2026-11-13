@@ -149,6 +149,16 @@
 .svc-cover.is-shot .svc-cover-sharp {
   filter: brightness(0.94) saturate(1.02);
 }
+/* 真 UI 截图：放大后往 logo 那侧偏，截图里的小字变成构图的一部分 */
+.svc-cover.is-zoom .svc-cover-sharp {
+  background-size: var(--zoom, 175%) auto;
+  background-position: var(--pos, 0% 6%);
+}
+.svc-cover.is-zoom .svc-cover-fill {
+  background-size: 150% auto;
+  background-position: var(--pos, 0% 6%);
+}
+
 /* 宽横幅：整条完整显示，不裁 */
 .svc-cover.is-wide .svc-cover-sharp {
   background-size: 100% auto;
