@@ -43,14 +43,16 @@ const IMG: Record<string, string> = {
   pinboard: 'covers/pinboard.webp',
   yb: 'covers/yb.webp',
   douyin: 'covers/douyin.webp',
-  streak: 'covers/streak.webp',
   singbox: 'covers/singbox.webp',
   xray: 'covers/xray.webp',
   hysteria: 'covers/hysteria.webp',
   caddy: 'covers/caddy.webp',
   v2ray: 'covers/v2ray.webp',
   nginx: 'covers/nginx.webp',
-  demos: 'covers/demos.webp',
+  apicdemo: 'covers/apicdemo.webp',
+  pricing: 'covers/pricing.webp',
+  bank: 'covers/bank.webp',
+  si: 'covers/si.webp',
   certbot: 'covers/certbot.webp',
   sub2api: 'covers/sub2api.webp',
   nodemetrics: 'covers/nodemetrics.webp',
@@ -64,9 +66,9 @@ const IMG: Record<string, string> = {
 }
 
 /** 宽横幅（3:1 那种）用「模糊铺底 + 居中完整显示」，截图（4:3）用 cover 铺满 */
-const WIDE = new Set(['demos'])
+const WIDE = new Set(['apicdemo'])
 /** 封面是 public/ 下的定名文件，换图后靠这个版本号让浏览器重新拉 */
-const COVER_V = '20261114c'
+const COVER_V = '20261114d'
 const asset = (p: string) => `${import.meta.env.BASE_URL || '/'}${p}?v=${COVER_V}`
 
 const KIND_HUE: Record<string, number> = { project: 18, service: 198, site: 268, script: 152, task: 10 }
