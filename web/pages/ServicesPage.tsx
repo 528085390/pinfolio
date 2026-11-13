@@ -60,65 +60,22 @@ function MonChips({ ids, onOpen }: { ids: number[]; onOpen?: (id: number) => voi
   )
 }
 
-/** 一张卡 = 一个服务：整张卡就是它的封面，名字压左上角，鼠标悬停才浮出加 / 改 / 删 */
-function ServiceCard({ g, dim, ops, onOpen, onFilter }: {
-  g: ServiceGroup
-  /** 头顶选了某台服务器、而这个服务不在那台上：压暗但不下架 */
-  dim: boolean
-  ops: OpsCtx
-  onOpen?: (id: number) => void
-  onFilter: (serverId: string) => void
-}) {
-  const monIds = useMemo(
-    () => [...new Set(g.rows.flatMap((r) => r.monitor ?? []))].sort((a, b) => a - b),
-    [g.rows],
-  )
-  // 卡脚的机器药丸：按出现顺序去重
-  const srvChips = useMemo(() => {
-    const seen = new Map<string, string>()
-    for (const r of g.rows) if (!seen.has(r.server)) seen.set(r.server, r.srv.name)
-    return [...seen].map(([id, name]) => ({ id, name }))
-  }, [g.rows])
-  // 端口药丸：同一台机上几条部署常常共用一个端口，去重后最多显示两个
-  const ports = useMemo(
-    () => [...new Set(g.rows.map((r) => r.port).filter((p): p is string => !!p))],
-    [g.rows],
-  )
+/** 一张卡 = 一个服务：整张卡就是它的封面，名字居中，悬停才浮出一个小改字按钮 */
+function ServiceCard({ g, ops }: { g: ServiceGroup; ops: OpsCtx }) {
   // 整块可点：有管理页就铺一层透明链接，没有就只是张图（改还是走悬停按钮）
   const openUrl = g.rows.map((r) => r.url).find((u) => !!u) ?? ''
   const cover = coverSpecOf(g.service)
 
   return (
     <article
-      className={cx('svc-tile', dim && 'is-dim')}
+      className="svc-tile"
       style={{ '--svc-tint': 'hsl(' + cover.hue + ' 62% 60%)' } as CSSProperties}
     >
       <ServiceCover svc={g.service} />
       <span className="svc-veil" aria-hidden="true" />
       <span className="svc-ops">
-        <button
-          type="button"
-          className="svc-op"
-          title={t('给「{name}」再加一条部署', { name: g.service.name })}
-          onClick={() => ops.addDeploy({ service: g.service.id })}
-        >
-          <Plus size={12} />
-        </button>
-        <button
-          type="button"
-          className="svc-op"
-          title={t('改这个服务（改名 / 摘要 / 删除）')}
-          onClick={() => ops.editService(g.service)}
-        >
-          <Pencil size={12} />
-        </button>
-        <button
-          type="button"
-          className="svc-op is-danger"
-          title={t('删这个服务')}
-          onClick={() => ops.delService(g.service)}
-        >
-          <Trash2 size={12} />
+        <button type="button" className="svc-op" title={t('编辑「{name}」', { name: g.service.name })} onClick={() => ops.editService(g.service)}>
+          <Pencil size={13} />
         </button>
       </span>
       {openUrl ? (
@@ -141,26 +98,6 @@ function ServiceCard({ g, dim, ops, onOpen, onFilter }: {
             {g.service.summary}
           </p>
         ) : null}
-      </div>
-      <div className="svc-foot">
-        <span className="svc-pill is-kind">{KIND_LABEL[g.service.kind]}</span>
-        {srvChips.slice(0, 2).map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className="svc-pill is-btn"
-            title={t('只看 {name} 上跑了什么', { name: s.name })}
-            onClick={() => onFilter(s.id)}
-          >
-            {s.name}
-          </button>
-        ))}
-        {srvChips.length > 2 ? <span className="svc-pill">+{srvChips.length - 2}</span> : null}
-        {ports.slice(0, 1).map((p) => (
-          <span key={p} className="svc-pill is-mono">{p}</span>
-        ))}
-        {monIds.length ? <MonChips ids={monIds.slice(0, 1)} onOpen={onOpen} /> : null}
-        {openUrl ? <span className="svc-open" aria-hidden="true">&#8599;</span> : null}
       </div>
     </article>
   )
@@ -272,7 +209,7 @@ export function ServicesPage({ onOpenMonitor }: {
   }, [del, srvRecs, svcRecs, deploys])
 
   const matches = (g: ServiceGroup) => srv === 'all' || g.rows.some((r) => r.server === srv)
-  const shown = services.length
+  const shown = services.filter(matches).length
 
   return (
     <MonNames.Provider value={mon}>
@@ -293,7 +230,7 @@ export function ServicesPage({ onOpenMonitor }: {
               title={t('{vendor} · {ip} · {user}', { vendor: g.server.vendor, ip: g.server.ip, user: g.server.user })}
               onClick={() => setSrv(srv === g.server.id ? 'all' : g.server.id)}
             >
-              {g.server.name}<span className="chip-count">{g.rows.length}</span>
+              {g.server.name}<span className="chip-count">{new Set(g.rows.map((r) => r.service)).size}</span>
             </button>
           ))}
           <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
@@ -348,15 +285,8 @@ export function ServicesPage({ onOpenMonitor }: {
           />
         ) : (
           <div className="svc-grid">
-            {services.map((g) => (
-              <ServiceCard
-                key={g.service.id}
-                g={g}
-                dim={!matches(g)}
-                ops={ops}
-                onOpen={onOpenMonitor}
-                onFilter={(id) => setSrv(srv === id ? 'all' : id)}
-              />
+            {services.filter(matches).map((g) => (
+              <ServiceCard key={g.service.id} g={g} ops={ops} />
             ))}
           </div>
         )}
