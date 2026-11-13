@@ -142,8 +142,16 @@
   transform: scale(1.2);
 }
 .svc-cover-sharp {
-  background-size: 100% auto;
   background-position: center;
+  background-size: cover;
+}
+/* 截图卡：铺满裁切，稍微压一点亮度好跟深色卡混在一起 */
+.svc-cover.is-shot .svc-cover-sharp {
+  filter: brightness(0.94) saturate(1.02);
+}
+/* 宽横幅：整条完整显示，不裁 */
+.svc-cover.is-wide .svc-cover-sharp {
+  background-size: 100% auto;
 }
 
 /* 上下各压一层暗，名字和药丸才压得住图 */
@@ -341,4 +349,10 @@
     linear-gradient(205deg, hsl(var(--svc-hue) 62% 46% / 0.26), transparent 58%),
     radial-gradient(120% 90% at 72% 24%, hsl(var(--svc-hue2) 66% 42% / 0.2), transparent 62%);
   mix-blend-mode: soft-light;
+}
+
+/* 截图卡：上下再压重一点，名字和药丸才压得住图里的文字 */
+.svc-tile:has(.svc-cover.is-shot) .svc-veil {
+  background:
+    linear-gradient(180deg, rgba(6, 6, 6, 0.88) 0%, rgba(6, 6, 6, 0.3) 34%, rgba(6, 6, 6, 0.5) 74%, rgba(6, 6, 6, 0.94) 100%);
 }

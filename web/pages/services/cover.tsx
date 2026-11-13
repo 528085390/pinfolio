@@ -36,8 +36,38 @@ export type CoverSpec = {
   img?: string
 }
 
-const IMG: Record<string, string> = { demos: 'covers/demos.webp' }
-const asset = (p: string) => (import.meta.env.BASE_URL || '/') + p
+/** 每台服务的真图：能截到管理页的直接截图，跑在后台没有页面的截它的 systemctl / 配置输出 */
+const IMG: Record<string, string> = {
+  wbapi: 'covers/wbapi.webp',
+  manager: 'covers/manager.webp',
+  pinboard: 'covers/pinboard.webp',
+  yb: 'covers/yb.webp',
+  douyin: 'covers/douyin.webp',
+  streak: 'covers/streak.webp',
+  singbox: 'covers/singbox.webp',
+  xray: 'covers/xray.webp',
+  hysteria: 'covers/hysteria.webp',
+  caddy: 'covers/caddy.webp',
+  v2ray: 'covers/v2ray.webp',
+  nginx: 'covers/nginx.webp',
+  demos: 'covers/demos.webp',
+  certbot: 'covers/certbot.webp',
+  sub2api: 'covers/sub2api.webp',
+  nodemetrics: 'covers/nodemetrics.webp',
+  memwatch: 'covers/memwatch.webp',
+  costguard: 'covers/costguard.webp',
+  subhub: 'covers/subhub.webp',
+  armfw: 'covers/armfw.webp',
+  restic: 'covers/restic.webp',
+  hy2cert: 'covers/hy2cert.webp',
+  doctree: 'covers/doctree.webp',
+}
+
+/** 宽横幅（3:1 那种）用「模糊铺底 + 居中完整显示」，截图（4:3）用 cover 铺满 */
+const WIDE = new Set(['demos'])
+/** 封面是 public/ 下的定名文件，换图后靠这个版本号让浏览器重新拉 */
+const COVER_V = '20261114c'
+const asset = (p: string) => `${import.meta.env.BASE_URL || '/'}${p}?v=${COVER_V}`
 
 const KIND_HUE: Record<string, number> = { project: 18, service: 198, site: 268, script: 152, task: 10 }
 
@@ -446,7 +476,7 @@ export function ServiceCover({ svc }: { svc: ServiceRec }) {
   if (c.img) {
     const url = `url(${asset(c.img)})`
     return (
-      <div className="svc-cover is-img" style={style} aria-hidden="true">
+      <div className={`svc-cover is-img ${WIDE.has(svc.id) ? 'is-wide' : 'is-shot'}`} style={style} aria-hidden="true">
         <span className="svc-cover-fill" style={{ backgroundImage: url }} />
         <span className="svc-cover-sharp" style={{ backgroundImage: url }} />
         <span className="svc-wash" />
