@@ -1,289 +1,491 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import type { ServiceRec } from '../../lib/api'
 import { KIND_LABEL } from './model'
 
 /**
- * 服务卡的封面：一张卡就是这张服务的一张「代表图」。
+ * 服务卡的封面：一张卡 = 这张服务的一张小海报。
  *
- * 原则（2026-11-13 用户定的方向）：
- *  - 图上不塞信息，卡面只留「名字 + 一行说明 + 底部药丸」，一眼看过去是图墙；
- *  - 图不追求真实截图，可以是这台服务的字标 + 图标（用户原话：「随便截张图或者你画一张就行」）；
- *  - 有真实横幅就优先用图（IMG），没有就按 BRAND 表画字标，BRAND 里也没有就按类型兜底。
+ * 原则（2026-11-14 用户改的方向）：
+ *  - 之前「图标 + 字标」太单一，改成每个服务自己一张构图：不同的几何场景、不同的双色调、
+ *    不同的留白与压角，让人一眼认出是哪一台服务，而不是一堆同样的模板；
+ *  - 场景全部是 SVG 现画的（不联网、不截图、不随机种子），每个服务固定一套，重建也一样；
+ *  - 有真图（演示站那张 NOCTURNE 横幅）就优先用图，图上叠一层同色系洗色；
+ *  - 图里不写长句，卡面信息还是「名字 + 一行说明 + 底部药丸」，图只负责气质。
  *
- * 换图只改 BRAND 一行：服务 id → [字标, 小标签, 色相, 图标名]。
+ * 加一个服务：在 CASES 里补一行 { word, tag, motif, hue, hue2, anchor, notes }。
  */
 
+/** 场景类型：每个都是一种真实拓扑/气质，不是图标 */
+type Motif =
+  | 'funnel' | 'accountgrid' | 'notes' | 'calendar' | 'flame' | 'ecg' | 'orbit'
+  | 'prism' | 'comets' | 'rings' | 'wavebars' | 'fanout' | 'renewring' | 'pipeline'
+  | 'trace' | 'membars' | 'meter' | 'hub' | 'fwgrid' | 'slabs' | 'seal' | 'tree'
+
+/** 场景重心：决定画面往哪个角压，避免 23 张卡长得一样 */
+type Anchor = 'tr' | 'br' | 'center' | 'full' | 'left' | 'right'
+
 export type CoverSpec = {
-  /** 衬线大字：这张服务自己怎么写自己的名字 */
   word: string
-  /** 字标下面那行小标签（小写英文 / 中文短语都行） */
   tag: string
-  /** 色相：0–360，卡面底色、图标、水印都由它推出来 */
   hue: number
-  /** 图标（24×24 线稿，描边由 CSS 给） */
-  glyph: ReactNode
-  /** 有横幅 / 截图就用图，不画字标 */
+  hue2: number
+  motif: Motif
+  anchor: Anchor
+  /** 角落里的技术注脚，1–2 条，很短 */
+  notes: string[]
   img?: string
 }
 
-/** 线稿图标，统一 24×24、不填色、描边 1.7 */
-const GLYPH: Record<string, ReactNode> = {
-  package: (
-    <>
-      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
-      <path d="M4 7.5l8 4.5 8-4.5M12 12v9" />
-    </>
-  ),
-  cog: (
-    <>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M12 3v2.6M12 18.4V21M3 12h2.6M18.4 12H21M5.6 5.6l1.9 1.9M16.5 16.5l1.9 1.9M18.4 5.6l-1.9 1.9M7.5 16.5l-1.9 1.9" />
-    </>
-  ),
-  globe: (
-    <>
-      <circle cx="12" cy="12" r="8.6" />
-      <path d="M3.4 12h17.2M12 3.4c2.6 2.4 3.9 5.4 3.9 8.6s-1.3 6.2-3.9 8.6c-2.6-2.4-3.9-5.4-3.9-8.6S9.4 5.8 12 3.4z" />
-    </>
-  ),
-  terminal: (
-    <>
-      <rect x="3" y="4.6" width="18" height="14.8" rx="3" />
-      <path d="M7.4 10l2.4 2.2-2.4 2.2M12.6 14.4h4" />
-    </>
-  ),
-  clock: (
-    <>
-      <circle cx="12" cy="12" r="8.6" />
-      <path d="M12 7.4V12l3.2 2" />
-    </>
-  ),
-  router: (
-    <>
-      <path d="M4 15h16v5H4z" />
-      <path d="M8 17.5h.01M12 17.5h.01" />
-      <path d="M12 11V6l-3.2 2M12 6l3.2 2" />
-    </>
-  ),
-  users: (
-    <>
-      <circle cx="9" cy="9" r="3" />
-      <path d="M3.6 19c.6-3 2.8-4.6 5.4-4.6S13.8 16 14.4 19" />
-      <circle cx="16.6" cy="8.6" r="2.3" />
-      <path d="M15.2 13.3c2.5-.2 4.4 1.3 5 4" />
-    </>
-  ),
-  pin: (
-    <>
-      <path d="M9.2 3h5.6l-1.1 5.1 3.1 3.1v1.6h-3.1l-.4 5.2h-5.8l-.4-5.2H3.2v-1.6l3.1-3.1L9.2 3z" />
-      <path d="M12 18.2V22" />
-    </>
-  ),
-  calendar: (
-    <>
-      <rect x="3.5" y="5" width="17" height="15" rx="3" />
-      <path d="M8 3.5v3M16 3.5v3M3.5 10h17" />
-      <path d="M8.6 14.6l2.1 2.1 4.2-4.3" />
-    </>
-  ),
-  flame: <path d="M12 21c3.6 0 6-2.4 6-5.6 0-4-3.4-5.9-4.3-9.4-.9 2-2.4 2.6-3.4 4.3-.6-1-.8-2-.8-3.2C7.6 9.4 6 11.8 6 15.4 6 18.6 8.4 21 12 21z" />,
-  pulse: <path d="M2.5 12h4l2.4-6 4.2 12.5 2.4-6.5h6" />,
-  rings: (
-    <>
-      <circle cx="12" cy="12" r="3" />
-      <circle cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="10.6" />
-    </>
-  ),
-  rays: (
-    <>
-      <circle cx="12" cy="12" r="2.6" />
-      <path d="M12 2.4v3.2M12 18.4v3.2M2.4 12h3.2M18.4 12h3.2M5.1 5.1l2.3 2.3M16.6 16.6l2.3 2.3M18.9 5.1l-2.3 2.3M7.4 16.6l-2.3 2.3" />
-    </>
-  ),
-  bolt: <path d="M13.6 2.6L5.4 13.6h5.6l-1.4 7.8 8.2-11H12l1.6-5z" />,
-  grid: (
-    <>
-      <rect x="3" y="3" width="7.6" height="7.6" rx="1.8" />
-      <rect x="13.4" y="3" width="7.6" height="7.6" rx="1.8" />
-      <rect x="3" y="13.4" width="7.6" height="7.6" rx="1.8" />
-      <rect x="13.4" y="13.4" width="7.6" height="7.6" rx="1.8" />
-    </>
-  ),
-  wave: (
-    <>
-      <path d="M2.5 9.2c2.9 0 2.9-3.4 5.8-3.4s2.9 3.4 5.8 3.4 2.9-3.4 5.8-3.4" />
-      <path d="M2.5 15.4c2.9 0 2.9-3.4 5.8-3.4s2.9 3.4 5.8 3.4 2.9-3.4 5.8-3.4" />
-    </>
-  ),
-  gate: (
-    <>
-      <path d="M4 21V9l8-5.6L20 9v12" />
-      <path d="M9.2 21v-6.2h5.6V21" />
-    </>
-  ),
-  shield: (
-    <>
-      <path d="M12 2.8l7 2.6v6.2c0 4.4-3 7.7-7 9.3-4-1.6-7-4.9-7-9.3V5.4l7-2.6z" />
-      <path d="M8.8 11.9l2.3 2.3 4.2-4.5" />
-    </>
-  ),
-  loop: (
-    <>
-      <path d="M20 12a8 8 0 1 1-2.6-5.9" />
-      <path d="M20 3.6v4.2h-4.2" />
-    </>
-  ),
-  chart: (
-    <>
-      <path d="M3.4 20.6h17.2" />
-      <rect x="6" y="12" width="3.4" height="6" rx="1.1" />
-      <rect x="10.9" y="8" width="3.4" height="10" rx="1.1" />
-      <rect x="15.8" y="4.6" width="3.4" height="13.4" rx="1.1" />
-    </>
-  ),
-  chip: (
-    <>
-      <rect x="5.6" y="5.6" width="12.8" height="12.8" rx="2.6" />
-      <rect x="9.8" y="9.8" width="4.4" height="4.4" rx="1" />
-      <path d="M9.4 2.6v3M14.6 2.6v3M9.4 18.4v3M14.6 18.4v3M2.6 9.4h3M2.6 14.6h3M18.4 9.4h3M18.4 14.6h3" />
-    </>
-  ),
-  coins: (
-    <>
-      <ellipse cx="12" cy="6.4" rx="7" ry="3" />
-      <path d="M5 6.4v5.1c0 1.7 3.1 3 7 3s7-1.3 7-3V6.4" />
-      <path d="M5 11.5v5.1c0 1.7 3.1 3 7 3s7-1.3 7-3v-5.1" />
-    </>
-  ),
-  hub: (
-    <>
-      <circle cx="12" cy="12" r="2.6" />
-      <circle cx="4.6" cy="6" r="1.9" />
-      <circle cx="19.4" cy="6" r="1.9" />
-      <circle cx="4.6" cy="18" r="1.9" />
-      <circle cx="19.4" cy="18" r="1.9" />
-      <path d="M6.2 7.3l3.9 3.2M17.8 7.3l-3.9 3.2M6.2 16.7l3.9-3.2M17.8 16.7l-3.9-3.2" />
-    </>
-  ),
-  wall: (
-    <>
-      <rect x="3" y="4.6" width="18" height="14.8" rx="2.6" />
-      <path d="M3 9.5h18M3 14.5h18M8.6 4.6v4.9M15.4 9.5v5M8.6 14.5v4.9" />
-    </>
-  ),
-  archive: (
-    <>
-      <rect x="3" y="4" width="18" height="4.6" rx="1.7" />
-      <path d="M4.9 8.6v10c0 .9.7 1.6 1.6 1.6h11c.9 0 1.6-.7 1.6-1.6v-10" />
-      <path d="M9.6 12.6h4.8" />
-    </>
-  ),
-  eye: (
-    <>
-      <path d="M2.6 12S6 6.6 12 6.6 21.4 12 21.4 12 18 17.4 12 17.4 2.6 12 2.6 12z" />
-      <circle cx="12" cy="12" r="2.8" />
-    </>
-  ),
-  tree: (
-    <>
-      <circle cx="12" cy="3" r="1.5" />
-      <path d="M12 4.6v3.2M12 7.8H6.4v3.6M12 7.8h5.6v3.6M12 7.8v8" />
-      <rect x="4" y="11.4" width="5" height="4.6" rx="1.4" />
-      <rect x="15" y="11.4" width="5" height="4.6" rx="1.4" />
-      <rect x="9.5" y="15.8" width="5" height="5.2" rx="1.4" />
-    </>
-  ),
-}
-
-/** 没有专属封面时按类型给的色相与图标（跟观测台/资产页的配色一致：项目橙、服务蓝、站点紫、脚本青、任务红） */
-const HUE_BY_KIND: Record<string, number> = { project: 18, service: 198, site: 268, script: 152, task: 10 }
-const GLYPH_BY_KIND: Record<string, string> = {
-  project: 'package',
-  service: 'cog',
-  site: 'globe',
-  script: 'terminal',
-  task: 'clock',
-}
-
-/** 服务 id → [字标, 小标签, 色相, 图标名]。加一个服务想给它专属封面，就在这里加一行。 */
-const BRAND: Record<string, [string, string, number, string]> = {
-  wbapi: ['wb2api', 'openai 兼容 · 号池网关', 26, 'router'],
-  manager: ['WorkBuddy', '账号池 · 管理端', 32, 'users'],
-  pinboard: ['pinfolio', 'notes · assets · monitors', 22, 'pin'],
-  yb: ['签到台', 'daily check-in', 44, 'calendar'],
-  douyin: ['续火花', 'streak panel', 350, 'flame'],
-  streak: ['心跳', 'heartbeat push', 8, 'pulse'],
-  singbox: ['sing-box', 'reality + hysteria2', 205, 'rings'],
-  xray: ['Xray', 'vless · reality', 228, 'rays'],
-  hysteria: ['Hysteria2', 'udp 443 · quic', 192, 'bolt'],
-  caddy: ['Caddy', 'auto tls · web', 268, 'grid'],
-  v2ray: ['V2Ray', 'ws backend', 176, 'wave'],
-  nginx: ['Nginx', 'entry · subscription', 262, 'gate'],
-  demos: ['NOCTURNE', '5 个演示站 · 8443', 268, 'globe'],
-  certbot: ['certbot', '3 张证书 · 自动续期', 140, 'shield'],
-  sub2api: ['sub2api', 'keepalive · 15min', 158, 'loop'],
-  nodemetrics: ['node-metrics', '/proc · 5 min', 148, 'chart'],
-  memwatch: ['memwatch', 'rss · 300s', 164, 'chip'],
-  costguard: ['costguard', 'oci 成本 · 30min', 172, 'coins'],
-  subhub: ['subhub', '30min rotate', 154, 'hub'],
-  armfw: ['arm-firewall', 'iptables', 188, 'wall'],
-  restic: ['restic', 'daily 05:10', 20, 'archive'],
-  hy2cert: ['hy2cert', 'expiry watch', 196, 'eye'],
-  doctree: ['doc-tree', 'daily 09:10', 250, 'tree'],
-}
-
-/** 有真实横幅的服务：用图代替字标（图片放 web/public/covers/） */
 const IMG: Record<string, string> = { demos: 'covers/demos.webp' }
-
-/** 部署在子路径时（PINBOARD_BASE=pinfolio）静态资源也得跟着走 */
 const asset = (p: string) => (import.meta.env.BASE_URL || '/') + p
 
+const KIND_HUE: Record<string, number> = { project: 18, service: 198, site: 268, script: 152, task: 10 }
+
+/** 23 台服务，一台一套 */
+const CASES: Record<string, [string, string, Motif, number, number, Anchor, string[]]> = {
+  // id          字标             小标签                   场景          主色  辅色  重心      注脚
+  wbapi: ['wb2api', 'OPENAI · 号池网关', 'funnel', 26, 44, 'right', ['/v1 · 7863', 'pool → gateway']],
+  manager: ['WorkBuddy', '账号池 · 管理端', 'accountgrid', 214, 220, 'center', ['7864', 'accounts']],
+  pinboard: ['pinfolio', 'NOTES · ASSETS', 'notes', 26, 12, 'br', ['7798', 'notes · assets']],
+  yb: ['签到台', 'DAILY CHECK-IN', 'calendar', 44, 30, 'right', ['8787', 'daily']],
+  douyin: ['续火花', 'STREAK PANEL', 'flame', 348, 20, 'center', ['8765', 'streak']],
+  streak: ['心跳', 'HEARTBEAT PUSH', 'ecg', 6, 26, 'full', ['cron', 'daily 08:30']],
+  singbox: ['sing-box', 'REALITY · HY2', 'orbit', 196, 210, 'br', ['443 tcp/udp', 'os · ox']],
+  xray: ['Xray', 'VLESS · REALITY', 'prism', 268, 292, 'left', ['443', 'oj · aws']],
+  hysteria: ['Hysteria2', 'UDP 443 · QUIC', 'comets', 178, 196, 'full', ['443/udp', 'aws']],
+  caddy: ['Caddy', 'AUTO TLS · WS', 'rings', 232, 258, 'center', ['8443', '80 → 308']],
+  v2ray: ['V2Ray', 'WS BACKEND', 'wavebars', 150, 172, 'full', ['29195', 'loopback']],
+  nginx: ['Nginx', 'SNI · SUBSCRIBE', 'fanout', 104, 138, 'right', ['80 / 443', '/sub/']],
+  demos: ['NOCTURNE', 'A-PICTURE DEMO', 'orbit', 44, 38, 'center', ['8443', '×5 sites']],
+  certbot: ['certbot', 'LE AUTO RENEW', 'renewring', 46, 32, 'center', ['timer', '3 certs']],
+  sub2api: ['sub2api', 'KEEP-ALIVE', 'pipeline', 158, 178, 'left', ['15s', 'reset loop']],
+  nodemetrics: ['node-metrics', 'PROC · DF 5 MIN', 'trace', 168, 190, 'full', ['4 nodes', '/var/lib']],
+  memwatch: ['memwatch', 'MEMORY WATCHDOG', 'membars', 186, 202, 'left', ['300s', '60 MB']],
+  costguard: ['costguard', 'OCI COST GUARD', 'meter', 34, 18, 'center', ['30 min', 'budget']],
+  subhub: ['subhub', 'SUBSCRIPTION HUB', 'hub', 202, 220, 'center', ['30 min', 'push → os']],
+  armfw: ['arm-firewall', 'NFTABLES WHITELIST', 'fwgrid', 244, 268, 'full', ['inbound', 'allowlist']],
+  restic: ['restic', 'DAILY SNAPSHOT', 'slabs', 216, 236, 'left', ['oci bucket', 'incremental']],
+  hy2cert: ['hy2cert', 'CERT EXPIRY WATCH', 'seal', 190, 208, 'center', ['self-signed', 'alert']],
+  doctree: ['doctree', 'AGENTS DRIFT AUDIT', 'tree', 262, 286, 'right', ['09:10', 'links']],
+}
+
+const FALLBACK: [string, string, Motif, number, number, Anchor, string[]] = ['', '', 'notes', 30, 22, 'br', []]
+
 export function coverSpecOf(svc: ServiceRec): CoverSpec {
-  const b = BRAND[svc.id]
-  if (b) return { word: b[0], tag: b[1], hue: b[2], glyph: GLYPH[b[3]] ?? GLYPH.package, img: IMG[svc.id] }
+  const row = CASES[svc.id] ?? FALLBACK
   const name = svc.name.trim()
+  const word = row[0] || (name.length > 14 ? name.slice(0, 13) + '…' : name)
   return {
-    word: name.length > 14 ? name.slice(0, 13) + '…' : name,
-    tag: KIND_LABEL[svc.kind] ?? '',
-    hue: HUE_BY_KIND[svc.kind] ?? 30,
-    glyph: GLYPH[GLYPH_BY_KIND[svc.kind] ?? 'package'],
+    word,
+    tag: row[1] || KIND_LABEL[svc.kind] || '',
+    motif: row[2],
+    hue: row[3] || KIND_HUE[svc.kind] || 30,
+    hue2: row[4] || (KIND_HUE[svc.kind] ?? 30) + 18,
+    anchor: row[5],
+    notes: row[6].length ? row[6] : [KIND_LABEL[svc.kind] ?? ''],
     img: IMG[svc.id],
   }
 }
 
-/** 字标长度决定字号：短名大字，长名小字，都不撑破卡片 */
-function wordSize(word: string): number {
-  if (word.length <= 8) return 30
-  if (word.length <= 11) return 26
-  if (word.length <= 14) return 22
-  return 19
+/* ---------------- 画场景 ---------------- */
+
+const W = 320
+const H = 240
+
+type Ink = { line: string; soft: string; fill: string; alt: string; paper: string }
+
+function ink(h: number, h2: number): Ink {
+  return {
+    line: `hsl(${h} 72% 64%)`,
+    soft: `hsl(${h} 62% 58% / .38)`,
+    fill: `hsl(${h} 70% 56% / .16)`,
+    alt: `hsl(${h2} 68% 62%)`,
+    paper: 'hsl(40 30% 94% / .82)',
+  }
 }
 
-/**
- * 卡面底图：有图用图（虚化铺底 + 原图居中，宽横幅也不会被裁掉字），
- * 没图就用「图标徽章 + 衬线字标 + 小标签」画一张。
- */
+/** 场景按 320×240 画，卡片是 4:3，切片铺满 */
+function scene(motif: Motif, h: number, h2: number) {
+  const c = ink(h, h2)
+  const P = c.paper
+  switch (motif) {
+    case 'funnel':
+      return (
+        <>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <path key={i} d={`M14 ${92 + i * 9} H150 C186 ${92 + i * 9} 200 120 232 120`}
+              fill="none" stroke={i % 2 ? c.soft : c.line} strokeWidth={i % 2 ? 1 : 1.3} strokeLinecap="round" opacity={0.35 + i * 0.1} />
+          ))}
+          <path d="M232 96h34a10 10 0 0 1 10 10v28a10 10 0 0 1-10 10h-34a10 10 0 0 1-10-10v-28a10 10 0 0 1 10-10z" fill="none" stroke={P} strokeWidth="1.3" />
+          <path d="M240 120h18" stroke={P} strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="259" cy="120" r="2.6" fill={c.alt} />
+        </>
+      )
+    case 'accountgrid':
+      return (
+        <>
+          {Array.from({ length: 18 }).map((_, i) => {
+            const x = 88 + (i % 6) * 25
+            const y = 62 + Math.floor(i / 6) * 25
+            const lit = i === 8 || i === 15 || i === 3
+            return (
+              <rect key={i} x={x} y={y} width="17" height="17" rx="5"
+                fill={lit ? c.fill : 'none'} stroke={lit ? c.line : c.soft} strokeWidth={lit ? 1.4 : 1} />
+            )
+          })}
+          <rect x="128" y="150" width="64" height="18" rx="9" fill={P} opacity=".9" />
+          <path d="M150 159h20" stroke="hsl(220 20% 12%)" strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      )
+    case 'notes':
+      return (
+        <>
+          <g transform="translate(46 44) rotate(-7)">
+            <rect width="150" height="112" rx="10" fill="hsl(40 40% 96% / .07)" stroke={c.soft} />
+          </g>
+          <g transform="translate(64 54) rotate(-2)">
+            <rect width="150" height="112" rx="10" fill="hsl(40 40% 96% / .1)" stroke={c.soft} />
+            {[0, 1, 2, 3].map((i) => (
+              <path key={i} d={`M18 ${30 + i * 17}h${i === 3 ? 60 : 112}`} stroke={i === 0 ? c.line : c.soft} strokeWidth={i === 0 ? 2 : 1.2} strokeLinecap="round" />
+            ))}
+          </g>
+          <g transform="translate(196 96)">
+            <circle r="26" fill={c.fill} stroke={c.line} strokeWidth="1.4" />
+            <path d="M0 -13c6 0 10 4.4 10 10 0 7-10 16-10 16S-10 4-10-3c0-5.6 4.4-10 10-10z" fill="none" stroke={P} strokeWidth="1.6" />
+            <circle cy="-3" r="3.4" fill={P} />
+          </g>
+        </>
+      )
+    case 'calendar':
+      return (
+        <>
+          <rect x="60" y="56" width="196" height="132" rx="10" fill="hsl(40 40% 96% / .05)" stroke={c.soft} />
+          <path d="M60 84h196" stroke={c.soft} />
+          {Array.from({ length: 28 }).map((_, i) => {
+            const x = 74 + (i % 7) * 26
+            const y = 96 + Math.floor(i / 7) * 24
+            const done = i < 19
+            return done ? (
+              <path key={i} d={`M${x} ${y + 4}l4 4 7-8`} stroke={i > 15 ? c.alt : c.line} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+            ) : (
+              <circle key={i} cx={x + 5} cy={y + 4} r="2" fill={c.soft} />
+            )
+          })}
+        </>
+      )
+    case 'flame':
+      return (
+        <>
+          <path d="M160 196c-30 0-50-20-50-46 0-30 26-44 34-70 22 20 30 32 30 48 8-8 10-18 10-28 18 18 26 34 26 50 0 26-20 46-50 46z"
+            fill={c.fill} stroke={c.line} strokeWidth="1.4" />
+          <path d="M160 176c-12 0-20-9-20-20 0-12 10-18 14-28 8 10 12 16 12 24 4-4 6-10 6-14 6 8 8 14 8 20 0 11-8 18-20 18z"
+            fill="none" stroke={c.alt} strokeWidth="1.3" />
+          {[[112, 60], [206, 74], [96, 128], [222, 138], [160, 40]].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r={i % 2 ? 1.6 : 2.4} fill={c.alt} opacity={0.45 + i * 0.1} />
+          ))}
+        </>
+      )
+    case 'ecg':
+      return (
+        <>
+          <path d="M0 150h320M0 110h320" stroke={c.soft} strokeWidth="0.8" strokeDasharray="2 6" />
+          <path d="M0 138h54l10-8 9 34 12-62 11 40 10 10h30l14-6 10 6h48l10-8 9 34 12-62 11 40 10 10h30"
+            fill="none" stroke={c.line} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          <path d="M0 138h54l10-8 9 34 12-62 11 40 10 10h30l14-6 10 6h48l10-8 9 34 12-62 11 40 10 10h30"
+            fill="none" stroke={c.alt} strokeWidth="6" opacity=".12" strokeLinejoin="round" />
+          <circle cx="170" cy="118" r="3.4" fill={c.alt} />
+        </>
+      )
+    case 'orbit':
+      return (
+        <>
+          {[34, 62, 92].map((r, i) => (
+            <ellipse key={r} cx="196" cy="140" rx={r * 1.5} ry={r} fill="none" stroke={i === 1 ? c.line : c.soft}
+              strokeWidth={i === 1 ? 1.2 : 0.9} transform={`rotate(${-18 + i * 12} 196 140)`} strokeDasharray={i === 2 ? '3 7' : undefined} />
+          ))}
+          <circle cx="196" cy="140" r="9" fill={c.fill} stroke={c.line} strokeWidth="1.4" />
+          <circle cx="196" cy="140" r="3" fill={c.alt} />
+          {[[250, 96], [140, 118], [262, 178]].map(([x, y], i) => (
+            <g key={i}>
+              <circle cx={x} cy={y} r="4" fill="hsl(40 30% 96% / .9)" />
+              <circle cx={x} cy={y} r="9" fill="none" stroke={c.soft} />
+            </g>
+          ))}
+        </>
+      )
+    case 'prism':
+      return (
+        <>
+          <path d="M0 128h116" stroke="hsl(40 30% 96% / .75)" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M162 60l52 96h-104z" fill="hsl(40 30% 96% / .06)" stroke={P} strokeWidth="1.3" />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <path key={i} d={`M182 138L320 ${52 + i * 26}`} stroke={i === 2 ? c.alt : c.line} strokeWidth={i === 2 ? 2.2 : 1.2} opacity={0.5 + i * 0.1} strokeLinecap="round" />
+          ))}
+        </>
+      )
+    case 'comets':
+      return (
+        <>
+          {[[40, 190, 150], [110, 210, 120], [80, 120, 190], [190, 200, 96], [150, 60, 210], [250, 150, 150]].map(([x, y, len], i) => (
+            <g key={i} opacity={0.4 + (i % 3) * 0.2}>
+              <path d={`M${x} ${y}l${len * 0.5} -${len * 0.5}`} stroke={i % 2 ? c.alt : c.line} strokeWidth={i % 3 === 0 ? 2.2 : 1.2} strokeLinecap="round" />
+              <circle cx={x} cy={y} r={i % 3 === 0 ? 3 : 1.8} fill={P} opacity=".8" />
+            </g>
+          ))}
+        </>
+      )
+    case 'rings':
+      return (
+        <>
+          {[96, 74, 52, 30].map((r, i) => (
+            <circle key={r} cx="160" cy="120" r={r} fill="none" stroke={i === 1 ? c.line : c.soft}
+              strokeWidth={i === 0 ? 1 : 1.2} strokeDasharray={i % 2 ? '5 9' : undefined} />
+          ))}
+          <rect x="148" y="108" width="24" height="20" rx="4" fill="none" stroke={P} strokeWidth="1.5" />
+          <path d="M153 108v-6a7 7 0 0 1 14 0v6" fill="none" stroke={P} strokeWidth="1.5" />
+          {Array.from({ length: 24 }).map((_, i) => {
+            const a = (i / 24) * Math.PI * 2
+            return <path key={i} d={`M${160 + Math.cos(a) * 100} ${120 + Math.sin(a) * 100}L${160 + Math.cos(a) * 108} ${120 + Math.sin(a) * 108}`} stroke={c.soft} strokeWidth="1" />
+          })}
+        </>
+      )
+    case 'wavebars':
+      return (
+        <>
+          {Array.from({ length: 26 }).map((_, i) => {
+            const hh = 14 + Math.abs(Math.sin(i * 0.7)) * 80
+            return <rect key={i} x={18 + i * 11} y={150 - hh / 2} width="4" height={hh} rx="2"
+              fill={i % 5 === 0 ? c.alt : c.line} opacity={0.35 + (hh / 100) * 0.6} />
+          })}
+          <path d="M12 150h296" stroke={c.soft} strokeWidth="1" strokeDasharray="3 7" />
+        </>
+      )
+    case 'fanout':
+      return (
+        <>
+          <circle cx="46" cy="120" r="10" fill={c.fill} stroke={c.line} strokeWidth="1.4" />
+          {[36, 78, 120, 162, 204].map((y, i) => (
+            <g key={y}>
+              <path d={`M56 120C120 120 150 ${y} 226 ${y}`} fill="none" stroke={i === 2 ? c.line : c.soft} strokeWidth={i === 2 ? 1.6 : 1} />
+              <circle cx="232" cy={y} r="6" fill="none" stroke={i === 2 ? P : c.soft} strokeWidth="1.2" />
+            </g>
+          ))}
+        </>
+      )
+    case 'renewring':
+      return (
+        <>
+          {Array.from({ length: 12 }).map((_, i) => {
+            const a0 = (i / 12) * Math.PI * 2 - Math.PI / 2
+            const a1 = ((i + 0.72) / 12) * Math.PI * 2 - Math.PI / 2
+            const r = 74
+            return (
+              <path key={i}
+                d={`M${160 + Math.cos(a0) * r} ${118 + Math.sin(a0) * r}A${r} ${r} 0 0 1 ${160 + Math.cos(a1) * r} ${118 + Math.sin(a1) * r}`}
+                fill="none" stroke={i < 9 ? c.line : c.soft} strokeWidth="7" strokeLinecap="round" opacity={i < 9 ? 0.9 : 0.5} />
+            )
+          })}
+          <path d="M160 96v22l14 10" stroke={P} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        </>
+      )
+    case 'pipeline':
+      return (
+        <>
+          {[0, 1, 2].map((i) => (
+            <rect key={i} x={50 + i * 84} y={104} width="56" height="34" rx="8" fill={i === 1 ? c.fill : 'none'} stroke={i === 1 ? c.line : c.soft} strokeWidth="1.3" />
+          ))}
+          <path d="M106 121h28M190 121h28" stroke={c.line} strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M132 110l5 11-5 11M216 110l5 11-5 11" fill="none" stroke={c.line} strokeWidth="1.4" strokeLinecap="round" />
+          <path d="M78 138c0 40 164 40 164 0" fill="none" stroke={c.alt} strokeWidth="1.2" strokeDasharray="4 6" />
+          <circle cx="78" cy="138" r="3" fill={c.alt} />
+        </>
+      )
+    case 'trace':
+      return (
+        <>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <path key={i} d={`M28 ${52 + i * 34}h268`} stroke={c.soft} strokeWidth="0.8" strokeDasharray="2 8" />
+          ))}
+          <path d="M28 186c30 0 40-52 70-52s44 34 74 34 40-64 72-64 36 30 52 30" fill="none" stroke={c.line} strokeWidth="2" strokeLinecap="round" />
+          <path d="M28 186c30 0 40-52 70-52s44 34 74 34 40-64 72-64 36 30 52 30V202H28z" fill={c.fill} stroke="none" />
+          {[[98, 134], [172, 168], [244, 104]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill="hsl(40 30% 96% / .9)" />)}
+        </>
+      )
+    case 'membars':
+      return (
+        <>
+          {[0, 1, 2].map((i) => (
+            <rect key={i} x="40" y={70 + i * 34} width="200" height="16" rx="8" fill="none" stroke={c.soft} />
+          ))}
+          {[0, 1, 2].map((i) => (
+            <rect key={'f' + i} x="40" y={70 + i * 34} width={[168, 122, 44][i]} height="16" rx="8" fill={i === 2 ? c.alt : c.line} opacity={i === 2 ? 0.75 : 0.35} />
+          ))}
+          <path d="M110 56v124" stroke="hsl(0 70% 60% / .7)" strokeWidth="1.2" strokeDasharray="5 6" />
+          <circle cx="252" cy="120" r="17" fill="none" stroke={c.line} strokeWidth="1.3" strokeDasharray="4 5" />
+        </>
+      )
+    case 'meter':
+      return (
+        <>
+          <path d="M64 176a96 96 0 0 1 192 0" fill="none" stroke={c.soft} strokeWidth="10" strokeLinecap="round" />
+          <path d="M64 176a96 96 0 0 1 118-92" fill="none" stroke={c.line} strokeWidth="10" strokeLinecap="round" />
+          <path d="M160 176L206 106" stroke={P} strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="160" cy="176" r="5" fill={P} />
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <circle key={i} cx={92 + i * 27} cy={206} r={i < 4 ? 5 : 3} fill="none" stroke={i < 4 ? c.alt : c.soft} strokeWidth="1.2" />
+          ))}
+        </>
+      )
+    case 'hub':
+      return (
+        <>
+          <circle cx="160" cy="120" r="26" fill={c.fill} stroke={c.line} strokeWidth="1.5" />
+          <circle cx="160" cy="120" r="7" fill={c.alt} />
+          {Array.from({ length: 8 }).map((_, i) => {
+            const a = (i / 8) * Math.PI * 2 - Math.PI / 2
+            const x = 160 + Math.cos(a) * 84
+            const y = 120 + Math.sin(a) * 84
+            return (
+              <g key={i}>
+                <path d={`M${160 + Math.cos(a) * 26} ${120 + Math.sin(a) * 26}L${x} ${y}`} stroke={c.soft} strokeWidth="1" />
+                <circle cx={x} cy={y} r="7" fill="none" stroke={i % 3 === 0 ? c.line : c.soft} strokeWidth="1.2" />
+              </g>
+            )
+          })}
+        </>
+      )
+    case 'fwgrid':
+      return (
+        <>
+          {Array.from({ length: 90 }).map((_, i) => {
+            const x = 44 + (i % 15) * 16
+            const y = 62 + Math.floor(i / 15) * 22
+            const blocked = i === 41 || i === 42 || i === 57 || i === 72
+            const open = i === 33 || i === 60
+            return blocked ? (
+              <path key={i} d={`M${x - 3} ${y - 3}l7 7M${x + 4} ${y - 3}l-7 7`} stroke="hsl(4 72% 58%)" strokeWidth="1.4" />
+            ) : (
+              <circle key={i} cx={x} cy={y} r={open ? 3 : 1.7} fill={open ? c.line : c.soft} />
+            )
+          })}
+          <path d="M160 44l52 18v44c0 30-24 48-52 56-28-8-52-26-52-56V62z" fill="none" stroke={c.line} strokeWidth="1.2" opacity=".55" />
+        </>
+      )
+    case 'slabs':
+      return (
+        <>
+          {[0, 1, 2, 3].map((i) => (
+            <g key={i} opacity={0.35 + i * 0.18}>
+              <path d={`M${52 + i * 26} ${168 - i * 26}l62-30 62 30-62 30z`} fill={i === 3 ? c.fill : 'none'} stroke={i === 3 ? c.line : c.soft} strokeWidth="1.2" />
+            </g>
+          ))}
+          <path d="M74 196l62-30 62 30" fill="none" stroke={c.alt} strokeWidth="1.2" strokeDasharray="4 6" />
+        </>
+      )
+    case 'seal':
+      return (
+        <>
+          <circle cx="160" cy="118" r="66" fill="none" stroke={c.line} strokeWidth="1.4" strokeDasharray="14 8" />
+          <circle cx="160" cy="118" r="50" fill="none" stroke={c.soft} />
+          <path d="M146 132l-22-14v-16l22-14 22 14v16z" fill="none" stroke={P} strokeWidth="1.5" />
+          <path d="M156 108h8M160 104v8" stroke={P} strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M232 168l16 26h-32z" fill="none" stroke="hsl(38 90% 62%)" strokeWidth="1.5" />
+          <path d="M232 180v8M232 192v.8" stroke="hsl(38 90% 62%)" strokeWidth="1.8" strokeLinecap="round" />
+        </>
+      )
+    case 'tree':
+      return (
+        <>
+          <path d="M50 196V96m0 34h44m-44 34h44" stroke={c.soft} strokeWidth="1.2" />
+          {[['140', '72'], ['140', '130'], ['140', '188']].map(([x, y], i) => (
+            <g key={i}>
+              <path d={`M94 ${i === 0 ? 72 : i === 1 ? 130 : 188}H${x}`} stroke={c.soft} strokeWidth="1.2" />
+              <circle cx={Number(x)} cy={Number(y)} r="5" fill={i === 1 ? c.line : 'none'} stroke={i === 1 ? c.line : c.soft} strokeWidth="1.3" />
+            </g>
+          ))}
+          <path d="M193 130h48m-48 58h48" stroke={c.soft} strokeWidth="1.1" />
+          <circle cx="248" cy="130" r="4" fill="none" stroke={c.alt} strokeWidth="1.3" />
+          <circle cx="248" cy="188" r="4" fill="none" stroke={c.alt} strokeWidth="1.3" />
+          <circle cx="50" cy="96" r="6" fill={c.fill} stroke={c.line} strokeWidth="1.4" />
+        </>
+      )
+  }
+  return null
+}
+
+/** 场景重心 → 缩放/位移，让 23 张卡不重样 */
+function place(anchor: Anchor): string {
+  switch (anchor) {
+    case 'tr': return 'translate(14 -6) scale(0.92)'
+    case 'br': return 'translate(6 12) scale(0.96)'
+    case 'center': return 'translate(0 4)'
+    case 'left': return 'translate(-8 6) scale(1.02)'
+    case 'right': return 'translate(10 2) scale(1.01)'
+    default: return 'translate(0 0)'
+  }
+}
+
+/** 角落刻度线，让画面有版式感 */
+function rails(h: number, seed: number) {
+  const o = (seed % 3) * 4
+  return (
+    <g stroke={`hsl(${h} 55% 70% / .18)`} strokeWidth="1">
+      <path d={`M${16 + o} 18v10M${16 + o} 18h10`} />
+      <path d={`M${W - 16 - o} ${H - 18}v-10M${W - 16 - o} ${H - 18}h-10`} />
+      <path d={`M16 ${H / 2}h6`} />
+      <path d={`M${W - 22} ${H / 2}h6`} />
+    </g>
+  )
+}
+
 export function ServiceCover({ svc }: { svc: ServiceRec }) {
   const c = coverSpecOf(svc)
-  const style = { '--svc-hue': String(c.hue) } as CSSProperties
+  const seed = svc.id.length * 7 + svc.id.charCodeAt(0)
+  const style = { '--svc-hue': String(c.hue), '--svc-hue2': String(c.hue2) } as CSSProperties
+
   if (c.img) {
     const url = `url(${asset(c.img)})`
     return (
       <div className="svc-cover is-img" style={style} aria-hidden="true">
         <span className="svc-cover-fill" style={{ backgroundImage: url }} />
         <span className="svc-cover-sharp" style={{ backgroundImage: url }} />
+        <span className="svc-wash" />
       </div>
     )
   }
+
   return (
     <div className="svc-cover" style={style} aria-hidden="true">
-      <svg className="svc-wm" viewBox="0 0 24 24">{c.glyph}</svg>
-      <span className="svc-badge">
-        <svg viewBox="0 0 24 24">{c.glyph}</svg>
+      <svg className="svc-scene" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id={`bg-${svc.id}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={`hsl(${c.hue} 34% 12%)`} />
+            <stop offset="58%" stopColor={`hsl(${c.hue2} 30% 8%)`} />
+            <stop offset="100%" stopColor="hsl(30 14% 5%)" />
+          </linearGradient>
+          <radialGradient id={`bloom-${svc.id}`} cx="0.66" cy="0.42" r="0.62">
+            <stop offset="0%" stopColor={`hsl(${c.hue} 80% 58% / .30)`} />
+            <stop offset="60%" stopColor={`hsl(${c.hue2} 70% 50% / .10)`} />
+            <stop offset="100%" stopColor="hsl(0 0% 0% / 0)" />
+          </radialGradient>
+        </defs>
+        <rect width={W} height={H} fill={`url(#bg-${svc.id})`} />
+        <rect width={W} height={H} fill={`url(#bloom-${svc.id})`} />
+        <g opacity=".5">
+          <circle cx={c.anchor === 'right' || c.anchor === 'tr' ? 250 : 90} cy="240" r="176"
+            fill="none" stroke={`hsl(${c.hue2} 60% 60% / .16)`} strokeWidth="1" />
+          <circle cx={c.anchor === 'right' || c.anchor === 'tr' ? 250 : 90} cy="240" r="206"
+            fill="none" stroke={`hsl(${c.hue} 60% 66% / .1)`} strokeWidth="1" strokeDasharray="2 10" />
+        </g>
+        {rails(c.hue, seed)}
+        <g transform={place(c.anchor)} opacity=".96">{scene(c.motif, c.hue, c.hue2)}</g>
+      </svg>
+      <span className="svc-grain" />
+      <span className="svc-index">{svc.id.slice(0, 3).toUpperCase()}</span>
+      <span className="svc-rail">
+        {c.tag ? <b>{c.tag}</b> : null}
+        {c.notes.map((n, i) => <i key={i}>{n}</i>)}
       </span>
-      <span className="svc-word" style={{ fontSize: wordSize(c.word) }}>{c.word}</span>
-      {c.tag ? <span className="svc-tag">{c.tag}</span> : null}
     </div>
   )
 }

@@ -67,66 +67,64 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 56px 0 32px;
   overflow: hidden;
-  background: radial-gradient(125% 105% at 50% 6%, hsl(var(--svc-hue) 42% 19%) 0%, #0e0b09 62%, #080706 100%);
+  background: #0b0a08;
   transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.svc-tile:hover .svc-cover { transform: scale(1.035); }
+.svc-tile:hover .svc-cover { transform: scale(1.03); }
 
-/* 右下角一枚放大到 20% 的同款图标当纹理，远看是底纹，近看才认得出 */
-.svc-wm {
+/* 场景：每台服务一张现画的 SVG 小海报，铺满整张卡 */
+.svc-scene {
   position: absolute;
-  right: -17%;
-  bottom: -27%;
-  width: 200px;
-  height: 200px;
-  fill: none;
-  stroke: hsl(var(--svc-hue) 62% 62%);
-  stroke-width: 1;
-  opacity: 0.2;
-  transform: rotate(-8deg);
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-.svc-badge {
-  display: grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  background: linear-gradient(160deg, hsl(var(--svc-hue) 70% 68%), hsl(var(--svc-hue) 58% 52%));
-  box-shadow: 0 20px 46px -16px hsl(var(--svc-hue) 60% 50% / 0.6);
+
+/* 胶片颗粒，让平涂渐变看起来像照片 */
+.svc-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
 }
-.svc-badge svg {
-  width: 26px;
-  height: 26px;
-  fill: none;
-  stroke: #181210;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+
+/* 右上角编号 + 右侧竖排注脚，像一张被排版过的图 */
+.svc-index {
+  position: absolute;
+  top: 13px;
+  right: 14px;
+  font: 500 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 1.8px;
+  color: hsl(var(--svc-hue) 30% 76% / 0.5);
 }
-.svc-word {
-  position: relative;
-  padding: 0 12px;
-  font-family: Georgia, 'Times New Roman', serif;
-  letter-spacing: 0.3px;
-  line-height: 1;
-  text-align: center;
-  color: #f7f2e9;
-}
-.svc-tag {
-  position: relative;
-  padding: 0 16px;
-  font-size: 8.5px;
-  letter-spacing: 3px;
-  text-align: center;
+.svc-rail {
+  position: absolute;
+  top: 46px;
+  right: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  max-height: calc(100% - 96px);
+  writing-mode: vertical-rl;
+  font: 400 8.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 1.7px;
   text-transform: uppercase;
-  color: hsl(var(--svc-hue) 24% 62%);
+  pointer-events: none;
+}
+.svc-rail b {
+  font-weight: 500;
+  letter-spacing: 2.4px;
+  color: hsl(var(--svc-hue) 30% 78% / 0.6);
+}
+.svc-rail i {
+  font-style: normal;
+  color: hsl(var(--svc-hue2) 22% 74% / 0.4);
 }
 
 /* 真实横幅：虚化铺底 + 原图居中，宽图也不会把字裁掉 */
@@ -332,4 +330,15 @@
 .svc-del-list {
   margin: 0 0 8px; padding-left: 18px;
   font-size: 12.5px; color: var(--muted); max-height: 140px; overflow-y: auto;
+}
+
+/* 图片卡：叠一层同色系洗色，免得照片跟旁边的手绘卡不是一个色温 */
+.svc-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(205deg, hsl(var(--svc-hue) 62% 46% / 0.26), transparent 58%),
+    radial-gradient(120% 90% at 72% 24%, hsl(var(--svc-hue2) 66% 42% / 0.2), transparent 62%);
+  mix-blend-mode: soft-light;
 }
