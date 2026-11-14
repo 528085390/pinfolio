@@ -66,7 +66,6 @@ const IMG: Record<string, string> = {
   'english-practice-machine': 'covers/epm.webp',
   pic: 'covers/pic.webp',
   pinfodemo: 'covers/pinfodemo.webp',
-  ocapi2os: 'covers/ocapi2os.webp',
 }
 
 
