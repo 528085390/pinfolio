@@ -67,7 +67,6 @@ const IMG: Record<string, string> = {
   pic: 'covers/pic.webp',
   pinfodemo: 'covers/pinfodemo.webp',
   ocapi2os: 'covers/ocapi2os.webp',
-  ocapi2oj: 'covers/ocapi2oj.webp',
 }
 
 
