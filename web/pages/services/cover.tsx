@@ -64,6 +64,10 @@ const IMG: Record<string, string> = {
   hy2cert: 'covers/hy2cert.webp',
   doctree: 'covers/doctree.webp',
   'english-practice-machine': 'covers/epm.webp',
+  pic: 'covers/pic.webp',
+  pinfodemo: 'covers/pinfodemo.webp',
+  ocapi2os: 'covers/ocapi2os.webp',
+  ocapi2oj: 'covers/ocapi2oj.webp',
 }
 
 
@@ -79,11 +83,13 @@ const ZOOM: Record<string, [number, string]> = {
   bank: [168, '50% 34%'],
   si: [172, '50% 28%'],
   sub2api: [170, '0% 4%'],
+  pic: [150, '50% 18%'],
+  pinfodemo: [168, '0% 8%'],
 }
 /** 宽横幅（3:1 那种）用「模糊铺底 + 居中完整显示」，截图（4:3）用 cover 铺满 */
 const WIDE = new Set(['apicdemo'])
 /** 封面是 public/ 下的定名文件，换图后靠这个版本号让浏览器重新拉 */
-const COVER_V = '20261114f'
+const COVER_V = '20261114g'
 const asset = (p: string) => `${import.meta.env.BASE_URL || '/'}${p}?v=${COVER_V}`
 
 const KIND_HUE: Record<string, number> = { project: 18, service: 198, site: 268, script: 152, task: 10 }
