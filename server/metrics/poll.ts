@@ -3,7 +3,7 @@ import { t } from '../i18n.js'
 import { metricsConfig } from './config.js'
 import { pruneOld, saveSample } from './store.js'
 
-// 拉取：每台机一个 JSON，本机每 5 分钟全拉一遍。
+// 拉取：每台机一个 JSON，本机每 1 分钟全拉一遍。
 //
 // 两种指标源（base 的形式决定走哪条，2026-11-09 加 SSH）：
 //   · ssh:<目录>   —— 例如 ssh:/var/lib/node-metrics。用本机 ssh 客户端
@@ -14,10 +14,10 @@ import { pruneOld, saveSample } from './store.js'
 // 拉取失败不清空已有数据 —— 页面靠 staleSec 自己判断新旧，比删数据好。
 export type PollResult = { at: number; ok: number; failed: { id: string; error: string }[] }
 
-const POLL_MS = 5 * 60 * 1000
-// 页面每次刷新都会顺带催一次拉取，但真正的数据 5 分钟才更新一次，
-// 所以这里卡 4 分钟：定时器（5 分钟）永远能过，页面刷新基本白跑一趟，不额外打指标源。
-const MIN_GAP_MS = 4 * 60 * 1000
+const POLL_MS = 60 * 1000
+// 页面每次刷新都会顺带催一次拉取，但真正的数据 1 分钟才更新一次，
+// 所以这里卡 45 秒：定时器（1 分钟）永远能过，页面刷新基本白跑一趟，不额外打指标源。
+const MIN_GAP_MS = 45 * 1000
 const FETCH_TIMEOUT_MS = 8000
 // SSH 要建连接 + 跑一条 cat，比 HTTP 慢一个量级；15 秒够连上东京/俄勒冈的机器
 const SSH_TIMEOUT_MS = 15000
@@ -43,13 +43,23 @@ export function sshTargetOf(host: { id: string; address?: string }): string {
   return target
 }
 
-/** 一条 ssh 把对端那台机的 JSON cat 回来；失败时把 ssh 的 stderr 末行当错误信息（好排错）。 */
-function readViaSsh(target: string, dir: string, id: string): Promise<string> {
+/** 把路径安全地拼进远端 sh 命令（路径来自管理员配置，仍不裸拼）。 */
+function shellQuote(v: string): string {
+  return "'" + String(v).replace(/'/g, "'\\''") + "'"
+}
+
+/** 一条 ssh 把对端那台机的 JSON cat 回来；refresh=true 时先让本机 timer 立即跑一次采集。 */
+function readViaSsh(target: string, dir: string, id: string, refresh = false): Promise<string> {
   const file = String(dir || '').replace(/\/+$/, '') + '/' + id + '.json'
+  // systemctl start 会等 oneshot 采集完再返回；sudo 不可用时静默退回读旧快照，
+  // 不把「没有免密 sudo」误报成拉取失败。
+  const remote = refresh
+    ? `sudo -n systemctl start node-metrics.service >/dev/null 2>&1 || true; cat ${shellQuote(file)}`
+    : `cat ${shellQuote(file)}`
   return new Promise((resolve, reject) => {
     execFile(
       'ssh',
-      ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', '-o', 'StrictHostKeyChecking=accept-new', target, 'cat', file],
+      ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', '-o', 'StrictHostKeyChecking=accept-new', target, remote],
       { timeout: SSH_TIMEOUT_MS, windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) {
@@ -67,7 +77,7 @@ function readViaSsh(target: string, dir: string, id: string): Promise<string> {
   })
 }
 
-export async function pollAll(force = false): Promise<PollResult> {
+export async function pollAll(force = false, collectFirst = false): Promise<PollResult> {
   if (inflight) return inflight
   const cfg = metricsConfig()
   if (!cfg.base) {
@@ -88,7 +98,7 @@ export async function pollAll(force = false): Promise<PollResult> {
         try {
           let j: any
           if (sshMode) {
-            j = JSON.parse(await readViaSsh(sshTargetOf(h), sshDir, h.id))
+            j = JSON.parse(await readViaSsh(sshTargetOf(h), sshDir, h.id, collectFirst))
           } else {
             const res = await fetch(cfg.base + encodeURIComponent(h.id) + '.json', {
               signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -126,7 +136,7 @@ export async function pollAll(force = false): Promise<PollResult> {
 let bootTimer: NodeJS.Timeout | null = null
 let timer: NodeJS.Timeout | null = null
 
-/** 关服务时调：停掉开机首拉与 5 分钟周期（重复调用无害）。 */
+/** 关服务时调：停掉开机首拉与 1 分钟周期（重复调用无害）。 */
 export function stopMetricsPoller(): void {
   if (bootTimer) clearTimeout(bootTimer)
   if (timer) clearInterval(timer)
@@ -135,7 +145,7 @@ export function stopMetricsPoller(): void {
 }
 
 /**
- * 服务启动时挂上：开机 3 秒拉一次，之后每 5 分钟一次。
+ * 服务启动时挂上：开机 3 秒拉一次，之后每 1 分钟一次。
  * 返回 stop（startServer 收集起来、close() 时调）；已经在跑时不会再挂第二份。
  */
 export function startMetricsPoller(): () => void {

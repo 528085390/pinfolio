@@ -77,7 +77,7 @@
 
 ### 主机
 - 6 台服务器的 **CPU / 内存 / 负载 / 磁盘 / 服务状态**汇总在一页：每台一张卡，四格读数 + 24 小时曲线 + 磁盘条 + 关注服务的 chip，`failed_units` 与在线状态一眼可见。
-- 采集端在**每台服务器自己身上**（`tools/node-metrics/`，systemd timer 每 5 分钟跑一次、跑完即退，零常驻），数据推到一台公网机的 nginx 落盘，本机每 5 分钟拉回来存进 SQLite。
+- 采集端在**每台服务器自己身上**（`tools/node-metrics/`，systemd timer 每 1 分钟跑一次、跑完即退，零常驻），数据推到一台公网机的 nginx 落盘，本机每 1 分钟拉回来存进 SQLite。
 - 5 分钟没更新就标「N 分钟前」、超过 15 分钟算陈旧；「立即拉取」手动催一次。
 - 细节（字段、安装、回滚、为什么不上 Prometheus）：[`docs/features.zh.md`](docs/features.zh.md#主机指标) 与 [`tools/node-metrics/README.md`](tools/node-metrics/README.md)。
 

@@ -10,7 +10,7 @@
 #   sudo bash /tmp/node-metrics-install.sh <METRICS_URL> <HOST_ID> [WATCH_UNITS] [DISK_PATHS]
 #
 # 参数含义与 install.sh 完全一致：METRICS_URL 形如 https://<host>/metrics-ingest/<TOKEN>
-# 源文件指纹：219b90fc38a7a409
+# 源文件指纹：3677ebde76a8e258
 set -euo pipefail
 
 if [ "$(id -u)" != "0" ]; then
@@ -33,7 +33,7 @@ cat > "$SRC/install.sh" <<'NODE_METRICS__INSTALL_SH__EOF'
 #   DISK_PATHS   = "/ /mnt/data" 空格分隔，默认 "/"
 #
 # 装完：脚本 /usr/local/bin/node-metrics.sh、配置 /etc/node-metrics.conf、
-#       node-metrics.timer（每 5 分钟）→ 立刻跑一次并打印结果。
+#       node-metrics.timer（每 1 分钟）→ 立刻跑一次并打印结果。
 set -euo pipefail
 
 URL="${1:-}"
@@ -88,7 +88,7 @@ cat > "$SRC/node-metrics.sh" <<'NODE_METRICS__NODE_METRICS_SH__EOF'
 #   · METRICS_URL 留空 → 同 file:// 默认目录（/var/lib/node-metrics）
 #
 # 设计约束（2026-10-22 定，别破坏）：
-#   · 零常驻：由 node-metrics.timer 每 5 分钟拉起一次，跑完即退，内存峰值几 MB
+#   · 零常驻：由 node-metrics.timer 每 1 分钟拉起一次，跑完即退，内存峰值几 MB
 #   · 零依赖：只要 bash + coreutils（落盘模式连 curl 都不需要）
 #   · 配置在 /etc/node-metrics.conf（METRICS_URL / HOST_ID / WATCH_UNITS / DISK_PATHS）
 #   · 落盘模式只写一处：<METRICS_URL 的目录>/<HOST_ID>.json（先写临时文件再原子 mv）
@@ -288,13 +288,13 @@ NODE_METRICS__NODE_METRICS_SERVICE__EOF
 # ── node-metrics.timer ──
 cat > "$SRC/node-metrics.timer" <<'NODE_METRICS__NODE_METRICS_TIMER__EOF'
 [Unit]
-Description=每 5 分钟上报一次本机指标（node-metrics）
+Description=每 1 分钟上报一次本机指标（node-metrics）
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
-AccuracySec=30s
-RandomizedDelaySec=20s
+OnUnitActiveSec=1min
+AccuracySec=10s
+RandomizedDelaySec=5s
 Persistent=false
 Unit=node-metrics.service
 

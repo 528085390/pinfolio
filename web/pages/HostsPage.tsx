@@ -79,7 +79,7 @@ function HostsPageReal({ onSummary, onOpenAsset }: HostsPageProps) {
             </>
           ) : null}
           <span className="host-sum-sep">·</span>
-          <span className="host-sum-dim">{t('每 5 分钟采集一次')}</span>
+          <span className="host-sum-dim">{t('每 1 分钟采集一次')}</span>
           {H.data?.polledAt ? (
             <>
               <span className="host-sum-sep">·</span>

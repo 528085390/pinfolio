@@ -28,7 +28,7 @@ export const shell: Dict = {
   'Kuma 探测后端 · 每 30 秒刷新': 'Kuma probe backend · refreshes every 30s',
   '{up}/{total} 正常': '{up}/{total} up',
   '{n} 异常': (v) => `${v.n} down`,
-  '服务器指标 · 每 5 分钟采集': 'Server metrics · collected every 5 min',
+  '服务器指标 · 每 1 分钟采集': 'Server metrics · collected every minute',
   '{up}/{total} 在线': '{up}/{total} online',
   '{n} 台暂停': (v) => `${v.n} paused`,
   '{n} 台陈旧': (v) => `${v.n} stale`,

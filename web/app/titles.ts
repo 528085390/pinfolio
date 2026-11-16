@@ -42,7 +42,7 @@ export function pageSubtitle(
     )
   }
   if (page === 'hosts') {
-    if (!s.host || !s.host.total) return t('服务器指标 · 每 5 分钟采集')
+    if (!s.host || !s.host.total) return t('服务器指标 · 每 1 分钟采集')
     return dot(
       t('{up}/{total} 在线', { up: s.host.online, total: s.host.total }),
       s.host.paused ? t('{n} 台暂停', { n: s.host.paused }) : '',

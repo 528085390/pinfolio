@@ -8,7 +8,7 @@
 #   DISK_PATHS   = "/ /mnt/data" 空格分隔，默认 "/"
 #
 # 装完：脚本 /usr/local/bin/node-metrics.sh、配置 /etc/node-metrics.conf、
-#       node-metrics.timer（每 5 分钟）→ 立刻跑一次并打印结果。
+#       node-metrics.timer（每 1 分钟）→ 立刻跑一次并打印结果。
 set -euo pipefail
 
 URL="${1:-}"

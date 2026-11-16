@@ -89,7 +89,7 @@ export function OnboardModal({ hostId, onClose, onRefreshed }: {
                 time: new Date(data.firstSampleAt).toLocaleString(localeTag()),
                 ago: ago(data.staleSec),
               })
-              : t('还在等第一帧——装完 timer 会立刻跑一次，之后每 5 分钟一次')}
+              : t('还在等第一帧——装完 timer 会立刻跑一次，之后每 1 分钟一次')}
           </div>
           <div className="host-form-tip">
             {t('命令里带着采集 token（只在这个弹窗出现，不进列表接口、不进 SNAPSHOT）。')}

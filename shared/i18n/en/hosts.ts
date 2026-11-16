@@ -6,7 +6,7 @@ export const hosts: Dict = {
   // 工具栏
   '在线': 'Online',
   '{n} 台已暂停': (v) => `${v.n} paused`,
-  '每 5 分钟采集一次': 'Collected every 5 minutes',
+  '每 1 分钟采集一次': 'Collected every minute',
   '上次拉取 {ago}': 'Last fetched {ago}',
   '{n} 个样本': (v) => `${v.n} ${Number(v.n) === 1 ? 'sample' : 'samples'}`,
   '每 60 秒自动刷新本页': 'Auto refresh this page every 60 seconds',
@@ -114,8 +114,8 @@ export const hosts: Dict = {
   '复制命令': 'Copy command',
   '立即检查': 'Check now',
   '已收到首帧：{time}（{ago}）': 'First sample received: {time} ({ago})',
-  '还在等第一帧——装完 timer 会立刻跑一次，之后每 5 分钟一次':
-    'Still waiting for the first sample — the timer runs once right after install, then every 5 minutes',
+  '还在等第一帧——装完 timer 会立刻跑一次，之后每 1 分钟一次':
+    'Still waiting for the first sample — the timer runs once right after install, then every minute',
   '命令里带着采集 token（只在这个弹窗出现，不进列表接口、不进 SNAPSHOT）。':
     'The command carries the collection token (it only shows up in this dialog — not in the list API, not in SNAPSHOT).',
   '服务清单 {units}；磁盘 {disks}。': 'Services {units}; disks {disks}.',

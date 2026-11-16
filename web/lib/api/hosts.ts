@@ -1,6 +1,6 @@
 import { request } from './http'
 
-// 主机指标：数据由 6 台机各自的 systemd timer 推到 my-server，本服务每 5 分钟拉回来。
+// 主机指标：数据由 6 台机各自的 systemd timer 推到 my-server，本服务每 1 分钟拉回来。
 // 增 / 暂停 / 删都走写接口，服务端写回 data/metrics.json（唯一真相），成功后直接把新快照回给前端。
 export type HostDisk = { path: string; total: number; used: number; pct: number }
 export type HostTop = { comm: string; rss_kb: number }

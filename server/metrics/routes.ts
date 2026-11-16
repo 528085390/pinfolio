@@ -20,7 +20,7 @@ import type { MonitorRow } from '../monitor/types.js'
 // 数据来自 6 台机自己的 systemd timer，本服务只负责拉和存，不做任何主动探测。
 export const hostsRoute = new Hono()
 
-const STALE_SEC = 900 // 3 个采集周期没上报就当离线
+const STALE_SEC = 180 // 3 个采集周期（每 1 分钟）没上报就当离线
 const SERIES_SEC = 86400
 const monitorStore = new MonitorStore(db)
 
@@ -123,7 +123,8 @@ hostsRoute.get('/', async (c) => {
 
 hostsRoute.post('/refresh', async (c) => {
   if (!isJsonContentType(c.req.header('content-type'))) return c.json({ error: t('需要 application/json') }, 415)
-  await pollAll(true)
+  // 手动「立即拉取」不是只读缓存：先让每台采集端的 oneshot 立刻写一帧，再 ssh cat 回来。
+  await pollAll(true, true)
   return c.json(await buildPayload())
 })
 

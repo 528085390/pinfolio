@@ -1,7 +1,7 @@
 # node-metrics —— 在役 4 台服务器的采集端
 
-> 2026-10-22 建，**2026-11-09 改成本机文件 + SSH 拉取**。每 5 分钟采集一次本机 CPU / 内存 / 磁盘 / 网络流量 / TCP / 服务状态，
-> 写一份 JSON 到 `/var/lib/node-metrics/<HOST_ID>.json`；pinfolio（本机 7788）每 5 分钟 `ssh <别名> cat` 回来存 SQLite，
+> 2026-10-22 建，**2026-11-09 改成本机文件 + SSH 拉取**。每 1 分钟采集一次本机 CPU / 内存 / 磁盘 / 网络流量 / TCP / 服务状态，
+> 写一份 JSON 到 `/var/lib/node-metrics/<HOST_ID>.json`；pinfolio（本机 7788）每 1 分钟 `ssh <别名> cat` 回来存 SQLite，
 > 页面是 pinfolio 的「主机」页（`/hosts`）。
 >
 > 老方式（`METRICS_URL=https://…/metrics-ingest/<token>`，PUT 到别人家 nginx 的 `dav_methods PUT` 目录）在脚本里**仍然保留**：
@@ -9,7 +9,7 @@
 
 ## 为什么是这套
 
-- **服务器侧零常驻**：`node-metrics.timer` 每 5 分钟拉起一次 `node-metrics.sh`，跑 0.1–0.3 秒就退，峰值内存几 MB。
+- **服务器侧零常驻**：`node-metrics.timer` 每 1 分钟拉起一次 `node-metrics.sh`，跑 0.1–0.3 秒就退，峰值内存几 MB。
   对比 node_exporter + Prometheus：每台常驻 15–25 MB、本机再加 200 MB，oj 只有 945 MB，装不起。
 - **零依赖**：落盘模式只要 bash + coreutils（连 curl 都不需要），不用 jq / python / 任何 agent。
 - **零公网面**：落盘模式不监听任何端口、不需要证书、不需要 nginx；拉取方向是 pinfolio 主动出站 SSH。
@@ -22,7 +22,7 @@
 | `node-metrics.sh` | 采集并落盘 / 上报。`--print` 只打印 JSON（排错用）；`METRICS_URL` 以 `file://` 开头或留空 → 写本机文件，`http(s)://` → PUT 上报。网络月度累计写在同目录的 `.HOST_ID.net` 状态文件 |
 | `install.sh` | 一次性安装：写 `/etc/node-metrics.conf`(600)、装脚本与 unit/timer、立刻跑一次 |
 | `node-metrics.service` | oneshot，`MemoryMax=32M` / `CPUQuota=20%` / `TimeoutStartSec=60` 兜底 |
-| `node-metrics.timer` | `OnBootSec=2min` + `OnUnitActiveSec=5min` + `AccuracySec=30s` + `RandomizedDelaySec=20s` |
+| `node-metrics.timer` | `OnBootSec=2min` + `OnUnitActiveSec=1min` + `AccuracySec=10s` + `RandomizedDelaySec=5s` |
 | `nginx-metrics.conf` | **已不用**（az 退役后没有接收端了），留着给将来换回 push 模式参考 |
 | `build-install.mjs` | 把 `install.sh` / `node-metrics.sh` / `.service` / `.timer` 内联成**单文件安装器** `node-metrics-install.sh`（`node build-install.mjs` 生成，`--check` 校验）；打包时把 CRLF 归一成 LF |
 | `node-metrics-install.sh` | 生成物：一个文件装完整套（公网可下载也**不带 token**，落盘模式根本没有 token） |
@@ -62,7 +62,7 @@ ls -l /var/lib/node-metrics/                          # 期望 <HOST_ID>.json，
 ssh -o BatchMode=yes <别名> cat /var/lib/node-metrics/<HOST_ID>.json
 ```
 
-4 台的时间戳不同步是**正常的**：`RandomizedDelaySec=20s` + `AccuracySec=30s` 故意错峰。
+4 台的时间戳不同步是**正常的**：`RandomizedDelaySec=5s` + `AccuracySec=10s` 故意错峰。
 
 ## 采集字段
 

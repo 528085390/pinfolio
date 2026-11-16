@@ -7,7 +7,7 @@
 #   · METRICS_URL 留空 → 同 file:// 默认目录（/var/lib/node-metrics）
 #
 # 设计约束（2026-10-22 定，别破坏）：
-#   · 零常驻：由 node-metrics.timer 每 5 分钟拉起一次，跑完即退，内存峰值几 MB
+#   · 零常驻：由 node-metrics.timer 每 1 分钟拉起一次，跑完即退，内存峰值几 MB
 #   · 零依赖：只要 bash + coreutils（落盘模式连 curl 都不需要）
 #   · 配置在 /etc/node-metrics.conf（METRICS_URL / HOST_ID / WATCH_UNITS / DISK_PATHS）
 #   · 落盘模式只写一处：<METRICS_URL 的目录>/<HOST_ID>.json（先写临时文件再原子 mv）

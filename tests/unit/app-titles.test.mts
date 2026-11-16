@@ -54,7 +54,7 @@ test('pageSubtitle：主机页在线数，陈旧台数按需出现', () => {
   assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: { total: 6, online: 6, stale: 0, paused: 0 } }), '6/6 在线')
   assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: { total: 6, online: 5, stale: 1, paused: 0 } }), '5/6 在线 · 1 台陈旧')
   assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: { total: 6, online: 4, stale: 0, paused: 2 } }), '4/6 在线 · 2 台暂停')
-  assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: null }), '服务器指标 · 每 5 分钟采集')
+  assert.equal(pageSubtitle('hosts', { stats: null, mailSum: null, mon: null, host: null }), '服务器指标 · 每 1 分钟采集')
 })
 
 test('pageSubtitle：服务页固定一句（不探测，所以没有数字）', () => {
