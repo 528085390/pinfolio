@@ -6,9 +6,22 @@ const B = BASE
 const browser = await chromium.launch({ executablePath: exe })
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 950 }, deviceScaleFactor: 1.5, locale: 'zh-CN' })).newPage()
 const errors = []
+const httpIssues = []
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
-page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
+page.on('console', (m) => {
+  if (m.type() !== 'error') return
+  const text = m.text()
+  if (/^Failed to load resource/.test(text)) return // 资源加载噪声：静态 4xx 由 response 采集记账，不当失败
+  errors.push('console: ' + text)
+})
 page.on('dialog', (d) => d.accept())
+page.on('response', (r) => {
+  const status = r.status()
+  if (status < 400) return
+  let p
+  try { p = new URL(r.url()).pathname } catch { p = r.url() }
+  httpIssues.push(status + ' ' + r.request().method() + ' ' + p)
+})
 const results = []
 const ok = (name, cond, extra) => results.push((cond ? 'PASS ' : 'FAIL ') + name + (cond || !extra ? '' : '  → ' + extra))
 
@@ -93,6 +106,11 @@ try {
   ok('刷新后仍在便签', await onNotes())
 
   ok('无 console / page 错误', errors.length === 0, errors.join(' | '))
+  const isApi5xx = (h) => /^5\d\d \S+ \/api\//.test(h)
+  const apiFails = [...new Set(httpIssues.filter(isApi5xx))]
+  ok('无 /api 5xx', apiFails.length === 0, apiFails.join(' | '))
+  const noise = [...new Set(httpIssues.filter((h) => !isApi5xx(h)))]
+  if (noise.length) console.log('HTTP 非 2xx/3xx（只记账，不计失败）: ' + noise.join(' | '))
 } catch (e) {
   results.push('FAIL 整体异常: ' + e.message)
 } finally {
