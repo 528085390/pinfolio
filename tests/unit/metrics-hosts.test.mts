@@ -218,3 +218,31 @@ test('patchHost：能改采集端参数，传空值就清掉', () => {
   assert.equal('units' in r.hosts[0], false)
   assert.equal('address' in r.hosts[0], false)
 })
+
+/* ---------------- 到期日（只做卡片展示，不影响采集） ---------------- */
+
+test('expires：合法 YYYY-MM-DD 保留，坏日期读配置时静默丢掉', () => {
+  const out = parseHosts([
+    { id: 'a', expires: '2027-01-31' },
+    { id: 'b', expires: '2027-02-30' },
+    { id: 'c', expires: '2027-1-1' },
+    { id: 'd', expires: 123 },
+  ])
+  assert.equal(out[0].expires, '2027-01-31')
+  assert.equal('expires' in out[1], false)
+  assert.equal('expires' in out[2], false)
+  assert.equal('expires' in out[3], false)
+})
+
+test('expires：新主机校验日期，patch 传空串清掉', () => {
+  const ok = normalizeHostInput({ id: 'a', expires: ' 2027-12-31 ' })
+  if (!ok.ok) assert.fail(ok.error)
+  assert.equal(ok.host.expires, '2027-12-31')
+  const bad = normalizeHostInput({ id: 'a', expires: '2026-02-30' })
+  assert.equal(bad.ok, false)
+  assert.equal((bad as any).error, '到期日期格式应为 YYYY-MM-DD')
+  const r = patchHost([{ id: 'a', label: 'a', note: '', expires: '2027-01-01' }], 'a', { expires: '' })
+  if (!r.ok) assert.fail(r.error)
+  assert.equal('expires' in r.hosts[0], false)
+})
+

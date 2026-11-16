@@ -1,6 +1,34 @@
-/* 主机指标页：每台服务器一张卡，CPU/内存/负载/磁盘/服务/进程一屏看完。
-   数据来自 6 台机自己的 systemd timer（tools/node-metrics/），本页只做展示。 */
+/* 主机指标页：照 Nezha 主机卡做的紧凑版。
+   卡片是低不透明度的冷白玻璃，数据压成单行标签/数值 + 细色条，探针只留底部一条心跳色带。 */
 
+.page-hosts {
+  --host-card-bg: #f8fbff;
+  --host-glass-bg: rgba(248, 251, 255, 0.52);
+  --host-border: rgba(255, 255, 255, 0.56);
+  --host-divider: rgba(255, 255, 255, 0.22);
+  --host-cpu: #5b8f65;
+  --host-mem: #7b72b8;
+  --host-disk: #b98543;
+  --host-info: #6f8fcc;
+  --host-shadow: 0 1px 2px rgba(20, 30, 24, 0.025), 0 12px 28px -26px rgba(20, 40, 24, 0.22);
+  --host-shadow-hover: 0 2px 5px rgba(20, 30, 24, 0.035), 0 20px 38px -30px rgba(20, 40, 24, 0.3);
+  font-family: "Noto Sans SC", "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+[data-theme='dark'] .page-hosts {
+  --host-card-bg: #222326;
+  --host-glass-bg: rgba(29, 30, 32, 0.66);
+  --host-border: rgba(255, 255, 255, 0.075);
+  --host-divider: rgba(255, 255, 255, 0.09);
+  --host-cpu: #82c58e;
+  --host-mem: #a79be0;
+  --host-disk: #d6a563;
+  --host-info: #9fb6df;
+  --host-shadow: 0 2px 6px rgba(0, 0, 0, 0.28), 0 18px 34px -30px rgba(0, 0, 0, 0.8);
+  --host-shadow-hover: 0 3px 8px rgba(0, 0, 0, 0.34), 0 24px 42px -32px rgba(0, 0, 0, 0.9);
+}
+
+/* ---------- 顶部工具条 ---------- */
 .host-toolbar {
   display: flex;
   align-items: center;
@@ -13,15 +41,25 @@
   align-items: baseline;
   flex-wrap: wrap;
   row-gap: 2px;
-  gap: 6px;
+  gap: 7px;
   font-size: 13px;
   color: var(--muted);
   min-width: 0;
 }
 .host-sum > span { white-space: nowrap; }
+.host-live-dot {
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 14%, transparent);
+}
 .host-sum-num {
-  font-family: var(--font-display);
-  font-size: 22px;
+  font-family: var(--font-sans);
+  font-size: 21px;
+  font-weight: 650;
   line-height: 1;
   color: var(--ink);
   letter-spacing: -0.01em;
@@ -54,257 +92,214 @@
 .host-auto.is-on { color: var(--ink-2); border-color: var(--accent-ring); background: var(--accent-soft); }
 .host-auto.is-on .host-auto-dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); }
 
+/* ---------- 网格：4 列时卡片约 371px，和参考图比例接近 ---------- */
 .host-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.host-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  padding: 13px 15px 12px;
-  min-width: 0;
-  /* 纵向 flex：内容（行数因盘数 / 有无探针而不同）之上，靠 .host-bottom 的 auto 上边距
-     把富余空间吃在中间，同一排卡片的曲线与底栏才会对齐 */
-  display: flex;
-  flex-direction: column;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.host-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
-.host-card.is-off { border-style: dashed; background: var(--surface-2); }
-.host-card.is-off .host-figs b { color: var(--muted); }
-
-.host-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.host-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: none;
-  background: var(--line-strong);
-}
-.host-dot.is-on { background: var(--ok); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); }
-.host-dot.is-off { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
-.host-name {
-  font-family: var(--font-display);
-  font-size: 16px;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-.host-note {
-  font-size: 12px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.host-ago { margin-left: auto; font-size: 11.5px; color: var(--muted); flex: none; }
-
-.host-nodata { padding: 22px 0 18px; font-size: 13px; color: var(--muted); text-align: center; }
-
-/* 抬头下面那一行硬件信息：机房 · 系统 · 负载，用 · 分隔 */
-.host-meta {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 2px 0;
-  margin-top: 7px;
-  font-size: 11.5px;
-  color: var(--muted);
-  min-width: 0;
-}
-.host-meta > span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-.host-meta > span + span::before {
-  content: '·';
-  margin: 0 6px;
-  color: var(--line-strong);
-}
-.host-region { color: var(--ink-2); }
-.host-meta-bad { color: var(--danger); }
-
-/* 厂商徽标（ORACLE / AZURE / AWS…），小号大写字 */
-.host-vendor {
-  flex: none;
-  font-size: 9.5px;
-  line-height: 1;
-  letter-spacing: 0.06em;
-  padding: 3px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-  color: var(--ink-2);
-}
-
-/* 三条占用：一行「标签 + 补充数字 + 百分比」，下面一条 4px 细进度条 */
-.host-meters {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 22px;
+  max-width: 1570px;
   margin-top: 12px;
+  align-items: stretch;
 }
-.host-meter {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: baseline;
-  column-gap: 8px;
-  row-gap: 3px;
-  min-width: 0;
-}
-.host-meter-label {
-  font-size: 11.5px;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.host-meter-note {
-  font-size: 10.5px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: right;
-}
-.host-meter-val {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.host-meter-val.tone-warn { color: var(--warn); }
-.host-meter-val.tone-bad { color: var(--danger); }
-.host-meter-track {
-  grid-column: 1 / -1;
-  display: block;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-.host-meter-track > i {
-  display: block;
+
+/* ---------- 卡片外壳 ---------- */
+.host-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  border-radius: 999px;
-  background: var(--ok);
-}
-.host-meter-track > i.tone-warn { background: var(--warn); }
-.host-meter-track > i.tone-bad { background: var(--danger); }
-
-/* 曲线 + 底栏这一块贴卡底：多盘卡多出来的几行不会把曲线顶下去 */
-.host-bottom { margin-top: auto; }
-
-.host-spark {
-  display: block;
-  width: 100%;
-  height: 34px;
-  margin: 10px 0 2px;
-}
-.host-spark.is-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--muted);
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  height: 34px;
-}
-.host-spark polyline { stroke-linecap: round; stroke-linejoin: round; }
-.host-spark .sp-cpu { stroke: var(--accent); stroke-width: 1.5; }
-.host-spark .sp-mem { stroke: var(--muted); stroke-width: 1; opacity: 0.6; }
-
-/* 探针行：延迟 / 丢包 / 最近 24 拍色条（色条就是观测台那份组件） */
-.host-probe {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 11px;
-  padding-top: 9px;
-  border-top: 1px dashed var(--line);
-  font-size: 11.5px;
-  color: var(--muted);
   min-width: 0;
+  padding: 18px 18px 12px;
+  border: 1px solid var(--host-border);
+  border-radius: 20px;
+  background-color: var(--host-card-bg);
+  box-shadow: var(--host-shadow);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
-.host-probe-item { display: inline-flex; align-items: baseline; gap: 4px; flex: none; }
-.host-probe-item em { font-style: normal; color: var(--muted); }
-.host-probe-item b {
-  color: var(--ink-2);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.host-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
-.host-probe .monitor-beats { flex: 1 1 auto; height: 14px; min-width: 40px; }
+[data-theme='dark'] .host-card::after { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035); }
+/* glass.css 在最后加载；这里用更高优先级把主机卡固定成低不透明度冷白玻璃。 */
+[data-style='glass'][data-wallpaper='on'] .page-hosts .host-card {
+  background-color: var(--host-glass-bg);
+  -webkit-backdrop-filter: blur(18px) brightness(1.22) saturate(106%);
+  backdrop-filter: blur(18px) brightness(1.22) saturate(106%);
+}
+.host-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--host-cpu) 14%, var(--host-border));
+  box-shadow: var(--host-shadow-hover);
+}
+.host-card.is-off { opacity: 0.93; }
+.host-card.is-off .host-orbit { --ring: var(--muted); }
+.host-card.is-paused { background-color: color-mix(in srgb, var(--host-card-bg) 90%, var(--surface-3)); }
+.host-card.is-paused .host-name { color: var(--muted); }
+.host-card.is-paused .host-orbit { --ring: var(--warn); }
 
-.host-foot {
+/* ---------- 抬头 ---------- */
+.host-card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 11px;
-  padding-top: 9px;
-  border-top: 1px solid var(--line);
+  gap: 7px;
+  padding-bottom: 8px;
+}
+.host-ident { display: flex; align-items: flex-start; gap: 7px; min-width: 0; flex: 1 1 auto; }
+.host-flag {
+  flex: none;
+  width: 23px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  padding-top: 1px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.host-flag svg { display: block; width: 23px; height: 16px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(20, 30, 24, 0.06); }
+.host-flag-code { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+.host-ident-main { min-width: 0; }
+.host-name-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.host-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.host-subline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin-top: 4px;
   font-size: 11px;
   color: var(--muted);
-  min-width: 0;
 }
-.host-foot-os { flex: none; }
-/* top 3 进程不截成「…」：最多换两行，行数一致（两行高），超出才省略 */
-.host-foot-top {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  line-height: 1.5;
-  text-align: right;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  min-height: calc(2 * 1.5 * 10.5px);
-}
-
-/* 暂停的主机：卡片保留、灰掉，不参与在线统计，也不算离线 */
-.host-card.is-paused { border-style: dashed; background: var(--surface-2); }
-.host-card.is-paused .host-figs b,
-.host-card.is-paused .host-name { color: var(--muted); }
-.host-dot.is-paused { background: var(--warn); box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12); }
-.host-pause-tag {
-  font-size: 10.5px;
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted);
-  background: var(--surface);
+.host-vendor {
   flex: none;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
 }
+.host-sub-item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.host-sub-item + .host-sub-item::before {
+  content: '·';
+  margin-right: 5px;
+  color: var(--line-strong);
+}
+.host-state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border-radius: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--muted);
+  background: none;
+}
+.host-state i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.host-state.is-on { color: var(--ok); background: none; }
+.host-state.is-off { color: var(--danger); background: none; }
+.host-state.is-paused { color: var(--warn); background: none; }
+.host-state.is-idle { color: var(--muted); }
 
-/* 卡片右上角：悬停（或键盘 focus）才露出的暂停 / 删除 */
-.host-ops { display: flex; gap: 4px; flex: none; margin-left: 2px; opacity: 0; transition: opacity 0.12s; }
+.host-head-right { position: relative; display: flex; align-items: center; gap: 5px; flex: none; }
+.host-window {
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--host-info) 30%, transparent);
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--host-info);
+  background: color-mix(in srgb, var(--host-info) 8%, transparent);
+}
+.host-orbit {
+  --p: 0;
+  --ring: var(--host-cpu);
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  background: conic-gradient(var(--ring) calc(var(--p) * 1%), color-mix(in srgb, var(--line) 38%, transparent) 0);
+  box-shadow: 0 1px 4px -2px rgba(33, 55, 30, 0.3);
+}
+.host-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+}
+.host-orbit > svg { position: relative; z-index: 1; width: 12px; height: 12px; opacity: 0.72; }
+.host-orbit.tone-warn { --ring: var(--warn); }
+.host-orbit.tone-bad { --ring: var(--danger); }
+
+.host-ops {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--host-border);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: opacity 0.12s;
+}
 .host-card:hover .host-ops,
-.host-card:focus-within .host-ops { opacity: 1; }
-@media (hover: none) { .host-ops { opacity: 1; } }
+.host-card:focus-within .host-ops { opacity: 1; pointer-events: auto; }
+@media (hover: none) {
+  .host-ops { position: static; transform: none; opacity: 1; pointer-events: auto; margin-right: 2px; }
+}
 .host-op {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 21px;
+  height: 21px;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
@@ -314,7 +309,217 @@
 .host-op.is-danger:hover { border-color: var(--danger-soft); color: var(--danger); background: var(--danger-soft); }
 .host-op:disabled { opacity: 0.4; cursor: default; }
 
-/* 添加主机抽屉 / 删除主机弹窗 */
+/* ---------- 紧凑指标：标签 + 数值一行，细色条贴底 ---------- */
+[data-theme='dark'] .host-metric-value { color: var(--ink); }
+.host-card-body { display: flex; flex-direction: column; gap: 0; padding-top: 2px; }
+.host-metrics { display: flex; flex-direction: column; gap: 0; }
+.host-metric-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: 0 16px;
+  padding: 8px 0;
+}
+.host-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label value'
+    'bar bar';
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 3px;
+  min-width: 0;
+}
+.host-metric.no-bar { grid-template-areas: 'label value'; }
+.host-metric-label {
+  grid-area: label;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 450;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.host-metric-label > svg { flex: none; width: 12px; height: 12px; opacity: 0.5; }
+.host-metric-value {
+  grid-area: value;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.006em;
+  color: #171b18;
+  font-variant-numeric: tabular-nums;
+}
+.host-metric-value.tone-warn { color: var(--warn); }
+.host-metric-value.tone-bad { color: var(--danger); }
+.host-metric-bar {
+  grid-area: bar;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 30%, transparent);
+  overflow: hidden;
+}
+.host-metric-bar > i { display: block; height: 100%; min-width: 4px; border-radius: inherit; background: var(--host-cpu); opacity: 0.85; }
+.host-metric-bar > i.is-mem { background: var(--host-mem); }
+.host-metric-bar > i.is-disk { background: var(--host-disk); }
+.host-metric-bar > i.tone-warn { background: var(--warn); }
+.host-metric-bar > i.tone-bad { background: var(--danger); }
+
+/* 第二块盘：只占一条紧凑行 */
+.host-disk-extra { display: flex; flex-direction: column; gap: 2px; padding-top: 3px; }
+.host-disk-line {
+  display: grid;
+  grid-template-columns: 11px auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'icon path note value'
+    'bar bar bar bar';
+  align-items: center;
+  column-gap: 4px;
+  row-gap: 2px;
+  min-width: 0;
+  font-size: 9px;
+  color: var(--muted);
+}
+.host-disk-line > svg { grid-area: icon; width: 10px; height: 10px; opacity: 0.5; }
+.host-disk-path {
+  grid-area: path;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.host-disk-note {
+  grid-area: note;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.host-disk-val {
+  grid-area: value;
+  color: var(--ink);
+  font-size: 9.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.host-disk-val.tone-warn { color: var(--warn); }
+.host-disk-val.tone-bad { color: var(--danger); }
+.host-disk-bar {
+  grid-area: bar;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 28%, transparent);
+  overflow: hidden;
+}
+.host-disk-bar > i { display: block; height: 100%; min-width: 4px; border-radius: inherit; background: var(--host-disk); opacity: 0.78; }
+.host-disk-bar > i.tone-warn { background: var(--warn); }
+.host-disk-bar > i.tone-bad { background: var(--danger); }
+
+/* ---------- 探针：只留参考图那条扁平心跳色带 ---------- */
+.host-probe-block { padding: 3px 0 0; min-height: 8px; }
+.host-probe-block .monitor-beats { width: 100%; height: 11px; gap: 2px; }
+.host-probe-block .monitor-beats > * { border-radius: 1px; }
+.host-probe-emptybar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 25%, transparent);
+}
+
+/* ---------- 底栏 ---------- */
+.host-card-foot { margin-top: auto; padding-top: 7px; border-top: 1px solid var(--host-divider); }
+.host-foot-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.host-foot-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; min-height: 14px; }
+.host-foot-facts { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 12px; min-width: 0; }
+.host-foot-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.host-foot-fact > svg { align-self: center; width: 10px; height: 10px; opacity: 0.5; }
+.host-foot-fact em { font-style: normal; }
+.host-foot-fact b {
+  min-width: 0;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.host-foot-links { display: flex; align-items: center; gap: 4px; flex: none; }
+.host-foot-updated { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.host-asset-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1.5px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1.3;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.host-asset-badge:hover { text-decoration: none; border-color: var(--accent-ring); background: var(--accent-soft); }
+
+@media (max-width: 700px) {
+  .host-grid { max-width: none; gap: 12px; }
+  .host-card { padding: 14px 14px 10px; }
+  .host-metric-row { gap: 0 12px; }
+}
+@media (max-width: 420px) {
+  .host-metric-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 6px 0; }
+  .host-foot-row { align-items: flex-start; flex-direction: column; gap: 6px; }
+}
+
+/* ---------- 没收到上报 ---------- */
+.host-nodata {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 118px;
+  padding: 20px 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.host-nodata-btn {
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.host-nodata-btn:hover { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- 添加主机抽屉 / 删除主机弹窗 ---------- */
 .host-form-tip { margin-top: 12px; font-size: 12px; line-height: 1.55; color: var(--muted); }
 .host-del-text { font-size: 12.5px; line-height: 1.65; color: var(--muted); margin-bottom: 12px; }
 .host-del-text code { font-family: var(--font-mono); font-size: 11.5px; padding: 1px 4px; border-radius: 4px; background: var(--surface-2); }
@@ -364,22 +569,18 @@
 .host-onboard-state { margin-top: 12px; font-size: 12.5px; color: var(--muted); }
 .host-onboard-state.is-ok { color: var(--ok); }
 
-/* 没有数据的卡片：右侧挂一个「接入指引」 */
-.host-nodata-btn {
-  margin-left: 10px;
-  padding: 3px 10px;
-  font: inherit;
-  font-size: 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-}
-.host-nodata-btn:hover { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-soft); }
-
+/* ---------- 响应式 ---------- */
 @media (max-width: 720px) {
-  .host-foot { flex-direction: column; align-items: flex-start; gap: 3px; }
-  /* 卡片此时是竖排，不再需要「两行等高」撑对齐，省掉那段空白 */
-  .host-foot-top { text-align: left; min-height: 0; }
+  .host-card { padding: 14px 14px 12px; }
+  .host-foot-row { flex-direction: column; align-items: flex-start; gap: 5px; }
+  .host-foot-links { margin-top: 1px; }
+}
+@media (max-width: 420px) {
+  .host-metrics { grid-template-columns: 1fr; gap: 8px; }
+  .host-probe-charts { grid-template-columns: 1fr; gap: 5px; }
+  .host-metric-spark { width: 52px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .host-card { transition: none; }
+  .host-card:hover { transform: none; }
 }

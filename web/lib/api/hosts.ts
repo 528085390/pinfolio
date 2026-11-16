@@ -37,7 +37,20 @@ export type Host = {
   probe?: HostProbe | null
   /** 距最近一次上报的秒数；null = 一次都没收到 */
   staleSec: number | null
+  /** 主机到期日（YYYY-MM-DD），没登记就没有 */
+  expires?: string
   series: HostSeriesPoint[]
+  /** 采集端累计 / 速率 / 本月流量 / TCP 已建立；老版本采集端没有这一块 */
+  network?: {
+    rx_bytes: number
+    tx_bytes: number
+    rx_rate: number
+    tx_rate: number
+    tcp: number
+    monthly_rx_bytes: number
+    monthly_tx_bytes: number
+    month: string
+  }
   host?: string
   ts?: number
   uptime_s?: number
@@ -95,6 +108,8 @@ export type HostInput = {
   disks?: string
   /** 主机地址（IP / 域名），建观测项时用 */
   address?: string
+  /** 到期日（YYYY-MM-DD），只用于卡片展示 */
+  expires?: string
   port?: number
   http?: { url: string; keyword?: string }
   services?: HostServiceInput[]
@@ -114,7 +129,7 @@ export type HostOnboard = {
   firstSampleAt: string | null
   staleSec: number | null
 }
-export type HostPatch = { paused?: boolean; label?: string; note?: string }
+export type HostPatch = { paused?: boolean; label?: string; note?: string; expires?: string }
 
 export const hostsApi = {
   get: () => request<HostsPayload>('/hosts'),

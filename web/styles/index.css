@@ -11,6 +11,7 @@
 @import './misc.css';
 @import './monitors.css';
 @import './hosts.css';
+@import './hosts-card.css';
 @import './services.css';
 @import './mail.css';
 @import './alerts.css';

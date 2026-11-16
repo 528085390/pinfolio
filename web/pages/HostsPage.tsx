@@ -9,10 +9,16 @@ import { DeleteHostModal } from './hosts/DeleteHostModal'
 import { OnboardModal } from './hosts/OnboardModal'
 import { t } from '../lib/i18n'
 
-export function HostsPage({ onSummary, onOpenAsset }: {
+type HostsPageProps = {
   onSummary?: (s: HostSummary) => void
   onOpenAsset?: (id: number) => void
-}) {
+}
+
+export function HostsPage(props: HostsPageProps) {
+  return <HostsPageReal {...props} />
+}
+
+function HostsPageReal({ onSummary, onOpenAsset }: HostsPageProps) {
   const H = useHosts({ onSummary })
   const hosts = H.data?.hosts ?? []
   const online = H.summary.online
@@ -61,6 +67,7 @@ export function HostsPage({ onSummary, onOpenAsset }: {
     <div className="page page-wide page-hosts">
       <div className="host-toolbar">
         <div className="host-sum">
+          <span className="host-live-dot" aria-hidden="true" />
           <span className="host-sum-num">{online}/{hosts.length}</span>
           <span className="host-sum-label">{t('在线')}</span>
           {paused ? (

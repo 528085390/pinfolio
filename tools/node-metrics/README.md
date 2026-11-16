@@ -1,6 +1,6 @@
 # node-metrics —— 在役 4 台服务器的采集端
 
-> 2026-10-22 建，**2026-11-09 改成本机文件 + SSH 拉取**。每 5 分钟采集一次本机 CPU / 内存 / 磁盘 / 服务状态，
+> 2026-10-22 建，**2026-11-09 改成本机文件 + SSH 拉取**。每 5 分钟采集一次本机 CPU / 内存 / 磁盘 / 网络流量 / TCP / 服务状态，
 > 写一份 JSON 到 `/var/lib/node-metrics/<HOST_ID>.json`；pinfolio（本机 7788）每 5 分钟 `ssh <别名> cat` 回来存 SQLite，
 > 页面是 pinfolio 的「主机」页（`/hosts`）。
 >
@@ -19,7 +19,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `node-metrics.sh` | 采集并落盘 / 上报。`--print` 只打印 JSON（排错用）；`METRICS_URL` 以 `file://` 开头或留空 → 写本机文件，`http(s)://` → PUT 上报 |
+| `node-metrics.sh` | 采集并落盘 / 上报。`--print` 只打印 JSON（排错用）；`METRICS_URL` 以 `file://` 开头或留空 → 写本机文件，`http(s)://` → PUT 上报。网络月度累计写在同目录的 `.HOST_ID.net` 状态文件 |
 | `install.sh` | 一次性安装：写 `/etc/node-metrics.conf`(600)、装脚本与 unit/timer、立刻跑一次 |
 | `node-metrics.service` | oneshot，`MemoryMax=32M` / `CPUQuota=20%` / `TimeoutStartSec=60` 兜底 |
 | `node-metrics.timer` | `OnBootSec=2min` + `OnUnitActiveSec=5min` + `AccuracySec=30s` + `RandomizedDelaySec=20s` |
@@ -57,7 +57,7 @@ sudo bash /tmp/node-metrics-install.sh \
 systemctl status node-metrics.service --no-pager      # 期望 status=0/SUCCESS
 systemctl list-timers node-metrics.timer --no-pager   # 期望有 NEXT
 /usr/local/bin/node-metrics.sh --print                # 期望一行完整 JSON
-ls -l /var/lib/node-metrics/                          # 期望 <HOST_ID>.json，-rw-r--r-- root root
+ls -l /var/lib/node-metrics/                          # 期望 <HOST_ID>.json，-rw-r--r-- root root；同目录还会有 .<HOST_ID>.net 状态文件
 # 在 pinfolio 那台机上（普通用户即可，0644 可读）：
 ssh -o BatchMode=yes <别名> cat /var/lib/node-metrics/<HOST_ID>.json
 ```
@@ -70,6 +70,7 @@ ssh -o BatchMode=yes <别名> cat /var/lib/node-metrics/<HOST_ID>.json
 {"host":"oj","ts":1792665851,"uptime_s":99191,"kernel":"6.12.0-…","os":"Oracle Linux Server 9.8",
  "cores":2,"load":[0.00,0.00,0.00],"cpu_pct":1.5,
  "mem":{"total_kb":968600,"avail_kb":582484,"used_pct":39.9,"swap_total_kb":2097148,"swap_used_pct":0.1},
+ "network":{"rx_bytes":206107726,"tx_bytes":232138673,"rx_rate":146.5,"tx_rate":151.0,"tcp":53,"monthly_rx_bytes":586,"monthly_tx_bytes":604,"month":"2026-11"},
  "disk":[{"path":"/","total":31608274944,"used":8553672704,"pct":28}],
  "failed_units":0,"units":{"xray":"active","memwatch":"active"},
  "top":[{"comm":"rsyslogd","rss_kb":100500}]}
@@ -77,6 +78,8 @@ ssh -o BatchMode=yes <别名> cat /var/lib/node-metrics/<HOST_ID>.json
 
 - CPU 是 `/proc/stat` 两次采样（1 秒窗口）的 `Δtotal / Δidle`，不是 `top` 的瞬时值。
 - `top` 的字段名是 **`rss_kb`**（不是 `rss`），只取 `comm`、不含参数（避免把命令行里的 token 带出去）。
+- 网络字段来自 `/proc/net/dev`（排除 `lo`）：`rx_bytes` / `tx_bytes` 是开机以来累计，`rx_rate` / `tx_rate` 是相对上一帧的 bytes/s；`monthly_rx_bytes` / `monthly_tx_bytes` 是本月累计，跨月或首次运行从 0 开始。月度状态文件是 JSON 同目录的 `.HOST_ID.net`，删除它只会让本月统计重新开始。
+- `tcp` 是 `/proc/net/tcp` + `/proc/net/tcp6` 中 state=01（ESTABLISHED）的条数，不含 LISTEN；它表示当前已建立连接数，不是“线路数”。
 - 整条 JSON 在 pinfolio 里**原样存进 `host_metrics.data` 列，不拆字段**——这里加字段不用改服务端。
 
 ## 常见坑

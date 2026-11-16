@@ -17,6 +17,8 @@ export type HostMeta = {
   monitors?: number[]
   /** 顺带建的分组 id：观测项删干净后这个组也一起删 */
   group?: number
+  /** 主机到期日（YYYY-MM-DD）；只用于卡片展示，不影响采集 */
+  expires?: string
 }
 export type HostResult = { ok: true; hosts: HostMeta[] } | { ok: false; error: string }
 
@@ -27,6 +29,15 @@ export const NOTE_MAX = 60
 // id 同时是采集端上报的文件名（tools/node-metrics/ 里 HOST_ID 生成 <id>.json），
 // 所以只允许能在 URL / 文件名里安全出现的字符，且不能以符号开头。
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** 日期只收 YYYY-MM-DD；坏值当没有，避免卡片出现 Invalid Date。 */
+function safeDate(value: any): string {
+  const s = typeof value === 'string' ? value.trim() : ''
+  if (!DATE_RE.test(s)) return ''
+  const d = new Date(s + 'T00:00:00Z')
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? '' : s
+}
 
 /** 读文件时用：坏值直接当没有（配置写坏了也不该让整页起不来）。 */
 function safeUnits(value: any): string[] {
@@ -79,6 +90,8 @@ export function parseHosts(raw: any): HostMeta[] {
     if (disks.length) host.disks = disks
     const address = typeof h.address === 'string' ? h.address.trim() : ''
     if (address) host.address = address
+    const expires = safeDate(h.expires)
+    if (expires) host.expires = expires
     const monitors = safeMonitors(h.monitors)
     if (monitors.length) host.monitors = monitors
     const group = Number(h.group)
@@ -143,6 +156,15 @@ function applyCollectorFields(host: HostMeta, patch: any): { ok: true; host: Hos
     if (address.length > 100) return { ok: false, error: t('地址最长 100 字') }
     if (address) next.address = address
     else delete next.address
+  }
+  if (patch?.expires !== undefined) {
+    const raw = String(patch.expires ?? '').trim()
+    if (!raw) delete next.expires
+    else {
+      const expires = safeDate(raw)
+      if (!expires) return { ok: false, error: t('到期日期格式应为 YYYY-MM-DD') }
+      next.expires = expires
+    }
   }
   return { ok: true, host: next }
 }

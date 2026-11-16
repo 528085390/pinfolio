@@ -46,13 +46,17 @@ type Hit = { i: number; x: number; top: number; bottom: number }
  * 提示框必须 portal 到 body + position:fixed：`.content` 是 overflow auto/hidden 的滚动容器，
  * 卡片里任何绝对定位的弹层都会被裁掉（见坑 11、坑 31）。
  */
-export function BeatStrip({ cells, type, title, details }: {
+export function BeatStrip({ cells, type, title, details, variant = 'strip', heights }: {
   cells: BeatCell[]
   type: string
   /** 没给 details 时整条退回原来的原生 title */
   title?: string
   /** 与 cells 一一对应；缺项（null）的那一拍不弹提示 */
   details?: (BeatDetail | null)[]
+  /** bars = 每拍按 heights 画成高低柱（主机卡用），缺省仍是等高心跳色条 */
+  variant?: 'strip' | 'bars'
+  /** bars 模式下每拍的高度百分比（0–100），缺项用 50 */
+  heights?: number[]
 }) {
   useLocale() // 组件被 React.memo 包着时要自己订阅语言，切语言才重渲染
   const [hit, setHit] = useState<Hit | null>(null)
@@ -103,7 +107,7 @@ export function BeatStrip({ cells, type, title, details }: {
 
   return (
     <div
-      className={cx('monitor-beats')}
+      className={cx('monitor-beats', variant === 'bars' && 'is-bars')}
       title={hasDetail ? undefined : title}
       onMouseMove={hasDetail ? track : undefined}
       onMouseLeave={hasDetail ? () => setHit(null) : undefined}
@@ -111,7 +115,12 @@ export function BeatStrip({ cells, type, title, details }: {
       {cells.length === 0
         ? <i className="s-none" />
         : cells.map((b, i) => (
-            <i key={i} data-i={i} className={cx(beatClass(b, type), hit?.i === i ? 'hot' : '')} />
+            <i
+              key={i}
+              data-i={i}
+              className={cx(beatClass(b, type), hit?.i === i ? 'hot' : '')}
+              style={variant === 'bars' ? { height: Math.min(100, Math.max(8, heights?.[i] ?? 50)) + '%' } : undefined}
+            />
           ))}
       {d && hit
         ? createPortal(

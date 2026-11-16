@@ -15,6 +15,7 @@ export function AddHostDrawer({ open, onClose, onAdded }: {
   const [id, setId] = useState('')
   const [label, setLabel] = useState('')
   const [note, setNote] = useState('')
+  const [expires, setExpires] = useState('')
   const [units, setUnits] = useState('')
   const [disks, setDisks] = useState('/')
   const [address, setAddress] = useState('')
@@ -30,7 +31,7 @@ export function AddHostDrawer({ open, onClose, onAdded }: {
   const [saving, setSaving] = useState(false)
 
   const reset = () => {
-    setId(''); setLabel(''); setNote(''); setUnits(''); setDisks('/'); setAddress('')
+    setId(''); setLabel(''); setNote(''); setExpires(''); setUnits(''); setDisks('/'); setAddress('')
     setWantPort(false); setPort('443'); setWantHttp(false); setUrl(''); setKeyword('')
     setWantSsh(false); setSshUser(''); setKeyPath(''); setErr('')
   }
@@ -54,6 +55,7 @@ export function AddHostDrawer({ open, onClose, onAdded }: {
       id: id.trim(),
       label: label.trim(),
       note: note.trim(),
+      expires: expires.trim(),
       units: units.trim(),
       disks: disks.trim(),
       address: address.trim(),
@@ -98,6 +100,9 @@ export function AddHostDrawer({ open, onClose, onAdded }: {
         </Field>
         <Field label={t('备注')} hint={t('显示在名字后面')}>
           <input className="input" value={note} placeholder={t('例如 东京 · 1C1G')} onChange={(e) => setNote(e.target.value)} />
+        </Field>
+        <Field label={t('到期日')} hint={t('可选，显示在卡片底部')}>
+          <input className="input" type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
         </Field>
       </div>
 

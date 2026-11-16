@@ -1,16 +1,31 @@
-import { Pause, Play, Trash2 } from 'lucide-react'
-import { cx, type Host, type HostSeriesPoint } from '../../lib/api'
+import type { ReactNode } from 'react'
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  Clock3,
+  Cpu,
+  Download,
+  HardDrive,
+  Link2,
+  MemoryStick,
+  Network,
+  Pause,
+  Play,
+  Radio,
+  Server,
+  Trash2,
+  Upload,
+} from 'lucide-react'
+import { cx, type Host, type HostProbeBeat } from '../../lib/api'
 import { t } from '../../lib/i18n'
-import { BeatStrip } from '../../components/BeatStrip'
 import { findAssetsForHost } from '../../lib/telemetry-link'
 import { assetHref } from '../../components/monitor-drawer/display'
 import { hostFlag, hostRegion, hostVendor } from './region'
 
-// 一张卡 = 一台机。版式照着「服务器列表」那种紧凑卡片来：
-// 抬头（灯 + 名字 + 厂商 + 机房旗）→ 一行硬件信息 → 三条带细进度条的占用（CPU / 内存 / 磁盘）→
-// 探针行（延迟 / 丢包 / 24 拍色条）→ 24 小时曲线 → 底栏（运行时间 + 内存前三）。
-// 数据缺字段时全部走兜底文案，不要因为一台机少个字段就整页白屏。
-
+// 主机卡：参考 Nezha 的 376×390 玻璃卡。数据全部来自 Host，缺字段显示「—」，
+// 不补假值；暂停、删除藏在 hover 操作区，不抢卡面。
 function pct(v: number | undefined): string {
   return v === undefined || Number.isNaN(v) ? '—' : v.toFixed(1) + '%'
 }
@@ -27,6 +42,21 @@ function bytes(n: number | undefined): string {
   let i = 0
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++ }
   return (i === 0 ? v.toFixed(0) : v.toFixed(1)) + ' ' + u[i]
+}
+
+/** 网络流量是字节，和磁盘的 KB 入参分开算；0 也显示 0 B，不写成 —。 */
+function flow(n: number | undefined): string {
+  if (n === undefined || !Number.isFinite(n) || n < 0) return '—'
+  if (n === 0) return '0 B'
+  const u = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  let v = n
+  let i = 0
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++ }
+  return (i === 0 ? v.toFixed(0) : v.toFixed(1)) + ' ' + u[i]
+}
+
+function speed(n: number | undefined): string {
+  return n === undefined || !Number.isFinite(n) ? '—' : flow(n) + '/s'
 }
 
 function uptime(sec: number | undefined): string {
@@ -46,50 +76,89 @@ export function ago(sec: number | null | undefined): string {
   return t('{n} 天前', { n: Math.round(sec / 86400) })
 }
 
+function clampPct(v: number | undefined): number {
+  if (v === undefined || Number.isNaN(v)) return 0
+  return Math.min(100, Math.max(0, v))
+}
+
 function tone(v: number | undefined): 'ok' | 'warn' | 'bad' {
   if (v === undefined) return 'ok'
   return v >= 85 ? 'bad' : v >= 70 ? 'warn' : 'ok'
 }
 
-/** 24 小时 CPU / 内存折线，两条线共用 0–100% 的纵轴。 */
-function Spark({ series }: { series: HostSeriesPoint[] }) {
-  if (!series || series.length < 2) return <div className="host-spark is-empty">{t('还没有曲线')}</div>
-  const w = 100
-  const h = 26
-  const n = series.length
-  const line = (pick: (p: HostSeriesPoint) => number) =>
-    series
-      .map((p, i) => ((i / (n - 1)) * w).toFixed(2) + ',' + (h - (Math.min(100, Math.max(0, pick(p))) / 100) * h).toFixed(2))
-      .join(' ')
-  return (
-    <svg className="host-spark" viewBox={'0 0 ' + w + ' ' + h} preserveAspectRatio="none" aria-hidden="true">
-      <polyline className="sp-mem" points={line((p) => p[2])} fill="none" vectorEffect="non-scaling-stroke" />
-      <polyline className="sp-cpu" points={line((p) => p[1])} fill="none" vectorEffect="non-scaling-stroke" />
-    </svg>
-  )
+function FlagIcon({ flag }: { flag: string }) {
+  const code = flag.trim()
+  if (code === 'JP' || code.includes('🇯🇵')) {
+    return (
+      <svg viewBox="0 0 24 16" aria-hidden="true">
+        <rect width="24" height="16" rx="2" fill="#fff" />
+        <circle cx="12" cy="8" r="4.2" fill="#bc002d" />
+      </svg>
+    )
+  }
+  if (code === 'US' || code.includes('🇺🇸')) {
+    const stripes = Array.from({ length: 13 }, (_, i) => i)
+    return (
+      <svg viewBox="0 0 24 16" aria-hidden="true">
+        <rect width="24" height="16" rx="2" fill="#fff" />
+        {stripes.map((i) => (
+          <rect key={i} x="0" y={(i * 16) / 13} width="24" height={16 / 13} fill={i % 2 === 0 ? '#b22234' : '#fff'} />
+        ))}
+        <rect width="10" height={(16 * 7) / 13} fill="#3c3b6e" />
+      </svg>
+    )
+  }
+  return <span className="hm-flag-code">{code || '—'}</span>
 }
 
-/** 一行占用：左边标签、中间补充数字、右边百分比，下面一条 4px 细进度条。 */
-function Meter({ label, v, value, note }: { label: string; v: number | undefined; value: string; note?: string }) {
+function Metric({ icon, label, value, note, sub, pct: percent, kind, text }: {
+  icon: ReactNode
+  label: string
+  value: string
+  note?: string
+  sub?: string
+  pct?: number
+  kind?: 'cpu' | 'mem' | 'disk' | 'latency' | 'loss'
+  text?: boolean
+}) {
+  const hasBar = typeof percent === 'number' && !Number.isNaN(percent)
+  const toneName = tone(percent)
   return (
-    <div className="host-meter" title={note ? label + ' · ' + note : label}>
-      <span className="host-meter-label">{label}</span>
-      <span className="host-meter-note">{note || ''}</span>
-      <b className={'host-meter-val tone-' + tone(v)}>{value}</b>
-      <span className="host-meter-track">
-        <i className={'tone-' + tone(v)} style={{ width: Math.min(100, Math.max(1, v ?? 0)) + '%' }} />
-      </span>
+    <div className="hm-cell" title={note || undefined}>
+      <div className="hm-line">
+        <span className="hm-label">{icon}<span>{label}</span></span>
+        <b className={cx('hm-value', text && 'is-text')}>{value}{sub ? <small>{sub}</small> : null}</b>
+      </div>
+      {hasBar ? (
+        <span className="hm-bar">
+          <i className={cx('is-' + (kind || 'cpu'), 'tone-' + toneName)} style={{ width: Math.max(2, clampPct(percent)) + '%' }} />
+        </span>
+      ) : null}
     </div>
   )
 }
 
+function beatMarks(beats: HostProbeBeat[]): Array<{ height: number; tone: string; kind: 'dot' | 'bar' }> {
+  const visible = beats.slice(-32)
+  const pings = visible.map((b) => b.ping).filter((v): v is number => typeof v === 'number')
+  const min = pings.length ? Math.min(...pings) : 0
+  const max = pings.length ? Math.max(...pings) : 0
+  const span = Math.max(1, max - min)
+  const barStart = Math.floor(visible.length * 0.44)
+  return visible.map((b, i) => {
+    const kind: 'dot' | 'bar' = i < barStart ? 'dot' : 'bar'
+    const normalized = typeof b.ping === 'number' ? (b.ping - min) / span : 0.4
+    const height = kind === 'bar' ? 10 + Math.round(normalized * 4) : 3
+    const tone = b.status !== 1 ? 'is-bad' : typeof b.ping !== 'number' ? 'is-muted' : b.ping > 300 ? 'is-warn' : ''
+    return { height, tone, kind }
+  })
+}
+
 export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, linkedAssets, onOpenAsset }: {
   h: Host
-  /** 有写操作在跑时禁用暂停 / 删除，避免连点 */
   busy?: boolean
   onTogglePause?: (h: Host) => void
   onDelete?: (h: Host) => void
-  /** 还没收到上报时给一条「接入指引」（安装命令），有数据就不显示 */
   onOnboard?: (h: Host) => void
   assets?: Array<{ id: number; name: string; custom?: any }>
   linkedAssets?: Array<{ id: number; name: string }>
@@ -102,137 +171,135 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
   const region = hostRegion(h.note)
   const flag = hostFlag(h.note)
   const probe = h.probe ?? null
-  // 有观测项 ≠ 有探针数据：aws 那台挂着的 port / http 项全停了，后端的 probe 是个「空壳」
-  // （latencyMs 为 null、beats 为空）。这种空壳整行不渲染，否则卡上会出现「延迟 无数据 丢包 无数据」
-  // 加一条全灰的空色条（2026-11-09 用户看图指出）。
   const hasProbe = !!probe && ((probe.beats?.length ?? 0) > 0 || probe.latencyMs !== null)
-  // 色条沿用观测台的渲染（四态色 + 悬停看这一拍的时间 / 响应 / 消息）
-  const cells = (probe?.beats ?? []).map((b) => ({ status: b.status, tone: null }))
-  const details = (probe?.beats ?? []).map((b) => ({ time: b.time || null, msg: b.msg || null, ping: b.ping }))
-  const load1 = h.load?.[0]
+  const primaryDisk = h.disk?.[0]
+  const net = h.network
+  const monthly = net ? (net.monthly_rx_bytes ?? 0) + (net.monthly_tx_bytes ?? 0) : undefined
+  const tcp = net?.tcp
+  const neverSeen = h.ts === undefined
+  const stateClass = h.paused ? 'is-paused' : neverSeen ? 'is-idle' : h.online ? 'is-on' : 'is-off'
+  const stateLabel = h.paused ? t('已暂停') : neverSeen ? t('未接入') : h.online ? t('在线') : t('离线')
+  const beats = beatMarks(probe?.beats ?? [])
+  const system = h.os || h.kernel || '—'
+  const topText = (h.top ?? []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')
+  const cardTitle = [system !== '—' ? system : '', topText].filter(Boolean).join(' · ') || undefined
 
   return (
-    <div className={cx('host-card', h.paused ? 'is-paused' : !h.online && 'is-off')}>
-      <div className="host-head">
-        <span className={cx('host-dot', h.paused ? 'is-paused' : h.online ? 'is-on' : 'is-off')} />
-        <span className="host-name">{h.label}</span>
-        {vendor ? <span className="host-vendor">{vendor}</span> : null}
-        {h.paused ? <span className="host-pause-tag">{t('已暂停')}</span> : null}
-        {effectiveLinkedAssets.map((a) => (
-          <a
-            key={a.id}
-            className="host-asset-badge"
-            href={assetHref(a.id)}
-            title={t('查看关联资产')}
-            onClick={(e) => {
-              if (onOpenAsset) {
-                e.preventDefault()
-                onOpenAsset(a.id)
-              }
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              fontSize: 11.5,
-              padding: '2px 7px',
-              borderRadius: 6,
-              background: 'var(--surface-2)',
-              color: 'var(--accent, #6366f1)',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              flex: 'none',
-            }}
-          >
-            <span>🔗</span>
-            <span>{t('关联资产')}: {a.name}</span>
-          </a>
-        ))}
-        <span className="host-ago">{h.paused ? t('暂停采集') : ago(h.staleSec)}</span>
-        <div className="host-ops">
-          <button
-            className="host-op"
-            title={h.paused ? t('恢复采集') : t('暂停采集（保留卡片与历史，只是不再拉取）')}
-            disabled={busy}
-            onClick={() => onTogglePause?.(h)}
-          >
-            {h.paused ? <Play size={13} /> : <Pause size={13} />}
-          </button>
-          <button
-            className="host-op is-danger"
-            title={t('删除这台主机（{id}）', { id: h.id })}
-            disabled={busy}
-            onClick={() => onDelete?.(h)}
-          >
-            <Trash2 size={13} />
-          </button>
+    <article className={cx('hm-card', h.paused && 'is-paused', !h.paused && !h.online && 'is-off')} title={cardTitle}>
+      <header className="hm-head">
+        <span className="hm-flag">{flag ? <FlagIcon flag={flag} /> : <Server size={14} />}</span>
+        <div className="hm-ident">
+          <div className="hm-name" title={h.label || h.id}>{h.label || h.id}</div>
+          <div className="hm-sub">
+            {vendor ? <span className="hm-level is-vendor">{vendor}</span> : null}
+            {region ? <span className="hm-region">{region}</span> : null}
+          </div>
+        </div>
+        <div className="hm-right">
+          <span className="hm-os" title={system}><Server size={11} /></span>
+          {h.host && /^\d+\.\d+\.\d+\.\d+$/.test(h.host) ? <span className="hm-net">IPv4</span> : null}
+          {h.host && h.host.includes(':') ? <span className="hm-net">IPv6</span> : null}
+          <span className={cx('hm-status', stateClass)} title={stateLabel} />
+          <div className="hm-ops">
+            <button
+              className="hm-op"
+              title={h.paused ? t('恢复采集') : t('暂停采集（保留卡片与历史，只是不再拉取）')}
+              disabled={busy}
+              onClick={() => onTogglePause?.(h)}
+            >
+              {h.paused ? <Play size={11} /> : <Pause size={11} />}
+            </button>
+            <button
+              className="hm-op is-danger"
+              title={t('删除这台主机（{id}）', { id: h.id })}
+              disabled={busy}
+              onClick={() => onDelete?.(h)}
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="hm-rows">
+        <div className="hm-row">
+          <Metric icon={<Cpu size={11} />} label={t('CPU')} value={pct(h.cpu_pct)} note={h.cores ? t('{n} 核', { n: h.cores }) : ''} pct={h.cpu_pct} kind="cpu" />
+          <Metric icon={<MemoryStick size={11} />} label={t('内存')} value={pct(h.mem?.used_pct)} note={memTotal ? gb(memUsed) + ' / ' + gb(memTotal) : ''} pct={h.mem?.used_pct} kind="mem" />
+        </div>
+        <div className="hm-row">
+          <Metric icon={<HardDrive size={11} />} label={t('磁盘')} value={primaryDisk ? pct(primaryDisk.pct) : '—'} note={primaryDisk ? primaryDisk.path + ' · ' + bytes(primaryDisk.used) + ' / ' + bytes(primaryDisk.total) : ''} pct={primaryDisk?.pct} kind="disk" />
+          <Metric
+            icon={<CalendarDays size={11} />}
+            label={t('月度')}
+            value={monthly === undefined ? '—' : flow(monthly)}
+            note={net ? t('本月 ↓{rx} · ↑{tx}', { rx: flow(net.monthly_rx_bytes), tx: flow(net.monthly_tx_bytes) }) : t('采集端待升级')}
+          />
+        </div>
+        <div className="hm-row">
+          <Metric icon={<ArrowDown size={11} />} label={t('下行')} value={speed(net?.rx_rate)} note={t('当前速率')} />
+          <Metric icon={<ArrowUp size={11} />} label={t('上行')} value={speed(net?.tx_rate)} note={t('当前速率')} />
+        </div>
+        <div className="hm-row">
+          <Metric icon={<Download size={11} />} label={t('下载流量')} value={flow(net?.rx_bytes)} note={t('开机以来累计')} />
+          <Metric icon={<Upload size={11} />} label={t('上传流量')} value={flow(net?.tx_bytes)} note={t('开机以来累计')} />
+        </div>
+        <div className="hm-row hm-row-tcp">
+          <div className="hm-cell is-plain hm-cell-tcp">
+            <div className="hm-line hm-line-tcp">
+              <span className="hm-label"><Network size={10} /><span>{t('TCP线路')}<i className="hm-sep">·</i><b className="hm-tcp-value">{tcp === undefined ? '—' : String(tcp)}</b></span></span>
+            </div>
+          </div>
+          <div className="hm-cell is-plain hm-cell-window">
+            <span className="hm-window-pill">1 h</span>
+          </div>
+        </div>
+        <div className="hm-row hm-row-latency">
+          <Metric icon={<Activity size={11} />} label={t('延迟')} value={hasProbe && probe?.latencyMs !== null ? Math.round(probe.latencyMs) + ' ms' : '—'} note={hasProbe ? t('近 24 小时') : t('未接入探针')} pct={hasProbe && probe?.latencyMs !== null ? Math.min(100, probe.latencyMs / 2) : undefined} kind="latency" />
+          <Metric icon={<Radio size={11} />} label={t('丢包')} value={hasProbe && probe?.lossPct !== null ? probe.lossPct.toFixed(1) + '%' : '—'} pct={hasProbe && probe?.lossPct !== null ? probe.lossPct : undefined} kind="loss" />
         </div>
       </div>
 
-      {h.ts === undefined ? (
-        <div className="host-nodata">
-          {h.paused ? t('已暂停采集，恢复后会补到最新一帧') : t('还没收到这台机的上报')}
-          {!h.paused && onOnboard ? (
-            <button className="host-nodata-btn" onClick={() => onOnboard(h)}>{t('接入指引')}</button>
-          ) : null}
+      {beats.length ? (
+        <div className="hm-beats" aria-hidden="true">
+          {beats.map((b, i) => (
+            <i key={i} className={[b.tone, b.kind === 'bar' ? 'is-bar' : 'is-dot'].filter(Boolean).join(' ')} style={{ height: b.height }} />
+          ))}
         </div>
       ) : (
-        <>
-          <div className="host-meta">
-            {region ? <span className="host-region">{flag ? flag + ' ' : ''}{region}</span> : null}
-            {h.os ? <span>{h.os}</span> : null}
-            {load1 !== undefined ? <span>{t('负载')} {load1.toFixed(2)}</span> : null}
-            {h.failed_units ? <span className="host-meta-bad">{t('{n} 个单元异常', { n: h.failed_units })}</span> : null}
-          </div>
+        <div className="hm-beats-empty">{t('暂无探针数据')}</div>
+      )}
 
-          <div className="host-meters">
-            <Meter label={t('CPU')} v={h.cpu_pct} value={pct(h.cpu_pct)} note={h.cores ? t('{n} 核', { n: h.cores }) : ''} />
-            <Meter
-              label={t('内存')}
-              v={h.mem?.used_pct}
-              value={pct(h.mem?.used_pct)}
-              note={memTotal ? gb(memUsed) + ' / ' + gb(memTotal) : ''}
-            />
-            {(h.disk || []).map((d) => (
-              <Meter
-                key={d.path}
-                label={t('磁盘') + ' ' + d.path}
-                v={d.pct}
-                value={pct(d.pct)}
-                note={bytes(d.used) + ' / ' + bytes(d.total)}
-              />
+      <footer className="hm-foot">
+        <div className="hm-foot-line">
+          <span><em><CalendarDays size={10} />{t('到期')}</em><b title={h.expires || t('未登记')}>{h.expires || '—'}</b></span>
+          <span><em><Clock3 size={10} />{t('运行时间')}</em><b>{uptime(h.uptime_s)}</b></span>
+        </div>
+        <div className="hm-foot-bottom">
+          <span className="hm-updated">{h.paused ? t('暂停采集') : neverSeen ? t('未接入') : t('更新于 {time}', { time: ago(h.staleSec) })}</span>
+          <div className="hm-assets">
+            {neverSeen && onOnboard ? (
+              <button className="hm-asset hm-onboard" onClick={() => onOnboard(h)}>{t('接入')}</button>
+            ) : null}
+            {effectiveLinkedAssets.map((a) => (
+              <a
+                key={a.id}
+                className="hm-asset"
+                href={assetHref(a.id)}
+                title={t('查看关联资产')}
+                onClick={(e) => {
+                  if (onOpenAsset) {
+                    e.preventDefault()
+                    onOpenAsset(a.id)
+                  }
+                }}
+              >
+                <Link2 size={9} />
+                <span>{a.name}</span>
+              </a>
             ))}
           </div>
-
-          {hasProbe && probe ? (
-            <div className="host-probe">
-              <span className="host-probe-item">
-                <em>{t('延迟')}</em>
-                <b>{probe.latencyMs === null ? t('无数据') : Math.round(probe.latencyMs) + ' ms'}</b>
-              </span>
-              <span className="host-probe-item">
-                <em>{t('丢包')}</em>
-                <b>{probe.lossPct === null ? t('无数据') : probe.lossPct.toFixed(1) + '%'}</b>
-              </span>
-              <BeatStrip cells={cells} type={probe.type} title={probe.name} details={details} />
-            </div>
-          ) : null}
-
-          {/* 曲线 + 底栏一起贴到卡底：多块盘的机器（oj 的 / 与 /var/oled、os 的 / 与 /mnt/data）
-              比别的卡多一两行，如果让它自然往下堆，同一排卡片的曲线就不在同一水平线上（2026-11-09 用户看图指出）。
-              .host-bottom 的 margin-top:auto 把富余空间都吃在中间，曲线与底栏因此永远对齐。 */}
-          <div className="host-bottom">
-            <Spark series={h.series} />
-
-            <div className="host-foot">
-              <span className="host-foot-os">{t('运行')} {uptime(h.uptime_s)}</span>
-              <span className="host-foot-top">
-                {(h.top || []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')}
-              </span>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+        </div>
+      </footer>
+    </article>
   )
 }
