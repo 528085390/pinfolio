@@ -5,6 +5,12 @@
 
 ## [未发布]
 
+### 默认壁纸随仓库发布 + e2e 控制台断言分家（修）
+
+- **公开构建不再 404**：`web/public/wallpapers/` 原本整个目录 ignore（个人图片不入公开仓库），但 `DEFAULT_WALLPAPER` 仍指向 `wallpapers/street.jpg`，于是没自备壁纸的实例（含 CI）首帧就 `404 GET /wallpapers/street.jpg`，每个页面刷一条 console 报错，`e2e-router` / `e2e-tagpop` / `e2e-tagpop-outside` / `e2e-services` / `e2e-monitor-empty` 的「无 console 错误」断言自 2026-11-09 玻璃改造起全红。现在 `.gitignore` 只 ignore 该目录下的其他文件，仓库自带一张无 EXIF/GPS 的 `street.jpg`（513 KB）。
+- **e2e 断言分家**（`tests/e2e-router.mjs`）：资源加载类 console 报错（`Failed to load resource`，不带 URL）不再判失败，与 `e2e-mail.mjs` 同口径；改由 `page.on('response')` 采集，`/api/` 的 5xx 仍然判失败，其余非 2xx/3xx 只打印记账——下次再出现这类噪声，日志里直接有 URL。
+
+
 ### 服务页整页重做：一服务一张大卡，整张卡就是这张服务的门面（新）
 
 - **卡片重画**：服务页从「表格 + 小行」换成 4:3 的大卡网格，一张卡就是一项服务的代表图案——品牌字标 + 图形徽章 + 按种类（项目/服务/站点/脚本/任务）定的色相，深色底上铺一层水印字形；演示站那张用 NOCTURNE 宽图（模糊铺底 + 居中不裁切），其余按名字自动生成，风格统一。生成器在 `web/pages/services/cover.tsx`（`BRAND` 表 23 条 + 24 个线性图标），新增服务自动兜底。

@@ -32,7 +32,9 @@ tmp/*.ps1
 tests/e2e-data*/
 
 # 用户自备壁纸（个人图片，公开仓库不收）：放到 web/public/wallpapers/ 即生效
-web/public/wallpapers/
+web/public/wallpapers/*
+# 例外：仓库自带的默认壁纸（已确认无 EXIF/GPS），CI 与公开演示都用它；其他个人壁纸仍不入库
+!web/public/wallpapers/street.jpg
 # 本机的观测项跳转映射（含自家面板地址），仓库里只带 monitor-links.example.json
 monitor-links.json
 # 观测台的快捷入口卡（含自家服务地址），仓库里只带 quick-links.example.json
