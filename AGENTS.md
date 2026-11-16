@@ -3,7 +3,7 @@ id: bqj.pinboard
 parent: bqj
 summary: pinfolio 八页应用（便签/资产/观测/邮件/主机/服务/备份/设置），7788 单进程
 when: 加便签/资产、改观测项、动 7788 代码或库、查运行状态
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # pinfolio
@@ -41,7 +41,7 @@ updated: 2026-11-14
 5. **测试数据绝不进真实库**：测试/手工验证都不许写 `data/pinboard.db`；`pnpm test:e2e` 自带隔离实例。
 6. **卡片刻度与页面宽度都只有一份**：紧凑卡片尺寸写在 `web/styles/assets.css` 的 `.asset-grid.is-compact` / `.asset-card.is-compact`，观测台、资产页、服务页共用；内容宽度上限写在 `web/styles/tokens.css` 的 `--page-max`（1700px），`.page-wide` / `.page-notes` / `page-monitors` / `page-svc` / `mail-page` 都取它，备份页也挂 `.page-wide`，只有纯表单页（`.page` 980 / 设置页 860）故意窄。**别往各页自己的 css 里再复制一套数字**（曾因此三页三种尺寸、切页就变宽窄，2026-11-10 统一）。
 
-## 当前状态（2026-11-14 更新）
+## 当前状态（2026-11-16 更新）
 
 - **本机不跑实例**：真数据实例在 os 容器 `pinfolio`（`/mnt/data/pinfolio`，公网 <https://pinfolio.raylx.top/>）；本机 7788 已停，只留代码与冻结的回滚数据。
 - **版本**：`package.json` 0.5.1；`engines.node >=24`（本机 v24.16.0）；`packageManager pnpm@12.3.4`。
