@@ -69,7 +69,9 @@ const CORE = [
   ['e2e-files', 'e2e-files.mjs'],
   ['e2e-tagpop-outside', 'e2e-tagpop-outside.mjs'],
   ['e2e-i18n', 'e2e-i18n.mjs'],
-  ['e2e-services', 'e2e-services.mjs'],
+  // e2e-services 暂不进 core / ci：它还在等 .svc-card，而服务页早已重做成 HostsPage + HostCard，
+  // .svc-card 只剩 CSS 里的死样式，于是每次都在这行超时。重写对准新页面前，只在 --only=services 下跑。
+  // TODO: 重写 e2e-services 后放回 CORE。
 ]
 
 const SUITES = {
