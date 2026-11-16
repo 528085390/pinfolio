@@ -15,6 +15,7 @@ import {
   Play,
   Radio,
   Server,
+  Settings2,
   Trash2,
   Upload,
 } from 'lucide-react'
@@ -154,12 +155,13 @@ function beatMarks(beats: HostProbeBeat[]): Array<{ height: number; tone: string
   })
 }
 
-export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, linkedAssets, onOpenAsset }: {
+export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, onEdit, assets, linkedAssets, onOpenAsset }: {
   h: Host
   busy?: boolean
   onTogglePause?: (h: Host) => void
   onDelete?: (h: Host) => void
   onOnboard?: (h: Host) => void
+  onEdit?: (h: Host) => void
   assets?: Array<{ id: number; name: string; custom?: any }>
   linkedAssets?: Array<{ id: number; name: string }>
   onOpenAsset?: (id: number) => void
@@ -182,7 +184,17 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
   const beats = beatMarks(probe?.beats ?? [])
   const system = h.os || h.kernel || '—'
   const topText = (h.top ?? []).map((tg) => tg.comm + ' ' + Math.round(tg.rss_kb / 1024) + 'M').join(' · ')
-  const cardTitle = [system !== '—' ? system : '', topText].filter(Boolean).join(' · ') || undefined
+  const address = (h.address || '').trim()
+  const isV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(address)
+  const isV6 = address.includes(':') && !address.includes('/')
+  const unitStates = Object.entries(h.units ?? {})
+  const activeUnits = unitStates.filter(([, state]) => state === 'active').length
+  const downUnits = unitStates.length - activeUnits
+  const loadText = h.load?.length ? t('负载 {n}', { n: h.load[0].toFixed(2) }) : ''
+  const diskText = (h.disk ?? []).map((d) => d.path + ' ' + pct(d.pct) + ' ' + bytes(d.used) + '/' + bytes(d.total)).join(' · ')
+  const serviceText = unitStates.length ? t('服务 {ok}/{n}', { ok: activeUnits, n: unitStates.length }) : ''
+  const failedText = h.failed_units ? t('{n} 个系统单元异常', { n: h.failed_units }) : ''
+  const cardTitle = [address, system !== '—' ? system : '', loadText, serviceText, failedText, diskText, topText].filter(Boolean).join(' · ') || undefined
 
   return (
     <article className={cx('hm-card', h.paused && 'is-paused', !h.paused && !h.online && 'is-off')} title={cardTitle}>
@@ -193,12 +205,13 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
           <div className="hm-sub">
             {vendor ? <span className="hm-level is-vendor">{vendor}</span> : null}
             {region ? <span className="hm-region">{region}</span> : null}
+            {downUnits > 0 ? <span className="hm-level is-warn" title={unitStates.map(([u, s]) => u + ': ' + s).join('\n')}>{t('服务 {ok}/{n}', { ok: activeUnits, n: unitStates.length })}</span> : null}
           </div>
         </div>
         <div className="hm-right">
           <span className="hm-os" title={system}><Server size={11} /></span>
-          {h.host && /^\d+\.\d+\.\d+\.\d+$/.test(h.host) ? <span className="hm-net">IPv4</span> : null}
-          {h.host && h.host.includes(':') ? <span className="hm-net">IPv6</span> : null}
+          {isV4 ? <span className="hm-net" title={address}>IPv4</span> : null}
+          {isV6 ? <span className="hm-net" title={address}>IPv6</span> : null}
           <span className={cx('hm-status', stateClass)} title={stateLabel} />
           <div className="hm-ops">
             <button
@@ -208,6 +221,14 @@ export function HostCard({ h, busy, onTogglePause, onDelete, onOnboard, assets, 
               onClick={() => onTogglePause?.(h)}
             >
               {h.paused ? <Play size={11} /> : <Pause size={11} />}
+            </button>
+            <button
+              className="hm-op"
+              title={t('编辑主机信息')}
+              disabled={busy}
+              onClick={() => onEdit?.(h)}
+            >
+              <Settings2 size={11} />
             </button>
             <button
               className="hm-op is-danger"

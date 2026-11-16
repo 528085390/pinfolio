@@ -6,6 +6,7 @@ import { useHosts } from './hosts/useHosts'
 import { HostCard, ago } from './hosts/HostCard'
 import { AddHostDrawer } from './hosts/AddHostDrawer'
 import { DeleteHostModal } from './hosts/DeleteHostModal'
+import { EditHostDrawer } from './hosts/EditHostDrawer'
 import { OnboardModal } from './hosts/OnboardModal'
 import { t } from '../lib/i18n'
 
@@ -28,6 +29,7 @@ function HostsPageReal({ onSummary, onOpenAsset }: HostsPageProps) {
 
   const [addOpen, setAddOpen] = useState(false)
   const [delHost, setDelHost] = useState<Host | null>(null)
+  const [editHost, setEditHost] = useState<Host | null>(null)
   const [busyId, setBusyId] = useState('')
   const [opErr, setOpErr] = useState('')
   const [onboardId, setOnboardId] = useState<string | null>(null)
@@ -147,6 +149,7 @@ function HostsPageReal({ onSummary, onOpenAsset }: HostsPageProps) {
               onOpenAsset={onOpenAsset}
               onTogglePause={togglePause}
               onDelete={setDelHost}
+              onEdit={setEditHost}
               onOnboard={(h) => setOnboardId(h.id)}
             />
           ))}
@@ -154,6 +157,7 @@ function HostsPageReal({ onSummary, onOpenAsset }: HostsPageProps) {
       )}
 
       <AddHostDrawer open={addOpen} onClose={() => setAddOpen(false)} onAdded={onAdded} />
+      <EditHostDrawer host={editHost} onClose={() => setEditHost(null)} onSaved={H.apply} />
       <DeleteHostModal
         host={delHost}
         onClose={() => setDelHost(null)}

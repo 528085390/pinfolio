@@ -162,6 +162,12 @@
   background: rgba(91, 148, 103, 0.10);
   color: #4d6a51;
 }
+.hm-level.is-warn {
+  border-color: rgba(196, 154, 63, 0.24);
+  background: rgba(217, 176, 75, 0.16);
+  color: #8a651b;
+  white-space: nowrap;
+}
 .hm-region {
   overflow: hidden;
   color: var(--hm-muted);

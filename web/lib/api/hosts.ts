@@ -39,6 +39,8 @@ export type Host = {
   staleSec: number | null
   /** 主机到期日（YYYY-MM-DD），没登记就没有 */
   expires?: string
+  /** 给观测项用的 IP / 域名，也显示在卡片抬头；没登记就没有 */
+  address?: string
   series: HostSeriesPoint[]
   /** 采集端累计 / 速率 / 本月流量 / TCP 已建立；老版本采集端没有这一块 */
   network?: {
@@ -129,7 +131,7 @@ export type HostOnboard = {
   firstSampleAt: string | null
   staleSec: number | null
 }
-export type HostPatch = { paused?: boolean; label?: string; note?: string; expires?: string }
+export type HostPatch = { paused?: boolean; label?: string; note?: string; expires?: string; address?: string }
 
 export const hostsApi = {
   get: () => request<HostsPayload>('/hosts'),

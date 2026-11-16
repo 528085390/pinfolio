@@ -68,6 +68,22 @@
 .host-sum-sep { color: var(--line-strong); }
 .host-sum-dim { color: var(--muted); }
 
+/* 主机页直接坐在壁纸玻璃上，工具条小字要有一层底才压得住亮背景。只影响玻璃+壁纸模式。 */
+[data-style='glass'][data-wallpaper='on'] .page-hosts .host-sum {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 10px;
+  background: rgba(250, 252, 248, 0.46);
+  box-shadow: 0 1px 2px rgba(24, 42, 24, 0.03);
+  -webkit-backdrop-filter: blur(12px) brightness(1.04);
+  backdrop-filter: blur(12px) brightness(1.04);
+}
+[data-theme='dark'][data-style='glass'][data-wallpaper='on'] .page-hosts .host-sum {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(32, 36, 32, 0.52);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
 .host-actions { display: flex; align-items: center; gap: 8px; }
 .host-auto {
   display: inline-flex;

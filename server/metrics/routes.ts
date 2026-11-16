@@ -78,7 +78,7 @@ async function buildPayload() {
     const row = latest.get(h.id)
     if (!row) {
       return {
-        id: h.id, label: h.label, note: h.note, expires: h.expires, paused, unitMonitors, probe,
+        id: h.id, label: h.label, note: h.note, expires: h.expires, address: h.address, paused, unitMonitors, probe,
         online: false, staleSec: null, series: [] as [number, number, number][],
       }
     }
@@ -89,6 +89,7 @@ async function buildPayload() {
       label: h.label,
       note: h.note,
       expires: h.expires,
+      address: h.address,
       paused,
       online: !paused && staleSec <= STALE_SEC,
       staleSec,

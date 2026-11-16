@@ -109,7 +109,7 @@ export function AddHostDrawer({ open, onClose, onAdded }: {
       <div className="host-section">
         <div className="host-section-head">{t('采集端')}<span>{t('装到那台机上的参数，决定卡片显示什么')}</span></div>
         <div className="form-grid">
-          <Field label={t('服务清单')} span={2} hint={t('空格分隔，卡片上的服务 chip 就是它们；例如 nginx app-api')}>
+          <Field label={t('服务清单')} span={2} hint={t('空格分隔，卡片上的服务异常提示来自它们；例如 nginx app-api')}>
             <input className="input" value={units} placeholder={t('留空就只报 CPU / 内存 / 磁盘')} onChange={(e) => setUnits(e.target.value)} />
           </Field>
           <Field label={t('磁盘路径')} hint={t('空格分隔，默认 /')}>
